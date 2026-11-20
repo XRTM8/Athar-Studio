@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.lifecycleScope
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.AtharStudioScreen
@@ -44,9 +47,9 @@ class MainActivity : ComponentActivity() {
         // Silent non-blocking update check in background upon launch
         lifecycleScope.launch {
             val currentVersion = try {
-                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.6.4"
+                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.6.5"
             } catch (e: Exception) {
-                "1.6.4"
+                "1.6.5"
             }
             updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = true)
         }
@@ -58,14 +61,16 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AtharTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = AmoledBlack
-                ) {
-                    AtharStudioScreen(
-                        updateManager = updateManager,
-                        initialProjectUri = initialProjectUri
-                    )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = AmoledBlack
+                    ) {
+                        AtharStudioScreen(
+                            updateManager = updateManager,
+                            initialProjectUri = initialProjectUri
+                        )
+                    }
                 }
             }
         }

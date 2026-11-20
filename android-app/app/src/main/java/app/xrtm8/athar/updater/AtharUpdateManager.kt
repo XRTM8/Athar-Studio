@@ -78,7 +78,7 @@ class AtharUpdateManager(private val context: Context) {
         return false
     }
 
-    suspend fun checkForUpdates(currentVersionName: String = "1.6.4", showNotificationOnFound: Boolean = true): UpdateInfo? {
+    suspend fun checkForUpdates(currentVersionName: String = "1.6.5", showNotificationOnFound: Boolean = true): UpdateInfo? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL(RELEASES_API_URL)

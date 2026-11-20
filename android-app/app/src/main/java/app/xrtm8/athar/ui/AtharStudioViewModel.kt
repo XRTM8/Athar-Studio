@@ -218,6 +218,11 @@ class AtharStudioViewModel : ViewModel() {
         _canvasState.update { it.copy(rotationAngle = (angle % 360f + 360f) % 360f) }
     }
 
+    fun setScale(scale: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(scaleFactor = scale.coerceIn(0.3f, 4.0f)) }
+    }
+
     fun rotateStep(deltaAngle: Float) {
         val newAngle = ((_canvasState.value.rotationAngle + deltaAngle) % 360f)
         pushHistory(_canvasState.value.copy(rotationAngle = newAngle))

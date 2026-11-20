@@ -31,8 +31,8 @@ data class DockTabItem(
 val STUDIO_DOCK_TABS = listOf(
     DockTabItem(0, "الخط", Icons.Default.TextFields),
     DockTabItem(1, "المدّ", Icons.Default.LinearScale),
-    DockTabItem(2, "المظهر", Icons.Default.AutoAwesome),
-    DockTabItem(3, "العمق", Icons.Default.Layers),
+    DockTabItem(2, "الموضع", Icons.Default.OpenWith),
+    DockTabItem(3, "المظهر", Icons.Default.AutoAwesome),
     DockTabItem(4, "الكانفاس", Icons.Default.AspectRatio)
 )
 

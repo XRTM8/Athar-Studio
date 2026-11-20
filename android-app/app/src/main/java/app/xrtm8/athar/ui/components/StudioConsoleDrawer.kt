@@ -44,9 +44,9 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.panels.CanvasBackgroundPanel
-import app.xrtm8.athar.ui.panels.EffectsDepthPanel
 import app.xrtm8.athar.ui.panels.KashidaPanel
-import app.xrtm8.athar.ui.panels.ShadersColorPanel
+import app.xrtm8.athar.ui.panels.StyleEffectsPanel
+import app.xrtm8.athar.ui.panels.TransformPositionPanel
 import app.xrtm8.athar.ui.panels.TypographyPanel
 import app.xrtm8.athar.ui.theme.GlassBackground
 import app.xrtm8.athar.ui.theme.GlassBorder
@@ -85,7 +85,7 @@ fun StudioConsoleDrawer(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 280.dp)
+                    .heightIn(max = 285.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 // Panel Header with close button
@@ -108,9 +108,9 @@ fun StudioConsoleDrawer(
                         Text(
                             text = when (selectedTab) {
                                 0 -> "الخط والنص العربي"
-                                1 -> "المدّ الذكي والمحاذاة"
-                                2 -> "المظهر والألوان الفاخرة"
-                                3 -> "العمق والظل والتحديد"
+                                1 -> "المدّ والكشيدة الأصيلة"
+                                2 -> "الموضع والتحريك الدقيق"
+                                3 -> "المظهر والظلال الفاخرة"
                                 else -> "الكانفاس وصورة الخلفية"
                             },
                             color = PureWhite,
@@ -164,8 +164,6 @@ fun StudioConsoleDrawer(
                             onLetterSpacingChange = { viewModel.setLetterSpacing(it) },
                             onLineSpacingChange = { viewModel.setLineSpacing(it) },
                             onTextAlignChange = { viewModel.setTextAlign(it) },
-                            onSnapPosition = { x, y, a -> viewModel.snapToPosition(x, y, a) },
-                            onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
@@ -174,28 +172,34 @@ fun StudioConsoleDrawer(
                             onStretchLevelChange = { viewModel.setStretchLevel(it) },
                             onKashidaModeChange = { viewModel.setKashidaMode(it) },
                             onTargetIndexChange = { viewModel.setKashidaTargetIndex(it) },
-                            onRotationChange = { viewModel.setRotationAngle(it) },
-                            onRotateStep = { viewModel.rotateStep(it) },
-                            onAlignTop = { viewModel.alignTop() },
-                            onAlignCenter = { viewModel.alignCenter() },
-                            onAlignBottom = { viewModel.alignBottom() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
-                        2 -> ShadersColorPanel(
+                        2 -> TransformPositionPanel(
                             state = canvasState,
-                            onSelectEffect = { viewModel.setEffect(it) },
-                            onSelectCustomColor = { viewModel.setCustomColor(it) }
+                            onSnapPosition = { x, y, a -> viewModel.snapToPosition(x, y, a) },
+                            onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) },
+                            onRotationChange = { viewModel.setRotationAngle(it) },
+                            onScaleChange = { viewModel.setScale(it) },
+                            onResetTransform = { viewModel.resetCanvasTransform() },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
-                        3 -> EffectsDepthPanel(
+                        3 -> StyleEffectsPanel(
                             state = canvasState,
+                            onSelectEffect = { viewModel.setEffect(it) },
+                            onSelectCustomColor = { viewModel.setCustomColor(it) },
                             onStrokeWidthChange = { viewModel.setStrokeWidth(it) },
                             onStrokeColorChange = { viewModel.setStrokeColor(it) },
                             onShadowRadiusChange = { viewModel.setShadowRadius(it) },
                             onShadowDyChange = { viewModel.setShadowDy(it) },
                             onShadowDxChange = { viewModel.setShadowDx(it) },
                             onShadowColorChange = { viewModel.setShadowColor(it) },
+                            onToggleGlassBackdrop = { viewModel.toggleGlassBackdrop(it) },
+                            onSelectGlassPreset = { viewModel.setGlassBackdropPreset(it) },
+                            onGlassOpacityChange = { viewModel.setGlassBackdropOpacity(it) },
+                            onGlassCornerRadiusChange = { viewModel.setGlassBackdropCornerRadius(it) },
+                            onGlassPaddingChange = { viewModel.setGlassBackdropPadding(it) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
@@ -219,11 +223,6 @@ fun StudioConsoleDrawer(
                                 viewModel.setBackgroundVignette(0f)
                                 viewModel.setBackgroundDim(0.25f)
                             },
-                            onToggleGlassBackdrop = { viewModel.toggleGlassBackdrop(it) },
-                            onSelectGlassPreset = { viewModel.setGlassBackdropPreset(it) },
-                            onGlassOpacityChange = { viewModel.setGlassBackdropOpacity(it) },
-                            onGlassCornerRadiusChange = { viewModel.setGlassBackdropCornerRadius(it) },
-                            onGlassPaddingChange = { viewModel.setGlassBackdropPadding(it) },
                             onAspectRatioChange = { viewModel.setAspectRatio(it) },
                             onToggleGridGuides = { viewModel.toggleGridGuides() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }

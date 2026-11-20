@@ -1,6 +1,7 @@
 package app.xrtm8.athar.ui.panels
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,10 +23,13 @@ import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.ui.components.FontPickerCarousel
 import app.xrtm8.athar.ui.components.StudioSlider
-import app.xrtm8.athar.ui.components.TextPlacementMatrix
 import app.xrtm8.athar.ui.theme.*
 import java.util.Locale
 
+/**
+ * Pure Arabic Typography & Font Styling Panel.
+ * Focused on: Font selection, Font size, Calligraphic styles, Alignment, and Typographic Spacing.
+ */
 @Composable
 fun TypographyPanel(
     state: CanvasState,
@@ -39,8 +43,6 @@ fun TypographyPanel(
     onLetterSpacingChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onTextAlignChange: (TextAlignOption) -> Unit,
-    onSnapPosition: (normX: Float, normY: Float, align: TextAlignOption) -> Unit,
-    onNudgeOffset: (deltaX: Float, deltaY: Float) -> Unit,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -56,7 +58,7 @@ fun TypographyPanel(
             colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
             shape = RoundedCornerShape(12.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorderActive),
-            modifier = Modifier.fillMaxWidth().height(42.dp)
+            modifier = Modifier.fillMaxWidth().height(44.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -79,9 +81,9 @@ fun TypographyPanel(
                     )
                 }
                 Text(
-                    text = state.rawText.take(16),
+                    text = state.rawText.take(18),
                     color = GoldAccent,
-                    fontSize = 12.5.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
@@ -90,17 +92,14 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 2. Unified 9-Point Spatial Positioning Matrix + Micro-Nudge D-Pad
-        TextPlacementMatrix(
-            normOffsetX = state.normOffsetX,
-            normOffsetY = state.normOffsetY,
-            onSnapPosition = onSnapPosition,
-            onNudgeOffset = onNudgeOffset
+        // 2. Arabic Font Families Carousel with authentic specimen previews
+        Text(
+            text = "الخط العربي الأصيل:",
+            color = MutedWhite,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium
         )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 3. Arabic Font Families Carousel
+        Spacer(modifier = Modifier.height(4.dp))
         FontPickerCarousel(
             selectedFont = state.selectedFont,
             onSelectFont = onSelectFont
@@ -108,7 +107,7 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 4. Font Size Slider
+        // 3. Font Size Slider
         StudioSlider(
             title = "حجم الخط",
             value = state.fontSize,
@@ -120,9 +119,9 @@ fun TypographyPanel(
             icon = Icons.Default.FormatSize
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // 5. Styling Chips: Bold, Italic, Underline + Paragraph Flow (Right/Center/Left)
+        // 4. Styling Chips: Bold, Italic, Underline + Paragraph Flow (Right/Center/Left)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -134,11 +133,12 @@ fun TypographyPanel(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (state.isBold) GoldAccent else GlassSurface)
+                        .border(0.5.dp, if (state.isBold) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleBold()
                         }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -153,11 +153,12 @@ fun TypographyPanel(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (state.isItalic) GoldAccent else GlassSurface)
+                        .border(0.5.dp, if (state.isItalic) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleItalic()
                         }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -172,11 +173,12 @@ fun TypographyPanel(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (state.isUnderline) GoldAccent else GlassSurface)
+                        .border(0.5.dp, if (state.isUnderline) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleUnderline()
                         }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -193,6 +195,7 @@ fun TypographyPanel(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
                     .background(GlassSurface)
+                    .border(0.5.dp, GlassBorder, RoundedCornerShape(10.dp))
                     .padding(2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
@@ -206,7 +209,7 @@ fun TypographyPanel(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onTextAlignChange(align)
                             }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = align.label,
@@ -219,9 +222,9 @@ fun TypographyPanel(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // 6. Text Opacity Slider
+        // 5. Advanced Spacing & Opacity
         StudioSlider(
             title = "شفافية النص",
             value = state.textOpacity,
@@ -235,7 +238,6 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // 7. Letter Spacing Slider
         StudioSlider(
             title = "تباعد الحروف (Letter Spacing)",
             value = state.letterSpacing,
@@ -248,7 +250,6 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // 8. Line Spacing Slider
         StudioSlider(
             title = "تباعد الأسطر (Line Spacing)",
             value = state.lineSpacingMultiplier,
