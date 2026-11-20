@@ -26,6 +26,8 @@ import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
+import app.xrtm8.athar.project.AtharProjectManager
+import app.xrtm8.athar.project.AtharProjectMeta
 import app.xrtm8.athar.typography.AtharFontManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +61,9 @@ class AtharStudioViewModel : ViewModel() {
 
     private val _canRedo = MutableStateFlow(false)
     val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
+
+    private val _projectsList = MutableStateFlow<List<AtharProjectMeta>>(emptyList())
+    val projectsList: StateFlow<List<AtharProjectMeta>> = _projectsList.asStateFlow()
 
     private var kashidaDebounceJob: Job? = null
 
@@ -204,6 +209,76 @@ class AtharStudioViewModel : ViewModel() {
 
     fun clearExportMessage() {
         _exportMessage.value = null
+    }
+
+    fun loadProjectsList(context: Context) {
+        viewModelScope.launch {
+            _projectsList.value = AtharProjectManager.listProjects(context)
+        }
+    }
+
+    fun saveCurrentProject(context: Context, title: String? = null, onSaved: ((AtharProjectMeta) -> Unit)? = null) {
+        viewModelScope.launch {
+            try {
+                val meta = AtharProjectManager.saveProject(context, _canvasState.value, title)
+                loadProjectsList(context)
+                onSaved?.invoke(meta)
+                _exportMessage.value = "تم حفظ المشروع في مسوداتي بنجاح"
+            } catch (e: Exception) {
+                _exportMessage.value = "فشل حفظ المشروع: ${e.message}"
+            }
+        }
+    }
+
+    fun exportProjectAsAthar(context: Context, title: String? = null) {
+        viewModelScope.launch {
+            try {
+                val meta = AtharProjectManager.saveProject(context, _canvasState.value, title)
+                val file = AtharProjectManager.getExportableProjectFile(context, meta.id, meta.title)
+                val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", file)
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/octet-stream"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "مشاركة مشروع أَثَــر (.athar)"))
+                _exportMessage.value = "تم تجهيز ملف المشروع (.athar) للمشاركة"
+            } catch (e: Exception) {
+                _exportMessage.value = "فشل تصدير المشروع: ${e.message}"
+            }
+        }
+    }
+
+    fun openProjectById(context: Context, projectId: String) {
+        viewModelScope.launch {
+            try {
+                val state = AtharProjectManager.loadProjectById(context, projectId)
+                pushHistory(state)
+                _exportMessage.value = "تم فتح المشروع بنجاح"
+            } catch (e: Exception) {
+                _exportMessage.value = "فشل فتح المشروع: ${e.message}"
+            }
+        }
+    }
+
+    fun openProjectFromUri(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val stream = context.contentResolver.openInputStream(uri) ?: throw IllegalArgumentException("تعذر قراءة الملف")
+                val state = stream.use { AtharProjectManager.loadProjectFromStream(context, it) }
+                pushHistory(state)
+                _exportMessage.value = "تم استيراد المشروع بنجاح"
+            } catch (e: Exception) {
+                _exportMessage.value = "فشل استيراد المشروع: ${e.message}"
+            }
+        }
+    }
+
+    fun deleteProject(context: Context, projectId: String) {
+        viewModelScope.launch {
+            AtharProjectManager.deleteProject(context, projectId)
+            loadProjectsList(context)
+        }
     }
 
     private fun scheduleKashidaUpdate(text: String, level: Int) {

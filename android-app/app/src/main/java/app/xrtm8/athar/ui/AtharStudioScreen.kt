@@ -1,5 +1,7 @@
 package app.xrtm8.athar.ui
 
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -12,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,27 +27,37 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.FormatAlignRight
 import androidx.compose.material.icons.filled.FormatLineSpacing
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.VerticalAlignCenter
@@ -77,6 +90,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -103,11 +117,16 @@ import app.xrtm8.athar.ui.theme.PureWhite
 import app.xrtm8.athar.ui.theme.SubtleGray
 import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AtharStudioScreen(
     updateManager: AtharUpdateManager,
+    initialProjectUri: Uri? = null,
     viewModel: AtharStudioViewModel = remember { AtharStudioViewModel() },
     modifier: Modifier = Modifier
 ) {
@@ -120,14 +139,23 @@ fun AtharStudioScreen(
     val exportMessage by viewModel.exportMessage.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
     val canRedo by viewModel.canRedo.collectAsState()
+    val projectsList by viewModel.projectsList.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showTextDialog by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
+    var showProjectsSheet by remember { mutableStateOf(false) }
     var selectedResolution by remember { mutableStateOf(ExportResolution.HD_1080P) }
 
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
+
+    // Handle deep-linked project file (.athar)
+    LaunchedEffect(initialProjectUri) {
+        if (initialProjectUri != null) {
+            viewModel.openProjectFromUri(context, initialProjectUri)
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -136,6 +164,17 @@ fun AtharStudioScreen(
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 viewModel.setBackgroundImageUri(uri)
                 Toast.makeText(context, "تم تعيين الصورة كخلفية للتصميم", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    val projectImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            if (uri != null) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.openProjectFromUri(context, uri)
+                showProjectsSheet = false
             }
         }
     )
@@ -154,7 +193,7 @@ fun AtharStudioScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // Floating Frosted Glass Top Bar with Undo / Redo
+            // Floating Frosted Glass Top Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -169,7 +208,7 @@ fun AtharStudioScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Branding
+                    // Branding & Projects Button
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "أَثَــر",
@@ -179,19 +218,21 @@ fun AtharStudioScreen(
                             letterSpacing = 1.sp
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(GlassSurface)
-                                .border(0.5.dp, GlassBorder, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
+
+                        // Open Projects Library Button
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.loadProjectsList(context)
+                                showProjectsSheet = true
+                            },
+                            modifier = Modifier.size(34.dp)
                         ) {
-                            Text(
-                                text = "PRO",
-                                color = GoldAccent,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
+                            Icon(
+                                imageVector = Icons.Default.FolderOpen,
+                                contentDescription = "مشاريعي ومسوداتي",
+                                tint = GoldAccent,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -237,9 +278,9 @@ fun AtharStudioScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 coroutineScope.launch {
                                     val currentVersion = try {
-                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.3.0"
+                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.4.0"
                                     } catch (e: Exception) {
-                                        "1.3.0"
+                                        "1.4.0"
                                     }
                                     val info = updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = false)
                                     if (info == null) {
@@ -362,7 +403,6 @@ fun AtharStudioScreen(
                     .padding(14.dp)
             ) {
                 Column {
-                    // 5-Tab Segmented Glass Pills
                     val tabs = listOf("الخط والمدّ", "الألوان", "الظل والوهج", "الخلفية", "الحجم والتحويل")
                     Row(
                         modifier = Modifier
@@ -413,9 +453,7 @@ fun AtharStudioScreen(
                     ) { currentTab ->
                         when (currentTab) {
                             0 -> {
-                                // Tab 0: Font & Kashida & Text Alignment
                                 Column {
-                                    // 1. Authentic Arabic Font Carousel
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -461,7 +499,6 @@ fun AtharStudioScreen(
 
                                     Spacer(modifier = Modifier.height(10.dp))
 
-                                    // 2. Kashida Slider
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -483,13 +520,11 @@ fun AtharStudioScreen(
                                         colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                     )
 
-                                    // 3. Text Alignment & Line Spacing
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        // Alignment Options
                                         Row(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(10.dp))
@@ -519,7 +554,6 @@ fun AtharStudioScreen(
                                             }
                                         }
 
-                                        // Line Spacing
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Icons.Default.FormatLineSpacing, contentDescription = null, tint = MutedWhite, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
@@ -530,9 +564,7 @@ fun AtharStudioScreen(
                             }
 
                             1 -> {
-                                // Tab 1: Colors & Metallic Shaders & Stroke
                                 Column {
-                                    // 1. Metallic Shaders
                                     Text(text = "التظليلات المعدنية الفاخرة:", color = MutedWhite, fontSize = 11.5.sp)
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Row(
@@ -566,7 +598,6 @@ fun AtharStudioScreen(
 
                                     Spacer(modifier = Modifier.height(10.dp))
 
-                                    // 2. Luxury Solid Color Swatches
                                     Text(text = "ألوان مخصصة راقية:", color = MutedWhite, fontSize = 11.5.sp)
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Row(
@@ -603,7 +634,6 @@ fun AtharStudioScreen(
 
                                     Spacer(modifier = Modifier.height(10.dp))
 
-                                    // 3. Stroke Outline Slider
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -622,7 +652,6 @@ fun AtharStudioScreen(
                             }
 
                             2 -> {
-                                // Tab 2: Shadow & Glow Depth
                                 Column {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -659,7 +688,6 @@ fun AtharStudioScreen(
                             }
 
                             3 -> {
-                                // Tab 3: Background & Photo Filters
                                 Column {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -715,7 +743,6 @@ fun AtharStudioScreen(
                                             colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                         )
 
-                                        // Black & White Grayscale Toggle
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -735,7 +762,6 @@ fun AtharStudioScreen(
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
-                                    // Aspect Ratio Selector
                                     Text(text = "نسبة أبعاد الكانفاس:", color = MutedWhite, fontSize = 11.5.sp)
                                     Spacer(modifier = Modifier.height(5.dp))
                                     Row(
@@ -770,7 +796,6 @@ fun AtharStudioScreen(
                             }
 
                             4 -> {
-                                // Tab 4: Transform & Depth
                                 Column {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -793,7 +818,6 @@ fun AtharStudioScreen(
 
                                     Spacer(modifier = Modifier.height(6.dp))
 
-                                    // Quick Alignment Snapping Tools
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -868,7 +892,7 @@ fun AtharStudioScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
-        // Modern In-Place Text Editor Modal BottomSheet with Arabic Tashkeel & Ornaments
+        // Modern In-Place Text Editor Modal BottomSheet
         if (showTextDialog) {
             var tempText by remember { mutableStateOf(canvasState.rawText) }
             ModalBottomSheet(
@@ -907,7 +931,6 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Real-Time Specimen Preview Card
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -947,7 +970,6 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Arabic Diacritics & Ornaments Toolbar
                     Text(text = "التشكيل والحركات والرموز الإسلامية:", color = SubtleGray, fontSize = 11.5.sp)
                     Spacer(modifier = Modifier.height(5.dp))
                     val arabicMarks = listOf("َ", "ُ", "ِ", "ّ", "ْ", "ً", "ٍ", "ٌ", "ـ", "ﷻ", "ﷺ", "﷽", "۞", "۝")
@@ -977,7 +999,6 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Preset Inspiration Chips
                     Text(text = "اقتراحات وسياقات جاهزة:", color = SubtleGray, fontSize = 11.5.sp)
                     Spacer(modifier = Modifier.height(5.dp))
                     Row(
@@ -1025,7 +1046,7 @@ fun AtharStudioScreen(
             }
         }
 
-        // Frosted Glass Export BottomSheet with 4K Support and Gallery Save
+        // Frosted Glass Export BottomSheet with .athar Project Export
         if (showExportSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showExportSheet = false },
@@ -1045,13 +1066,12 @@ fun AtharStudioScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 10.dp)
                 ) {
-                    Text(text = "تصدير التصميم الفاخر", color = PureWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "تصدير وحفظ التصميم", color = PureWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(3.dp))
-                    Text(text = "دقة فائقة تصل إلى 4K مع حفظ مباشر في ألبوم صور الجهاز", color = SubtleGray, fontSize = 12.sp)
+                    Text(text = "دقة فائقة تصل إلى 4K أو حفظ كمشروع قابل للتعديل", color = SubtleGray, fontSize = 12.sp)
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Resolution Selector
                     Text(text = "دقة التصدير:", color = MutedWhite, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
@@ -1090,7 +1110,7 @@ fun AtharStudioScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // 1. Export Transparent PNG Sticker
                     Button(
@@ -1101,7 +1121,7 @@ fun AtharStudioScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                         enabled = !isExporting
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1111,9 +1131,9 @@ fun AtharStudioScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // 2. Export Image with Photo / Canvas Background
+                    // 2. Export Image with Photo Background
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1123,17 +1143,264 @@ fun AtharStudioScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                         enabled = !isExporting
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Share, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(17.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = "حفظ ومشاركة الصورة كاملة (${selectedResolution.label})", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 13.5.sp)
+                            Text(text = "حفظ ومشاركة الصورة (${selectedResolution.label})", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 13.5.sp)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(26.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 3. Save to Local Drafts
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.saveCurrentProject(context)
+                            showExportSheet = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Save, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(17.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "حفظ في مسوداتي (مشروع محلي)", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 13.5.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 4. Share Editable .athar Project
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.exportProjectAsAthar(context)
+                            showExportSheet = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.FolderZip, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(17.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "مشاركة كمشروع قابل للتعديل (.athar)", color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+        }
+
+        // Projects & Drafts Drawer (.athar)
+        if (showProjectsSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showProjectsSheet = false },
+                containerColor = AmoledBlack,
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .padding(vertical = 10.dp)
+                            .size(width = 40.dp, height = 4.dp)
+                            .clip(CircleShape)
+                            .background(GlassBorder)
+                    )
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "مشاريعي ومسوداتي (.athar)",
+                            color = PureWhite,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.5.sp
+                        )
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                projectImportLauncher.launch("*/*")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Icon(Icons.Default.FileOpen, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("استيراد مشروع", color = PureWhite, fontSize = 11.5.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.saveCurrentProject(context)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f).height(42.dp)
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("حفظ العمل الحالي", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.setText("أَثَــر")
+                                viewModel.resetCanvasTransform()
+                                viewModel.setBackgroundImageUri(null)
+                                showProjectsSheet = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
+                            modifier = Modifier.weight(1f).height(42.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("مشروع جديد", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 12.5.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (projectsList.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 36.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.FolderOpen,
+                                    contentDescription = null,
+                                    tint = SubtleGray,
+                                    modifier = Modifier.size(46.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "لا توجد مشاريع محفوظة بعد",
+                                    color = MutedWhite,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = "احفظ تصميمك كملف .athar لتعديله في أي وقت أو مشاركته مع الآخرين",
+                                    color = SubtleGray,
+                                    fontSize = 11.5.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp)
+                        ) {
+                            items(projectsList) { proj ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(GlassSurface)
+                                        .border(0.5.dp, GlassBorder, RoundedCornerShape(14.dp))
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.openProjectById(context, proj.id)
+                                            showProjectsSheet = false
+                                        }
+                                ) {
+                                    Column {
+                                        val thumbFile = File(proj.thumbnailPath)
+                                        val thumbBitmap = remember(proj.thumbnailPath) {
+                                            if (thumbFile.exists()) BitmapFactory.decodeFile(thumbFile.absolutePath) else null
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(110.dp)
+                                                .background(AmoledBlack),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (thumbBitmap != null) {
+                                                Image(
+                                                    bitmap = thumbBitmap.asImageBitmap(),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Text("أَثَــر", color = GoldAccent, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = proj.title,
+                                                    color = PureWhite,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    maxLines = 1
+                                                )
+                                                Text(
+                                                    text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(proj.lastModified)),
+                                                    color = SubtleGray,
+                                                    fontSize = 9.5.sp
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    viewModel.deleteProject(context, proj.id)
+                                                },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "حذف",
+                                                    tint = Color(0xFFFF6B6B),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(28.dp))
                 }
             }
         }

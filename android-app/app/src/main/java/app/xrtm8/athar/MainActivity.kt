@@ -1,6 +1,7 @@
 package app.xrtm8.athar
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -53,13 +54,18 @@ class MainActivity : ComponentActivity() {
         // Preload authentic Arabic typefaces into memory
         AtharFontManager.preload(this)
 
+        val initialProjectUri = if (intent?.action == Intent.ACTION_VIEW) intent.data else null
+
         setContent {
             AtharTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = AmoledBlack
                 ) {
-                    AtharStudioScreen(updateManager = updateManager)
+                    AtharStudioScreen(
+                        updateManager = updateManager,
+                        initialProjectUri = initialProjectUri
+                    )
                 }
             }
         }
