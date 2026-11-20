@@ -1,0 +1,214 @@
+package app.xrtm8.athar.ui.dialogs
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.ExportResolution
+import app.xrtm8.athar.ui.theme.*
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExportBottomSheet(
+    state: CanvasState,
+    isExporting: Boolean,
+    onDismiss: () -> Unit,
+    onExportFullCanvas: (ExportResolution) -> Unit,
+    onExportSticker: (ExportResolution) -> Unit,
+    onSaveProject: () -> Unit,
+    onShareAtharProject: () -> Unit
+) {
+    var selectedResolution by remember { mutableStateOf(ExportResolution.HD_1080P) }
+    val haptic = LocalHapticFeedback.current
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = AmoledBlack,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 10.dp)
+                    .size(width = 40.dp, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(GlassBorder)
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp, vertical = 6.dp)
+                .navigationBarsPadding()
+        ) {
+            Text(text = "تصدير وحفظ التصميم", color = PureWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(text = "دقة فائقة تصل إلى 4K أو حفظ كمشروع قابل للتعديل", color = SubtleGray, fontSize = 12.sp)
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Resolution Selector
+            Text(text = "دقة التصدير:", color = MutedWhite, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ExportResolution.entries.forEach { res ->
+                    val isSelected = selectedResolution == res
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) GoldAccent else GlassSurface)
+                            .border(1.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedResolution = res
+                            }
+                            .padding(vertical = 9.dp, horizontal = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = res.label,
+                                color = if (isSelected) AmoledBlack else PureWhite,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp
+                            )
+                            Text(
+                                text = "${res.width}px",
+                                color = if (isSelected) AmoledBlack.copy(alpha = 0.7f) else SubtleGray,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 1. Export Full Canvas Frame
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onExportFullCanvas(selectedResolution)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = !isExporting
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Share, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (state.isTransparentBg) "تصدير الكانفاس الشفاف الكامل (PNG)" else "تصدير التصميم الكامل (${selectedResolution.label})",
+                                color = AmoledBlack,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = "بالأبعاد الكاملة مع ضبط الخلفية والظلال الحالي بدقة الشاشة",
+                                color = AmoledBlack.copy(alpha = 0.75f),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 2. Export Transparent PNG Sticker (Trimmed tightly to text)
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onExportSticker(selectedResolution)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = !isExporting
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(text = "ملصق شفاف مقصوص للستوري (Sticker PNG)", color = PureWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(text = "مفرغ بدون خلفية ومقصوص بدقة حول الخط مباشرة", color = SubtleGray, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 3. Save to Local Drafts
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onSaveProject()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
+                modifier = Modifier.fillMaxWidth().height(46.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Save, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "حفظ في مسوداتي (مشروع محلي)", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 4. Share Editable .athar Project
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onShareAtharProject()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth().height(46.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.FolderZip, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "مشاركة كمشروع قابل للتعديل (.athar)", color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(26.dp))
+        }
+    }
+}
