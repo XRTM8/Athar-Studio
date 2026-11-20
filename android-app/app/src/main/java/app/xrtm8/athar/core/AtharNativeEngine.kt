@@ -28,10 +28,10 @@ object AtharNativeEngine {
             try {
                 nativeGetVersion()
             } catch (e: Throwable) {
-                "1.5.2-pure"
+                "1.6.0-pure"
             }
         } else {
-            "1.5.2-pure"
+            "1.6.0-pure"
         }
     }
 
