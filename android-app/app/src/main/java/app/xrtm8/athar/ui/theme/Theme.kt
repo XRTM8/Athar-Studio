@@ -1,4 +1,4 @@
-package app.xrtm8.mada.ui.theme
+package app.xrtm8.athar.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -27,7 +27,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun MadaTheme(content: @Composable () -> Unit) {
+fun AtharTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = DarkColorScheme,
         content = content

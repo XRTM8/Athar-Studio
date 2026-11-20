@@ -1,4 +1,4 @@
-package app.xrtm8.mada.updater
+package app.xrtm8.athar.updater
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,8 +10,8 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
-import app.xrtm8.mada.MainActivity
-import app.xrtm8.mada.model.UpdateInfo
+import app.xrtm8.athar.MainActivity
+import app.xrtm8.athar.model.UpdateInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,10 +23,10 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-class MadaUpdateManager(private val context: Context) {
+class AtharUpdateManager(private val context: Context) {
     companion object {
-        private const val TAG = "MadaUpdateManager"
-        private const val CHANNEL_ID = "mada_updates"
+        private const val TAG = "AtharUpdateManager"
+        private const val CHANNEL_ID = "athar_updates"
         private const val NOTIFICATION_ID = 1001
         private const val GITHUB_REPO = "XRTM8/DESIGN"
         private const val RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
@@ -44,9 +44,9 @@ class MadaUpdateManager(private val context: Context) {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "تحديثات تطبيق مَــدَى"
+            val name = "تحديثات تطبيق أَثَــر"
             val descriptionText = "إشعارات اختيارية عند توفر إصدارات وتحديثات جديدة للتطبيق"
-            val importance = NotificationManager.IMPORTANCE_LOW // Non-intrusive / gentle
+            val importance = NotificationManager.IMPORTANCE_LOW
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
                 enableLights(false)
@@ -65,7 +65,7 @@ class MadaUpdateManager(private val context: Context) {
                 conn.connectTimeout = 7000
                 conn.readTimeout = 7000
                 conn.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                conn.setRequestProperty("User-Agent", "Mada-App-Android")
+                conn.setRequestProperty("User-Agent", "Athar-App-Android")
 
                 if (conn.responseCode == 200) {
                     val response = conn.inputStream.bufferedReader().use { it.readText() }
@@ -87,7 +87,6 @@ class MadaUpdateManager(private val context: Context) {
                         }
                     }
 
-                    // Parse version from tag e.g. "v1.1.0" or "1.1.0"
                     val cleanTag = tagName.removePrefix("v")
                     val remoteVersionCode = parseVersionCode(cleanTag)
 
@@ -141,7 +140,7 @@ class MadaUpdateManager(private val context: Context) {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("يتوفر إصدار جديد من مَــدَى (${updateInfo.latestVersionName})")
+            .setContentTitle("يتوفر إصدار جديد من أَثَــر (${updateInfo.latestVersionName})")
             .setContentText("انقر للاطلاع على التحديثات والميزات الجديدة (اختياري)")
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setAutoCancel(true)
@@ -166,7 +165,7 @@ class MadaUpdateManager(private val context: Context) {
                 val updatesDir = File(context.getExternalFilesDir(null), "updates")
                 if (!updatesDir.exists()) updatesDir.mkdirs()
 
-                val apkFile = File(updatesDir, "mada-latest.apk")
+                val apkFile = File(updatesDir, "athar-latest.apk")
                 if (apkFile.exists()) apkFile.delete()
 
                 val input = conn.inputStream
@@ -190,7 +189,6 @@ class MadaUpdateManager(private val context: Context) {
 
                 _downloadProgress.value = 1.0f
 
-                // Launch package installer
                 installApk(apkFile)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to download update APK", e)
@@ -203,7 +201,7 @@ class MadaUpdateManager(private val context: Context) {
         try {
             val uri: Uri = FileProvider.getUriForFile(
                 context,
-                "app.xrtm8.mada.fileprovider",
+                "app.xrtm8.athar.fileprovider",
                 file
             )
             val intent = Intent(Intent.ACTION_VIEW).apply {

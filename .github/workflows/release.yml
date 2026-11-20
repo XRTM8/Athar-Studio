@@ -1,4 +1,4 @@
-name: Build & Release Mada APK
+name: Build & Release Athar APK
 
 on:
   push:

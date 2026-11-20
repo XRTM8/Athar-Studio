@@ -1,4 +1,4 @@
-package app.xrtm8.mada.ui.components
+package app.xrtm8.athar.ui.components
 
 import android.graphics.BlurMaskFilter
 import android.graphics.LinearGradient
@@ -15,13 +15,12 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import app.xrtm8.mada.model.CanvasState
-import app.xrtm8.mada.model.VisualEffect
+import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.VisualEffect
 
 @Composable
 fun CanvasView(
@@ -58,7 +57,6 @@ fun CanvasView(
                 val nativeCanvas = composeCanvas.nativeCanvas
                 nativeCanvas.save()
 
-                // Apply user transform (pan, scale, rotation)
                 nativeCanvas.translate(centerX, centerY)
                 nativeCanvas.rotate(rotation)
                 nativeCanvas.scale(scale, scale)
@@ -66,7 +64,6 @@ fun CanvasView(
                 val text = state.displayText
                 val textSizePx = state.fontSize * density
 
-                // Base text paint
                 val textPaint = Paint().apply {
                     isAntiAlias = true
                     isDither = true
@@ -76,20 +73,17 @@ fun CanvasView(
 
                 when (state.selectedEffect) {
                     VisualEffect.ROYAL_GOLD -> {
-                        // 1. Warm gold ambient glow
                         val glowPaint = Paint(textPaint).apply {
                             color = android.graphics.Color.parseColor("#44E5C07B")
                             maskFilter = BlurMaskFilter(24f * density, BlurMaskFilter.Blur.NORMAL)
                         }
                         nativeCanvas.drawText(text, 0f, 0f, glowPaint)
 
-                        // 2. Deep warm shadow
                         val shadowPaint = Paint(textPaint).apply {
                             color = android.graphics.Color.parseColor("#993A2408")
                         }
                         nativeCanvas.drawText(text, 0f, 6f * density, shadowPaint)
 
-                        // 3. Multi-stop royal metallic gradient
                         val goldShader = LinearGradient(
                             0f, -textSizePx * 0.8f,
                             0f, textSizePx * 0.2f,
@@ -108,13 +102,11 @@ fun CanvasView(
                     }
 
                     VisualEffect.LIQUID_CHROME -> {
-                        // 1. Sharp dark reflection base
                         val reflectionBase = Paint(textPaint).apply {
                             color = android.graphics.Color.parseColor("#55000000")
                         }
                         nativeCanvas.drawText(text, 0f, 8f * density, reflectionBase)
 
-                        // 2. Liquid Chrome multi-stop silver gradient
                         val chromeShader = LinearGradient(
                             -textSizePx * 0.5f, -textSizePx * 0.8f,
                             textSizePx * 0.5f, textSizePx * 0.2f,
@@ -132,7 +124,6 @@ fun CanvasView(
                         textPaint.shader = chromeShader
                         nativeCanvas.drawText(text, 0f, 0f, textPaint)
 
-                        // 3. Specular highlight outline
                         val strokePaint = Paint(textPaint).apply {
                             style = Paint.Style.STROKE
                             strokeWidth = 1.5f * density
@@ -143,7 +134,6 @@ fun CanvasView(
                     }
 
                     VisualEffect.FROSTED_GLASS -> {
-                        // Translucent glass fill with soft inner glow
                         val glassShadow = Paint(textPaint).apply {
                             color = android.graphics.Color.parseColor("#44000000")
                             maskFilter = BlurMaskFilter(16f * density, BlurMaskFilter.Blur.NORMAL)
@@ -163,7 +153,6 @@ fun CanvasView(
                         textPaint.shader = glassShader
                         nativeCanvas.drawText(text, 0f, 0f, textPaint)
 
-                        // Sharp glass edge border
                         val borderPaint = Paint(textPaint).apply {
                             style = Paint.Style.STROKE
                             strokeWidth = 1.0f * density
@@ -174,7 +163,6 @@ fun CanvasView(
                     }
 
                     VisualEffect.CYBER_NEON -> {
-                        // Multi-layer intense glow
                         val outerGlow = Paint(textPaint).apply {
                             color = android.graphics.Color.parseColor("#66FF007F")
                             maskFilter = BlurMaskFilter(32f * density, BlurMaskFilter.Blur.NORMAL)
@@ -187,13 +175,11 @@ fun CanvasView(
                         }
                         nativeCanvas.drawText(text, 0f, 0f, innerGlow)
 
-                        // White-hot core
                         textPaint.color = android.graphics.Color.WHITE
                         nativeCanvas.drawText(text, 0f, 0f, textPaint)
                     }
 
                     VisualEffect.CINEMATIC_SHADOW -> {
-                        // Deep 3D projected shadow extrusion
                         for (step in 1..8) {
                             val shadowStep = Paint(textPaint).apply {
                                 color = android.graphics.Color.argb((120 - step * 12).coerceAtLeast(10), 0, 0, 0)

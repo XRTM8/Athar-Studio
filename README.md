@@ -1,4 +1,4 @@
-# مَــدَى | Mada Design Studio
+# أَثَــر | Athar Design Studio
 
 <p align="center">
   <img src="https://img.shields.io/badge/Architecture-Rust%20Core%20%2B%20Kotlin%20Compose-E5C07B?style=for-the-badge" alt="Architecture" />
@@ -10,7 +10,7 @@
 
 ---
 
-## 🌟 الميزات الجوهرية (التفوق الهندسي على التطبيقات المماثلة)
+## 🌟 الميزات الجوهرية (التفوق الهندسي)
 
 1. **المَدّ المتجهي الذكي (Smart Kashida):**
    * بدلاً من الحلول السطحية التي تكرر رمز التطويل (`ـ` / `U+0640`)، يعتمد التطبيق على خوارزمية مورفولوجية في محرك Rust تحدد بدقة نقاط الاتصال المسموح بمدها وفق قواعد الخط العربي الأصيل، وتحافظ على زاوية القلم وثبات سماكة الحرف.
@@ -30,7 +30,7 @@
 5. **مفتاح توقيع دائمي أصلي (Permanent Production Keystore):**
    * الحزمة موقعة بمفتاح إنتاجي أصلي (RSA 4096-bit) بصلاحية تمتد لـ **100 عام (36,500 يوم)** لضمان استمرارية التحديثات دون أي تعارض في التوقيع.
 6. **منع تضارب الحزم (Anti-Collision Namespace):**
-   * اعتماد المعرّف المعكوس الفريد `app.xrtm8.mada` لضمان عدم حدوث أي تضارب مع أي تطبيق آخر.
+   * اعتماد المعرّف المعكوس الفريد `app.xrtm8.athar` لضمان عدم حدوث أي تضارب مع أي تطبيق آخر.
 
 ---
 
@@ -48,8 +48,8 @@ DESIGN/
 ├── android-app/               # تطبيق أندرويد (Kotlin + Jetpack Compose)
 │   ├── app/
 │   │   ├── src/main/
-│   │   │   ├── java/app/xrtm8/mada/
-│   │   │   │   ├── core/      # استدعاء مكتبة libmada_core.so عبر JNI
+│   │   │   ├── java/app/xrtm8/athar/
+│   │   │   │   ├── core/      # استدعاء مكتبة libathar_core.so عبر JNI
 │   │   │   │   ├── model/     # نماذج البيانات وحالة الكانفاس
 │   │   │   │   ├── updater/   # نظام التحديث الذاتي وتنزيل الـ APK
 │   │   │   │   └── ui/        # شاشات ومكونات Compose التفاعلية
@@ -58,7 +58,7 @@ DESIGN/
 │   └── settings.gradle.kts
 │
 ├── keystore/                  # مفتاح التوقيع الإنتاجي الدائمي (100 سنة)
-│   ├── mada-release.jks
+│   ├── athar-release.jks
 │   └── keystore.properties
 │
 └── .github/workflows/         # خط أنابيب البناء والتوزيع التلقائي (CI/CD)
@@ -66,13 +66,8 @@ DESIGN/
 
 ---
 
-## 🛠️ متطلبات البناء اليدوي (Build Instructions)
+## 🛠️ خطوات البناء (Build Instructions)
 
-1. **Rust & Cargo** مع حزمة `aarch64-linux-android` وأداة `cargo-ndk`.
-2. **OpenJDK 17**.
-3. **Android SDK & NDK r26b**.
-
-### خطوات البناء:
 ```powershell
 # 1. بناء مكتبة Rust لنظام ARM64:
 cd core-engine
@@ -82,5 +77,5 @@ cargo ndk -t arm64-v8a -o ../android-app/app/src/main/jniLibs build --release
 cd ../android-app
 ./gradlew assembleRelease
 ```
-ستجد ملف الـ APK الموقع والجاهز للتثبيت في:
-`android-app/app/build/outputs/apk/release/app-release.apk`
+ملف الـ APK الموقع والجاهز للتثبيت تجده في:
+`release/athar-v1.0.0-arm64.apk`

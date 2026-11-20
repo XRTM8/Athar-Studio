@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "app.xrtm8.mada"
+    namespace = "app.xrtm8.athar"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "app.xrtm8.mada"
+        applicationId = "app.xrtm8.athar"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -27,10 +27,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../../keystore/mada-release.jks")
-            storePassword = "MadaRelease2026SecureKey"
-            keyAlias = "mada_release"
-            keyPassword = "MadaRelease2026SecureKey"
+            storeFile = file("../../keystore/athar-release.jks")
+            storePassword = "AtharRelease2026SecureKey"
+            keyAlias = "athar_release"
+            keyPassword = "AtharRelease2026SecureKey"
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true

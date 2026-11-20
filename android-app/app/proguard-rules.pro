@@ -1,5 +1,5 @@
-# Proguard rules for Mada Core
--keep class app.xrtm8.mada.core.** { *; }
--keepclassmembers class app.xrtm8.mada.core.** {
+# Proguard rules for Athar Core
+-keep class app.xrtm8.athar.core.** { *; }
+-keepclassmembers class app.xrtm8.athar.core.** {
     native <methods>;
 }

@@ -1,9 +1,8 @@
-package app.xrtm8.mada.ui.components
+package app.xrtm8.athar.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,11 +31,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.xrtm8.mada.model.UpdateInfo
-import app.xrtm8.mada.ui.theme.DarkCard
-import app.xrtm8.mada.ui.theme.GoldPrimary
-import app.xrtm8.mada.ui.theme.TextLight
-import app.xrtm8.mada.ui.theme.TextMuted
+import app.xrtm8.athar.model.UpdateInfo
+import app.xrtm8.athar.ui.theme.DarkCard
+import app.xrtm8.athar.ui.theme.GoldPrimary
+import app.xrtm8.athar.ui.theme.TextLight
+import app.xrtm8.athar.ui.theme.TextMuted
 
 @Composable
 fun GentleUpdateBanner(

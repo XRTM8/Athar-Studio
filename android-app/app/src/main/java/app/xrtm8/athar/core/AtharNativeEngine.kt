@@ -1,18 +1,18 @@
-package app.xrtm8.mada.core
+package app.xrtm8.athar.core
 
 import android.util.Log
 
-object MadaNativeEngine {
-    private const val TAG = "MadaNativeEngine"
+object AtharNativeEngine {
+    private const val TAG = "AtharNativeEngine"
     private var isLoaded = false
 
     init {
         try {
-            System.loadLibrary("mada_core")
+            System.loadLibrary("athar_core")
             isLoaded = true
-            Log.i(TAG, "Mada native Rust core loaded successfully. Version: ${nativeGetVersion()}")
+            Log.i(TAG, "Athar native Rust core loaded successfully. Version: ${nativeGetVersion()}")
         } catch (e: UnsatisfiedLinkError) {
-            Log.w(TAG, "Native library mada_core not found or failed to load. Fallback enabled.", e)
+            Log.w(TAG, "Native library athar_core not found or failed to load. Fallback enabled.", e)
             isLoaded = false
         }
     }
@@ -24,10 +24,10 @@ object MadaNativeEngine {
             try {
                 nativeGetVersion()
             } catch (e: Throwable) {
-                "1.0.0-managed"
+                "1.0.0-arm64"
             }
         } else {
-            "1.0.0-managed"
+            "1.0.0-arm64"
         }
     }
 
@@ -55,7 +55,6 @@ object MadaNativeEngine {
     private fun fallbackKashida(text: String, stretchLevel: Int): String {
         if (stretchLevel <= 0 || text.length < 2) return text
         val tatweel = "ـ".repeat(stretchLevel)
-        // Simple dual-joining letters fallback
         val dualJoining = setOf('ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'ي')
         val sb = StringBuilder()
         for (i in 0 until text.length) {

@@ -1,11 +1,12 @@
 [package]
-name = "mada-core"
+name = "athar-core"
 version = "1.0.0"
 edition = "2021"
-authors = ["XRTM8 <mada@xrtm8.app>"]
-description = "Core high-performance Arabic typography and vector engine for Mada App"
+authors = ["XRTM8 <athar@xrtm8.app>"]
+description = "Core high-performance Arabic typography and vector engine for Athar App (أثر)"
 
 [lib]
+name = "athar_core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

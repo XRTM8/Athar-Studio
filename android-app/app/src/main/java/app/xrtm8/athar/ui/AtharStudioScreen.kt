@@ -1,4 +1,4 @@
-package app.xrtm8.mada.ui
+package app.xrtm8.athar.ui
 
 import android.content.Context
 import android.content.Intent
@@ -6,7 +6,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.LinearGradient
-import android.graphics.BlurMaskFilter
 import android.graphics.Shader
 import android.net.Uri
 import android.widget.Toast
@@ -29,17 +28,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,28 +67,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import app.xrtm8.mada.core.MadaNativeEngine
-import app.xrtm8.mada.model.CanvasState
-import app.xrtm8.mada.model.VisualEffect
-import app.xrtm8.mada.ui.components.CanvasView
-import app.xrtm8.mada.ui.components.GentleUpdateBanner
-import app.xrtm8.mada.ui.theme.DarkBackground
-import app.xrtm8.mada.ui.theme.DarkCard
-import app.xrtm8.mada.ui.theme.DarkSurface
-import app.xrtm8.mada.ui.theme.GoldPrimary
-import app.xrtm8.mada.ui.theme.TextLight
-import app.xrtm8.mada.ui.theme.TextMuted
-import app.xrtm8.mada.updater.MadaUpdateManager
-import kotlinx.coroutines.Dispatchers
+import app.xrtm8.athar.core.AtharNativeEngine
+import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.VisualEffect
+import app.xrtm8.athar.ui.components.CanvasView
+import app.xrtm8.athar.ui.components.GentleUpdateBanner
+import app.xrtm8.athar.ui.theme.DarkBackground
+import app.xrtm8.athar.ui.theme.DarkCard
+import app.xrtm8.athar.ui.theme.DarkSurface
+import app.xrtm8.athar.ui.theme.GoldPrimary
+import app.xrtm8.athar.ui.theme.TextLight
+import app.xrtm8.athar.ui.theme.TextMuted
+import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MadaStudioScreen(
-    updateManager: MadaUpdateManager,
+fun AtharStudioScreen(
+    updateManager: AtharUpdateManager,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -108,9 +100,8 @@ fun MadaStudioScreen(
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
 
-    // Calculate stretched text via native Rust engine whenever text or stretchLevel changes
     LaunchedEffect(canvasState.rawText, canvasState.stretchLevel) {
-        val stretched = MadaNativeEngine.applyKashida(canvasState.rawText, canvasState.stretchLevel)
+        val stretched = AtharNativeEngine.applyKashida(canvasState.rawText, canvasState.stretchLevel)
         canvasState = canvasState.copy(displayText = stretched)
     }
 
@@ -132,29 +123,28 @@ fun MadaStudioScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "مَــدَى",
+                        text = "أَثَــر",
                         color = GoldPrimary,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Black
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "STUDIO",
+                        text = "ATHAR STUDIO",
                         color = TextMuted,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.sp
                     )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Manual Update Check Icon
                     IconButton(
                         onClick = {
                             coroutineScope.launch {
                                 val info = updateManager.checkForUpdates(showNotificationOnFound = false)
                                 if (info == null) {
-                                    Toast.makeText(context, "أنت تستخدم أحدث إصدار من مَــدَى (v1.0.0)", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v1.0.0)", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
@@ -166,7 +156,6 @@ fun MadaStudioScreen(
                         )
                     }
 
-                    // Export Button
                     Button(
                         onClick = { showExportSheet = true },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
@@ -207,7 +196,6 @@ fun MadaStudioScreen(
                     }
                 )
 
-                // Quick Edit Text FAB
                 IconButton(
                     onClick = { showTextDialog = true },
                     modifier = Modifier
@@ -232,7 +220,6 @@ fun MadaStudioScreen(
                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                     .padding(16.dp)
             ) {
-                // Control Tabs
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = Color.Transparent,
@@ -265,7 +252,6 @@ fun MadaStudioScreen(
 
                 when (selectedTab) {
                     0 -> {
-                        // Smart Kashida Slider
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -299,7 +285,6 @@ fun MadaStudioScreen(
                     }
 
                     1 -> {
-                        // Visual Effects Chips
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -332,7 +317,6 @@ fun MadaStudioScreen(
                     }
 
                     2 -> {
-                        // Depth & Layering
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -365,7 +349,6 @@ fun MadaStudioScreen(
             }
         }
 
-        // Gentle In-App Update Banner (Floats at top if an update is found)
         GentleUpdateBanner(
             updateInfo = updateInfo,
             downloadProgress = downloadProgress,
@@ -380,7 +363,6 @@ fun MadaStudioScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
-        // Text Edit Dialog
         if (showTextDialog) {
             var tempText by remember { mutableStateOf(canvasState.rawText) }
             AlertDialog(
@@ -415,7 +397,6 @@ fun MadaStudioScreen(
             )
         }
 
-        // Export BottomSheet
         if (showExportSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showExportSheet = false },
@@ -434,7 +415,6 @@ fun MadaStudioScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 1. Export Transparent PNG Sticker
                     Button(
                         onClick = {
                             exportImage(context, canvasState, isTransparent = true)
@@ -453,7 +433,6 @@ fun MadaStudioScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 2. Export 4K Canvas Image
                     Button(
                         onClick = {
                             exportImage(context, canvasState, isTransparent = false)
@@ -497,7 +476,6 @@ private fun exportImage(context: Context, state: CanvasState, isTransparent: Boo
         val centerX = width / 2f
         val centerY = height / 2f
 
-        // Apply Gold shader for export
         val goldShader = LinearGradient(
             0f, -paint.textSize * 0.8f,
             0f, paint.textSize * 0.2f,
@@ -520,20 +498,19 @@ private fun exportImage(context: Context, state: CanvasState, isTransparent: Boo
         val exportDir = File(context.getExternalFilesDir(null), "exports")
         if (!exportDir.exists()) exportDir.mkdirs()
 
-        val file = File(exportDir, "Mada_${System.currentTimeMillis()}.${if (isTransparent) "png" else "jpg"}")
+        val file = File(exportDir, "Athar_${System.currentTimeMillis()}.${if (isTransparent) "png" else "jpg"}")
         val out = FileOutputStream(file)
         bitmap.compress(if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 100, out)
         out.flush()
         out.close()
 
-        // Share Intent
-        val uri: Uri = FileProvider.getUriForFile(context, "app.xrtm8.mada.fileprovider", file)
+        val uri: Uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", file)
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = if (isTransparent) "image/png" else "image/jpeg"
             putExtra(Intent.EXTRA_STREAM, uri)
             flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
-        context.startActivity(Intent.createChooser(shareIntent, "مشاركة التصميم من مَــدَى"))
+        context.startActivity(Intent.createChooser(shareIntent, "مشاركة التصميم من أَثَــر"))
     } catch (e: Exception) {
         Toast.makeText(context, "حدث خطأ أثناء التصدير: ${e.message}", Toast.LENGTH_SHORT).show()
     }

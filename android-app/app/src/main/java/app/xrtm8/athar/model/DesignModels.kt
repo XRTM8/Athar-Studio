@@ -1,4 +1,4 @@
-package app.xrtm8.mada.model
+package app.xrtm8.athar.model
 
 import androidx.compose.ui.graphics.Color
 
@@ -12,8 +12,8 @@ enum class VisualEffect(val arabicName: String, val description: String) {
 }
 
 data class CanvasState(
-    val rawText: String = "مَــدَى",
-    val displayText: String = "مَــدَى",
+    val rawText: String = "أَثَــر",
+    val displayText: String = "أَثَــر",
     val stretchLevel: Int = 3,
     val selectedEffect: VisualEffect = VisualEffect.ROYAL_GOLD,
     val fontSize: Float = 48f,

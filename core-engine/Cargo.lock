@@ -36,6 +36,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
+name = "athar-core"
+version = "1.0.0"
+dependencies = [
+ "android_logger",
+ "jni",
+ "kurbo",
+ "log",
+ "rustybuzz",
+ "serde",
+ "serde_json",
+ "ttf-parser 0.21.1",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -181,20 +195,6 @@ name = "log"
 version = "0.4.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
-
-[[package]]
-name = "mada-core"
-version = "1.0.0"
-dependencies = [
- "android_logger",
- "jni",
- "kurbo",
- "log",
- "rustybuzz",
- "serde",
- "serde_json",
- "ttf-parser 0.21.1",
-]
 
 [[package]]
 name = "memchr"

@@ -28,7 +28,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="app.xrtm8.mada.fileprovider"
+            android:authorities="app.xrtm8.athar.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

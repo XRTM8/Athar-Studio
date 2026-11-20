@@ -1,4 +1,4 @@
-//! JNI Bridge exposing Mada Core Rust engine to Android Kotlin runtime
+//! JNI Bridge exposing Athar Core Rust engine to Android Kotlin runtime
 
 use jni::objects::{JClass, JString};
 use jni::sys::{jint, jlong, jstring};
@@ -9,7 +9,7 @@ use crate::kashida::KashidaEngine;
 const ENGINE_VERSION: &str = "1.0.0-arm64";
 
 #[no_mangle]
-pub extern "system" fn Java_app_xrtm8_mada_core_MadaNativeEngine_nativeGetVersion<'local>(
+pub extern "system" fn Java_app_xrtm8_athar_core_AtharNativeEngine_nativeGetVersion<'local>(
     env: JNIEnv<'local>,
     _class: JClass<'local>,
 ) -> jstring {
@@ -18,7 +18,7 @@ pub extern "system" fn Java_app_xrtm8_mada_core_MadaNativeEngine_nativeGetVersio
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_xrtm8_mada_core_MadaNativeEngine_nativeApplyKashida<'local>(
+pub extern "system" fn Java_app_xrtm8_athar_core_AtharNativeEngine_nativeApplyKashida<'local>(
     mut env: JNIEnv<'local>,
     _class: JClass<'local>,
     input_text: JString<'local>,
@@ -43,7 +43,7 @@ pub extern "system" fn Java_app_xrtm8_mada_core_MadaNativeEngine_nativeApplyKash
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_xrtm8_mada_core_MadaNativeEngine_nativeFindOpportunitiesJson<'local>(
+pub extern "system" fn Java_app_xrtm8_athar_core_AtharNativeEngine_nativeFindOpportunitiesJson<'local>(
     mut env: JNIEnv<'local>,
     _class: JClass<'local>,
     input_text: JString<'local>,
