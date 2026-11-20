@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -65,7 +66,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -691,6 +691,28 @@ fun AtharStudioScreen(
                                                 valueRange = 0.15f..1.0f,
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(text = "تباعد الحروف (Letter Spacing)", color = PureWhite, fontSize = 11.5.sp)
+                                                Text(
+                                                    text = String.format(Locale.ENGLISH, "%.2f", canvasState.letterSpacing),
+                                                    color = GoldAccent,
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Slider(
+                                                value = canvasState.letterSpacing,
+                                                onValueChange = { viewModel.setLetterSpacing(it) },
+                                                valueRange = -0.05f..0.25f,
+                                                colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
+                                            )
                                         }
                                     }
 
@@ -830,7 +852,7 @@ fun AtharStudioScreen(
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(Icons.Default.RotateRight, contentDescription = null, tint = MutedWhite, modifier = Modifier.size(15.dp))
+                                                    Icon(Icons.AutoMirrored.Filled.RotateRight, contentDescription = null, tint = MutedWhite, modifier = Modifier.size(15.dp))
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text(text = "التدوير الدقيق", color = PureWhite, fontSize = 12.sp)
                                                 }
@@ -878,6 +900,28 @@ fun AtharStudioScreen(
                                                 value = canvasState.rotationAngle,
                                                 onValueChange = { viewModel.setRotationAngle(it) },
                                                 valueRange = -180f..180f,
+                                                colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
+                                            )
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(text = "تباعد الأسطر (Line Spacing)", color = PureWhite, fontSize = 11.5.sp)
+                                                Text(
+                                                    text = "${String.format(Locale.ENGLISH, "%.2f", canvasState.lineSpacingMultiplier)}x",
+                                                    color = GoldAccent,
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Slider(
+                                                value = canvasState.lineSpacingMultiplier,
+                                                onValueChange = { viewModel.setLineSpacing(it) },
+                                                valueRange = 1.0f..2.2f,
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
                                         }
@@ -1054,6 +1098,45 @@ fun AtharStudioScreen(
                                                 valueRange = -20f..20f,
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
+
+                                            Spacer(modifier = Modifier.height(6.dp))
+
+                                            Text(text = "لون الظل والتوهج:", color = MutedWhite, fontSize = 11.5.sp)
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                listOf(
+                                                    0xCC000000L to "ظل أسود",
+                                                    0xAAFFD700L to "توهج ذهبي",
+                                                    0xAA00FF9DL to "توهج زمردي",
+                                                    0xAAFFFFFFL to "وهج أبيض",
+                                                    0xAAFF3366L to "وهج ياقوتي"
+                                                ).forEach { (colorLong, name) ->
+                                                    val isSelected = canvasState.shadowColorLong == colorLong
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(if (isSelected) GoldAccent else GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.setShadowColor(colorLong)
+                                                            }
+                                                            .padding(vertical = 4.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = name,
+                                                            color = if (isSelected) AmoledBlack else PureWhite,
+                                                            fontSize = 9.5.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
