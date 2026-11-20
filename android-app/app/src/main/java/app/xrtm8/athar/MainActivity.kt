@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var updateManager: AtharUpdateManager
 
     private val requestNotificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
             // Permission result handled gracefully without intrusive dialogs
         }
 

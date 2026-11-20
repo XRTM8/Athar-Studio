@@ -4,15 +4,13 @@ import android.graphics.BlurMaskFilter
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -26,25 +24,35 @@ import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.ui.theme.AmoledBlack
 
+/**
+ * High-Performance 120 FPS Canvas View.
+ *
+ * Implements Jetpack Compose Draw-Phase Isolation: Touch translation, scaling,
+ * and rotation are read strictly inside the Draw Phase, completely skipping
+ * the Recomposition and Layout phases for zero-overhead, buttery-smooth 120Hz gesture response.
+ */
 @Composable
 fun CanvasView(
     state: CanvasState,
-    modifier: Modifier = Modifier,
-    onTransformChange: (offsetX: Float, offsetY: Float, scale: Float, rotation: Float) -> Unit
+    modifier: Modifier = Modifier
 ) {
-    var offsetX by remember { mutableFloatStateOf(state.offsetX) }
-    var offsetY by remember { mutableFloatStateOf(state.offsetY) }
-    var scale by remember { mutableFloatStateOf(state.scaleFactor) }
-    var rotation by remember { mutableFloatStateOf(state.rotationAngle) }
+    // Local transform states read strictly in Draw phase
+    var localOffsetX by remember { mutableFloatStateOf(state.offsetX) }
+    var localOffsetY by remember { mutableFloatStateOf(state.offsetY) }
+    var localScale by remember { mutableFloatStateOf(state.scaleFactor) }
+    var localRotation by remember { mutableFloatStateOf(state.rotationAngle) }
 
-    // Smooth animated scale and rotation for fluid feel
-    val animatedScale by animateFloatAsState(
-        targetValue = scale,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh),
-        label = "animatedScale"
-    )
+    // Sync if external reset is requested (e.g. from reset button)
+    LaunchedEffect(state.offsetX, state.offsetY, state.scaleFactor, state.rotationAngle) {
+        if (state.offsetX == 0f && state.offsetY == 0f && state.scaleFactor == 1.0f && state.rotationAngle == 0f) {
+            localOffsetX = 0f
+            localOffsetY = 0f
+            localScale = 1.0f
+            localRotation = 0f
+        }
+    }
 
-    // Pre-allocated reusable Paint objects to avoid GC allocation during draw loop
+    // Pre-allocated reusable Paint objects to avoid garbage collection during 120Hz draw loops
     val basePaint = remember {
         Paint().apply {
             isAntiAlias = true
@@ -78,32 +86,37 @@ fun CanvasView(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (state.isTransparentBg) AmoledBlack else AmoledBlack)
+            .background(AmoledBlack)
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, rotate ->
-                    offsetX += pan.x
-                    offsetY += pan.y
-                    scale = (scale * zoom).coerceIn(0.4f, 5.0f)
-                    rotation += rotate
-                    onTransformChange(offsetX, offsetY, scale, rotation)
+                    localOffsetX += pan.x
+                    localOffsetY += pan.y
+                    localScale = (localScale * zoom).coerceIn(0.35f, 5.0f)
+                    localRotation += rotate
                 }
             }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             if (state.displayText.isEmpty()) return@Canvas
 
+            // Access local transforms here inside the DrawScope (Phase 3)
+            val currentOx = localOffsetX
+            val currentOy = localOffsetY
+            val currentSc = localScale
+            val currentRot = localRotation
+
             val canvasWidth = size.width
             val canvasHeight = size.height
-            val centerX = canvasWidth / 2f + offsetX
-            val centerY = canvasHeight / 2f + offsetY
+            val centerX = canvasWidth / 2f + currentOx
+            val centerY = canvasHeight / 2f + currentOy
 
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
                 nativeCanvas.save()
 
                 nativeCanvas.translate(centerX, centerY)
-                nativeCanvas.rotate(rotation)
-                nativeCanvas.scale(animatedScale, animatedScale)
+                nativeCanvas.rotate(currentRot)
+                nativeCanvas.scale(currentSc, currentSc)
 
                 val textSizePx = state.fontSize * density
                 basePaint.textSize = textSizePx
@@ -112,27 +125,23 @@ fun CanvasView(
                 strokePaint.textSize = textSizePx
 
                 val lines = state.displayText.split("\n")
-                val lineHeight = textSizePx * 1.3f
+                val lineHeight = textSizePx * 1.32f
                 val totalHeight = (lines.size - 1) * lineHeight
                 val startY = -totalHeight / 2f
 
-                // Render each line with proper calligraphic alignment
                 lines.forEachIndexed { index, line ->
                     val lineY = startY + (index * lineHeight)
 
                     when (state.selectedEffect) {
                         VisualEffect.ROYAL_GOLD -> {
-                            // 1. Ambient Gold Glow
                             glowPaint.color = android.graphics.Color.parseColor("#44E5C07B")
                             glowPaint.maskFilter = BlurMaskFilter(20f * density, BlurMaskFilter.Blur.NORMAL)
                             nativeCanvas.drawText(line, 0f, lineY, glowPaint)
 
-                            // 2. Warm Shadow
                             shadowPaint.color = android.graphics.Color.parseColor("#88301B05")
                             shadowPaint.maskFilter = null
                             nativeCanvas.drawText(line, 0f, lineY + (5f * density), shadowPaint)
 
-                            // 3. Royal Gold multi-stop gradient
                             basePaint.shader = LinearGradient(
                                 0f, lineY - textSizePx * 0.8f,
                                 0f, lineY + textSizePx * 0.2f,
@@ -150,12 +159,10 @@ fun CanvasView(
                         }
 
                         VisualEffect.LIQUID_CHROME -> {
-                            // 1. Deep Specular Backdrop
                             shadowPaint.color = android.graphics.Color.parseColor("#66000000")
                             shadowPaint.maskFilter = null
                             nativeCanvas.drawText(line, 0f, lineY + (6f * density), shadowPaint)
 
-                            // 2. Liquid Chrome Multi-stop Metal Shader
                             basePaint.shader = LinearGradient(
                                 -textSizePx * 0.5f, lineY - textSizePx * 0.8f,
                                 textSizePx * 0.5f, lineY + textSizePx * 0.2f,
@@ -172,7 +179,6 @@ fun CanvasView(
                             )
                             nativeCanvas.drawText(line, 0f, lineY, basePaint)
 
-                            // 3. Crisp chrome highlight rim
                             strokePaint.strokeWidth = 1.2f * density
                             strokePaint.shader = null
                             strokePaint.color = android.graphics.Color.parseColor("#88FFFFFF")

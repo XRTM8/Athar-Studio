@@ -1,13 +1,5 @@
 package app.xrtm8.athar.ui
 
-import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.Shader
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -47,6 +39,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,9 +72,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
-import app.xrtm8.athar.core.AtharNativeEngine
-import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.ui.components.CanvasView
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
@@ -90,27 +80,28 @@ import app.xrtm8.athar.ui.theme.GlassBackground
 import app.xrtm8.athar.ui.theme.GlassBorder
 import app.xrtm8.athar.ui.theme.GlassBorderActive
 import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.GlassSurfaceHover
 import app.xrtm8.athar.ui.theme.GoldAccent
 import app.xrtm8.athar.ui.theme.MutedWhite
 import app.xrtm8.athar.ui.theme.PureWhite
 import app.xrtm8.athar.ui.theme.SubtleGray
 import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AtharStudioScreen(
     updateManager: AtharUpdateManager,
+    viewModel: AtharStudioViewModel = remember { AtharStudioViewModel() },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
 
-    var canvasState by remember { mutableStateOf(CanvasState()) }
+    val canvasState by viewModel.canvasState.collectAsState()
+    val isExporting by viewModel.isExporting.collectAsState()
+    val exportMessage by viewModel.exportMessage.collectAsState()
+
     var selectedTab by remember { mutableIntStateOf(0) }
     var showTextDialog by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
@@ -118,10 +109,12 @@ fun AtharStudioScreen(
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
 
-    // Smooth Kashida stretching powered by the native Rust core
-    LaunchedEffect(canvasState.rawText, canvasState.stretchLevel) {
-        val stretched = AtharNativeEngine.applyKashida(canvasState.rawText, canvasState.stretchLevel)
-        canvasState = canvasState.copy(displayText = stretched)
+    // Handle export message toast
+    LaunchedEffect(exportMessage) {
+        exportMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearExportMessage()
+        }
     }
 
     Box(
@@ -182,7 +175,7 @@ fun AtharStudioScreen(
                                 coroutineScope.launch {
                                     val info = updateManager.checkForUpdates(showNotificationOnFound = false)
                                     if (info == null) {
-                                        Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v1.0.1)", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v1.0.2)", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -202,12 +195,7 @@ fun AtharStudioScreen(
                         IconButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                canvasState = canvasState.copy(
-                                    offsetX = 0f,
-                                    offsetY = 0f,
-                                    scaleFactor = 1.0f,
-                                    rotationAngle = 0f
-                                )
+                                viewModel.resetCanvasTransform()
                             },
                             modifier = Modifier.size(36.dp)
                         ) {
@@ -229,43 +217,42 @@ fun AtharStudioScreen(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(36.dp)
+                            modifier = Modifier.height(36.dp),
+                            enabled = !isExporting
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "تصدير",
-                                tint = AmoledBlack,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "تصدير",
-                                color = AmoledBlack,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
+                            if (isExporting) {
+                                CircularProgressIndicator(
+                                    color = AmoledBlack,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "تصدير",
+                                    tint = AmoledBlack,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "تصدير",
+                                    color = AmoledBlack,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Interactive Canvas Area
+            // Interactive Canvas Area (Phase 3 Isolated - Zero Recomposition)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                CanvasView(
-                    state = canvasState,
-                    onTransformChange = { ox, oy, sc, rot ->
-                        canvasState = canvasState.copy(
-                            offsetX = ox,
-                            offsetY = oy,
-                            scaleFactor = sc,
-                            rotationAngle = rot
-                        )
-                    }
-                )
+                CanvasView(state = canvasState)
 
                 // Quick Edit Text FAB (Glassmorphism circle)
                 Box(
@@ -338,7 +325,7 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Tab Content with Smooth Transitions
+                    // Tab Content with Smooth Spring Transitions
                     AnimatedContent(
                         targetState = selectedTab,
                         transitionSpec = {
@@ -391,7 +378,7 @@ fun AtharStudioScreen(
                                             if (it.toInt() != canvasState.stretchLevel) {
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             }
-                                            canvasState = canvasState.copy(stretchLevel = it.toInt())
+                                            viewModel.setStretchLevel(it.toInt())
                                         },
                                         valueRange = 0f..8f,
                                         steps = 7,
@@ -432,7 +419,7 @@ fun AtharStudioScreen(
                                                 )
                                                 .clickable {
                                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    canvasState = canvasState.copy(selectedEffect = effect)
+                                                    viewModel.setEffect(effect)
                                                 }
                                                 .padding(horizontal = 16.dp, vertical = 11.dp)
                                         ) {
@@ -461,7 +448,6 @@ fun AtharStudioScreen(
                             2 -> {
                                 // Depth & Font Size Tab
                                 Column {
-                                    // Text Size Control
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -492,7 +478,7 @@ fun AtharStudioScreen(
                                     Slider(
                                         value = canvasState.fontSize,
                                         onValueChange = {
-                                            canvasState = canvasState.copy(fontSize = it)
+                                            viewModel.setFontSize(it)
                                         },
                                         valueRange = 24f..96f,
                                         colors = SliderDefaults.colors(
@@ -527,7 +513,7 @@ fun AtharStudioScreen(
                                             checked = canvasState.isTextBehindSubject,
                                             onCheckedChange = {
                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                canvasState = canvasState.copy(isTextBehindSubject = it)
+                                                viewModel.setTextBehindSubject(it)
                                             },
                                             colors = SwitchDefaults.colors(
                                                 checkedThumbColor = AmoledBlack,
@@ -598,7 +584,7 @@ fun AtharStudioScreen(
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            canvasState = canvasState.copy(rawText = tempText)
+                            viewModel.setText(tempText)
                             showTextDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
@@ -654,14 +640,15 @@ fun AtharStudioScreen(
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            exportImage(context, canvasState, isTransparent = true)
+                            viewModel.exportDesign(context, isTransparent = true)
                             showExportSheet = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
+                            .height(52.dp),
+                        enabled = !isExporting
                     ) {
                         Text(
                             text = "حفظ كملصق شفاف للستوري (PNG)",
@@ -673,11 +660,11 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // 2. Export Ultra HD 4K Image
+                    // 2. Export Ultra HD Image
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            exportImage(context, canvasState, isTransparent = false)
+                            viewModel.exportDesign(context, isTransparent = false)
                             showExportSheet = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
@@ -685,7 +672,8 @@ fun AtharStudioScreen(
                         border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
+                            .height(52.dp),
+                        enabled = !isExporting
                     ) {
                         Text(
                             text = "حفظ الصورة بخلفية AMOLED كاملة (Ultra HD)",
@@ -698,72 +686,5 @@ fun AtharStudioScreen(
                 }
             }
         }
-    }
-}
-
-private fun exportImage(context: Context, state: CanvasState, isTransparent: Boolean) {
-    try {
-        val width = 1080
-        val height = 1920
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-
-        if (!isTransparent) {
-            canvas.drawColor(android.graphics.Color.BLACK)
-        }
-
-        val paint = Paint().apply {
-            isAntiAlias = true
-            isDither = true
-            textSize = state.fontSize * 3.5f
-            textAlign = Paint.Align.CENTER
-        }
-
-        val centerX = width / 2f
-        val centerY = height / 2f
-
-        val goldShader = LinearGradient(
-            0f, -paint.textSize * 0.8f,
-            0f, paint.textSize * 0.2f,
-            intArrayOf(
-                android.graphics.Color.parseColor("#FFF7DB"),
-                android.graphics.Color.parseColor("#F5C369"),
-                android.graphics.Color.parseColor("#D49438"),
-                android.graphics.Color.parseColor("#FFE8A3")
-            ),
-            null,
-            Shader.TileMode.CLAMP
-        )
-        paint.shader = goldShader
-
-        val lines = state.displayText.split("\n")
-        val lineHeight = paint.textSize * 1.3f
-        val totalHeight = (lines.size - 1) * lineHeight
-        val startY = centerY - (totalHeight / 2f)
-
-        canvas.save()
-        lines.forEachIndexed { index, line ->
-            canvas.drawText(line, centerX, startY + (index * lineHeight), paint)
-        }
-        canvas.restore()
-
-        val exportDir = File(context.getExternalFilesDir(null), "exports")
-        if (!exportDir.exists()) exportDir.mkdirs()
-
-        val file = File(exportDir, "Athar_${System.currentTimeMillis()}.${if (isTransparent) "png" else "jpg"}")
-        val out = FileOutputStream(file)
-        bitmap.compress(if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 100, out)
-        out.flush()
-        out.close()
-
-        val uri: Uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", file)
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = if (isTransparent) "image/png" else "image/jpeg"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-        }
-        context.startActivity(Intent.createChooser(shareIntent, "مشاركة التصميم من أَثَــر"))
-    } catch (e: Exception) {
-        Toast.makeText(context, "حدث خطأ أثناء التصدير: ${e.message}", Toast.LENGTH_SHORT).show()
     }
 }
