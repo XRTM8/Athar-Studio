@@ -11,12 +11,12 @@ object AtharNativeEngine {
         try {
             System.loadLibrary("athar_core")
             isLoaded = true
-            Log.i(TAG, "Athar native Rust core loaded successfully. Version: ${nativeGetVersion()}")
-        } catch (e: UnsatisfiedLinkError) {
-            Log.w(TAG, "Native library athar_core not found or failed to load. Fallback pure-engine enabled.", e)
-            isLoaded = false
-        } catch (e: Throwable) {
-            Log.w(TAG, "Error initializing athar_core. Fallback pure-engine enabled.", e)
+            try {
+                Log.i(TAG, "Athar native Rust core loaded successfully. Version: ${nativeGetVersion()}")
+            } catch (_: Throwable) {
+                // Ignore log if in unit test environment
+            }
+        } catch (_: Throwable) {
             isLoaded = false
         }
     }
@@ -51,22 +51,5 @@ object AtharNativeEngine {
         return PureArabicKashidaEngine.findOpportunities(text)
     }
 
-    fun getKashidaOpportunities(text: String): String {
-        if (!isLoaded || text.isEmpty()) return "[]"
-        return try {
-            nativeFindOpportunitiesJson(text)
-        } catch (e: Throwable) {
-            "[]"
-        }
-    }
-
-    // JNI Native Declarations
-    @JvmStatic
     private external fun nativeGetVersion(): String
-
-    @JvmStatic
-    private external fun nativeApplyKashida(text: String, stretchLevel: Int, targetIndex: Long): String
-
-    @JvmStatic
-    private external fun nativeFindOpportunitiesJson(text: String): String
 }

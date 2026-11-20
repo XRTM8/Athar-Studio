@@ -85,6 +85,21 @@ val LUXURY_BG_PRESETS = listOf(
     ColorSwatch("فحم رمادي", 0xFF18191C)
 )
 
+data class GlassBackdropPreset(
+    val name: String,
+    val bgArgb: Long,
+    val strokeArgb: Long,
+    val opacity: Float
+)
+
+val GLASS_BACKDROP_PRESETS = listOf(
+    GlassBackdropPreset("زجاج ليلي داكن", 0xFF0D0F14, 0x55E5C07B, 0.65f),
+    GlassBackdropPreset("زجاج مثلج نقي", 0xFFFFFFFF, 0x44FFFFFF, 0.25f),
+    GlassBackdropPreset("زجاج كهرماني مذهب", 0xFF2B2110, 0x88FFD700, 0.70f),
+    GlassBackdropPreset("زمردي فخم", 0xFF091F18, 0x6600FF9D, 0.65f),
+    GlassBackdropPreset("عقيق قرمزي", 0xFF240A12, 0x66FF3366, 0.65f)
+)
+
 data class CanvasState(
     val rawText: String = "أَثَــر",
     val displayText: String = "أَثَـــر",
@@ -117,7 +132,17 @@ data class CanvasState(
     val backgroundImageUri: Uri? = null,
     val backgroundDim: Float = 0.25f,
     val backgroundBlur: Float = 0f,
+    val backgroundBrightness: Float = 0f,
+    val backgroundContrast: Float = 1.0f,
+    val backgroundSaturation: Float = 1.0f,
+    val backgroundVignette: Float = 0f,
     val backgroundGrayscale: Boolean = false,
+    val enableGlassBackdrop: Boolean = false,
+    val glassBackdropOpacity: Float = 0.65f,
+    val glassBackdropColorLong: Long = 0xFF0D0F14,
+    val glassBackdropBorderColorLong: Long = 0x55E5C07B,
+    val glassBackdropCornerRadius: Float = 22f,
+    val glassBackdropPadding: Float = 22f,
     val rotationAngle: Float = 0f,
     val scaleFactor: Float = 1.0f,
     val normOffsetX: Float = 0f,

@@ -29,12 +29,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.GlassBorder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 @Composable
@@ -64,10 +67,12 @@ fun CanvasView(
     }
 
     // Load background image bitmap safely with memory limits
-    var bgBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var rawBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var processedBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
     LaunchedEffect(state.backgroundImageUri) {
         val uri = state.backgroundImageUri
-        bgBitmap = if (uri != null) {
+        rawBgBitmap = if (uri != null) {
             try {
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 context.contentResolver.openInputStream(uri)?.use {
@@ -92,6 +97,22 @@ fun CanvasView(
         }
     }
 
+    // Process blur off-thread when blur value or raw image changes
+    LaunchedEffect(rawBgBitmap, state.backgroundBlur) {
+        val base = rawBgBitmap
+        processedBgBitmap = if (base != null) {
+            if (state.backgroundBlur > 0.5f) {
+                withContext(Dispatchers.Default) {
+                    AtharImageProcessor.fastStackBlur(base, state.backgroundBlur.toInt().coerceIn(1, 35))
+                }
+            } else {
+                base
+            }
+        } else {
+            null
+        }
+    }
+
     // Pre-allocated paint objects to guarantee 120Hz zero GC drops
     var isInteracting by remember { mutableStateOf(false) }
     val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
@@ -103,7 +124,6 @@ fun CanvasView(
     val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = Color.parseColor("#FFFFD700"); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
     val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = Color.parseColor("#FFFFD700") } }
     val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
-    val grayMatrix = remember { ColorMatrix().apply { setSaturation(0f) } }
 
     val ratio = state.aspectRatio.ratio
     val canvasModifier = if (ratio != null) {
@@ -160,16 +180,15 @@ fun CanvasView(
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
 
-                // 1. Draw Background Viewport
+                // 1. Draw Background Viewport with photo adjustments, blur and vignette
                 CanvasBackgroundRenderer.drawBackground(
                     nativeCanvas = nativeCanvas,
                     state = state,
                     canvasWidth = canvasWidth,
                     canvasHeight = canvasHeight,
                     density = density,
-                    bgBitmap = bgBitmap,
-                    bgPaint = bgPaint,
-                    grayMatrix = grayMatrix
+                    bgBitmap = processedBgBitmap,
+                    bgPaint = bgPaint
                 )
 
                 // 2. Smart Snapping & Golden Grid Guidelines
@@ -286,6 +305,19 @@ fun CanvasView(
                     TextAlignOption.CENTER -> 0f
                     TextAlignOption.LEFT -> -halfBlockW
                 }
+
+                // Draw Frosted Glass Plaque / Card behind text if enabled
+                TextGlassBackdropRenderer.drawGlassBackdrop(
+                    canvas = nativeCanvas,
+                    state = state,
+                    textAlign = state.textAlign,
+                    maxLineWidth = maxLineWidth,
+                    halfBlockW = halfBlockW,
+                    startY = startY,
+                    totalHeight = totalHeight,
+                    textSizePx = textSizePx,
+                    density = density
+                )
 
                 lines.forEachIndexed { index, line ->
                     val lineY = startY + (index * lineHeight)

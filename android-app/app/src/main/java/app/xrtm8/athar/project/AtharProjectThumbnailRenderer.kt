@@ -16,6 +16,7 @@ import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
 
 /**
  * Dedicated thumbnail renderer for Athar Projects (.athar).
@@ -176,6 +177,19 @@ object AtharProjectThumbnailRenderer {
         canvas.translate(centerX, centerY)
         canvas.rotate(state.rotationAngle)
         canvas.scale(state.scaleFactor, state.scaleFactor)
+
+        // Draw Frosted Glass Plaque in thumbnail if enabled
+        TextGlassBackdropRenderer.drawGlassBackdrop(
+            canvas = canvas,
+            state = state,
+            textAlign = state.textAlign,
+            maxLineWidth = maxLineWidth,
+            halfBlockW = halfBlockW,
+            startY = startY,
+            totalHeight = totalHeight,
+            textSizePx = paint.textSize,
+            density = width / 380f
+        )
 
         lines.forEachIndexed { index, line ->
             val lineY = startY + (index * lineHeight)

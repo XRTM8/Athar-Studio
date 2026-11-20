@@ -19,12 +19,14 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -34,7 +36,7 @@ import java.io.FileOutputStream
  * High-performance export engine for Athar Studio.
  * Renders vector Skia typography at 1080p, 2K, and 4K resolutions with exact
  * shader gradients, multi-line alignments, 2D blur shadows, photo backgrounds,
- * and transparent sticker cropping.
+ * frosted glass backdrop card, and transparent sticker cropping.
  */
 object AtharExportManager {
 
@@ -102,13 +104,28 @@ object AtharExportManager {
         var photoDrawn = false
         val bgUri = state.backgroundImageUri
         if (bgUri != null) {
-            val srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
+            var srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
             if (srcBitmap != null) {
-                val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
-                if (state.backgroundGrayscale) {
-                    val cm = ColorMatrix().apply { setSaturation(0f) }
-                    bgPaint.colorFilter = ColorMatrixColorFilter(cm)
+                // Apply background blur if requested
+                if (state.backgroundBlur > 0.5f) {
+                    val blurR = (state.backgroundBlur * (width / 1080f)).toInt().coerceIn(1, 40)
+                    val blurred = AtharImageProcessor.fastStackBlur(srcBitmap, blurR)
+                    if (blurred != srcBitmap) {
+                        srcBitmap.recycle()
+                        srcBitmap = blurred
+                    }
                 }
+
+                val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
+                    colorFilter = AtharImageProcessor.createCompositeColorFilter(
+                        dim = state.backgroundDim,
+                        brightness = state.backgroundBrightness,
+                        contrast = state.backgroundContrast,
+                        saturation = state.backgroundSaturation,
+                        isGrayscale = state.backgroundGrayscale
+                    )
+                }
+
                 val srcW = srcBitmap.width.toFloat()
                 val srcH = srcBitmap.height.toFloat()
                 val srcRatio = srcW / srcH
@@ -136,13 +153,16 @@ object AtharExportManager {
             } else {
                 canvas.drawColor(Color.BLACK)
             }
-        } else if (state.backgroundDim > 0f) {
-            val dimAlpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
-            canvas.drawColor(Color.argb(dimAlpha, 0, 0, 0))
+        }
+
+        // Apply cinematic vignette overlay if requested
+        if (state.backgroundVignette > 0f) {
+            AtharImageProcessor.drawVignette(canvas, width.toFloat(), height.toFloat(), state.backgroundVignette)
         }
     }
 
     private fun drawTypography(context: Context, canvas: Canvas, state: CanvasState, width: Int, height: Int) {
+        val densityFactor = width / 380f
         val scaledTextSize = (state.fontSize / 380f) * width
         val realTypeface = AtharFontManager.getTypeface(context, state.selectedFont)
         val alphaFloat = state.textOpacity.coerceIn(0.15f, 1.0f)
@@ -237,6 +257,19 @@ object AtharExportManager {
         canvas.translate(centerX, centerY)
         canvas.rotate(state.rotationAngle)
         canvas.scale(state.scaleFactor, state.scaleFactor)
+
+        // Draw Frosted Glass Plaque / Card behind text if enabled
+        TextGlassBackdropRenderer.drawGlassBackdrop(
+            canvas = canvas,
+            state = state,
+            textAlign = state.textAlign,
+            maxLineWidth = maxLineWidth,
+            halfBlockW = halfBlockW,
+            startY = startY,
+            totalHeight = totalHeight,
+            textSizePx = paint.textSize,
+            density = densityFactor
+        )
 
         lines.forEachIndexed { index, line ->
             val lineY = startY + (index * lineHeight)

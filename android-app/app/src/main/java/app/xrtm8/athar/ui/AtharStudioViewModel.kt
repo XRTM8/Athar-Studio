@@ -12,6 +12,7 @@ import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
+import app.xrtm8.athar.model.GlassBackdropPreset
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
@@ -211,12 +212,59 @@ class AtharStudioViewModel : ViewModel() {
         _canvasState.update { it.copy(backgroundDim = dim.coerceIn(0f, 0.95f)) }
     }
 
+    fun setBackgroundBlur(blur: Float) {
+        _canvasState.update { it.copy(backgroundBlur = blur.coerceIn(0f, 35f)) }
+    }
+
+    fun setBackgroundBrightness(brightness: Float) {
+        _canvasState.update { it.copy(backgroundBrightness = brightness.coerceIn(-0.5f, 0.5f)) }
+    }
+
+    fun setBackgroundContrast(contrast: Float) {
+        _canvasState.update { it.copy(backgroundContrast = contrast.coerceIn(0.5f, 1.8f)) }
+    }
+
+    fun setBackgroundSaturation(saturation: Float) {
+        _canvasState.update { it.copy(backgroundSaturation = saturation.coerceIn(0f, 2.0f)) }
+    }
+
+    fun setBackgroundVignette(vignette: Float) {
+        _canvasState.update { it.copy(backgroundVignette = vignette.coerceIn(0f, 1.0f)) }
+    }
+
     fun setBackgroundGrayscale(enabled: Boolean) {
         pushHistory(_canvasState.value.copy(backgroundGrayscale = enabled))
     }
 
     fun setTransparentBg(enabled: Boolean) {
         pushHistory(_canvasState.value.copy(isTransparentBg = enabled))
+    }
+
+    fun toggleGlassBackdrop(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(enableGlassBackdrop = enabled))
+    }
+
+    fun setGlassBackdropOpacity(opacity: Float) {
+        _canvasState.update { it.copy(glassBackdropOpacity = opacity.coerceIn(0.1f, 0.98f)) }
+    }
+
+    fun setGlassBackdropCornerRadius(radius: Float) {
+        _canvasState.update { it.copy(glassBackdropCornerRadius = radius.coerceIn(4f, 48f)) }
+    }
+
+    fun setGlassBackdropPadding(padding: Float) {
+        _canvasState.update { it.copy(glassBackdropPadding = padding.coerceIn(8f, 56f)) }
+    }
+
+    fun setGlassBackdropPreset(preset: GlassBackdropPreset) {
+        pushHistory(
+            _canvasState.value.copy(
+                enableGlassBackdrop = true,
+                glassBackdropColorLong = preset.bgArgb,
+                glassBackdropBorderColorLong = preset.strokeArgb,
+                glassBackdropOpacity = preset.opacity
+            )
+        )
     }
 
     fun setFontSize(size: Float) {

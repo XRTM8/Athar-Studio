@@ -4,9 +4,9 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -111,7 +111,7 @@ fun StudioConsoleDrawer(
                                 1 -> "المدّ الذكي والمحاذاة"
                                 2 -> "المظهر والألوان الفاخرة"
                                 3 -> "العمق والظل والتحديد"
-                                else -> "الكانفاس والخلفية"
+                                else -> "الكانفاس وصورة الخلفية"
                             },
                             color = PureWhite,
                             fontSize = 13.5.sp,
@@ -203,7 +203,24 @@ fun StudioConsoleDrawer(
                             onPickImage = onPickImage,
                             onRemoveImage = onRemoveImage,
                             onDimChange = { viewModel.setBackgroundDim(it) },
-                            onToggleGrayscale = { viewModel.setBackgroundGrayscale(it) },
+                            onBlurChange = { viewModel.setBackgroundBlur(it) },
+                            onBrightnessChange = { viewModel.setBackgroundBrightness(it) },
+                            onContrastChange = { viewModel.setBackgroundContrast(it) },
+                            onSaturationChange = { viewModel.setBackgroundSaturation(it) },
+                            onVignetteChange = { viewModel.setBackgroundVignette(it) },
+                            onResetPhotoAdjustments = {
+                                viewModel.setBackgroundBlur(0f)
+                                viewModel.setBackgroundBrightness(0f)
+                                viewModel.setBackgroundContrast(1.0f)
+                                viewModel.setBackgroundSaturation(1.0f)
+                                viewModel.setBackgroundVignette(0f)
+                                viewModel.setBackgroundDim(0.25f)
+                            },
+                            onToggleGlassBackdrop = { viewModel.toggleGlassBackdrop(it) },
+                            onSelectGlassPreset = { viewModel.setGlassBackdropPreset(it) },
+                            onGlassOpacityChange = { viewModel.setGlassBackdropOpacity(it) },
+                            onGlassCornerRadiusChange = { viewModel.setGlassBackdropCornerRadius(it) },
+                            onGlassPaddingChange = { viewModel.setGlassBackdropPadding(it) },
                             onAspectRatioChange = { viewModel.setAspectRatio(it) },
                             onToggleGridGuides = { viewModel.toggleGridGuides() }
                         )

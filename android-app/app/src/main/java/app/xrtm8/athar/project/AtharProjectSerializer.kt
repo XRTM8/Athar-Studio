@@ -1,7 +1,7 @@
 package app.xrtm8.athar.project
 
 import android.net.Uri
-import app.xrtm8.athar.core.AtharNativeEngine
+import app.xrtm8.athar.core.PureArabicKashidaEngine
 import app.xrtm8.athar.model.*
 import org.json.JSONObject
 
@@ -40,7 +40,18 @@ object AtharProjectSerializer {
             put("solid_bg_color", state.solidBgColorLong ?: 0L)
             put("has_background_photo", hasBackgroundPhoto)
             put("background_dim", state.backgroundDim.toDouble())
+            put("background_blur", state.backgroundBlur.toDouble())
+            put("background_brightness", state.backgroundBrightness.toDouble())
+            put("background_contrast", state.backgroundContrast.toDouble())
+            put("background_saturation", state.backgroundSaturation.toDouble())
+            put("background_vignette", state.backgroundVignette.toDouble())
             put("background_grayscale", state.backgroundGrayscale)
+            put("enable_glass_backdrop", state.enableGlassBackdrop)
+            put("glass_backdrop_opacity", state.glassBackdropOpacity.toDouble())
+            put("glass_backdrop_color", state.glassBackdropColorLong)
+            put("glass_backdrop_border_color", state.glassBackdropBorderColorLong)
+            put("glass_backdrop_corner_radius", state.glassBackdropCornerRadius.toDouble())
+            put("glass_backdrop_padding", state.glassBackdropPadding.toDouble())
             put("rotation_angle", state.rotationAngle.toDouble())
             put("scale_factor", state.scaleFactor.toDouble())
             put("norm_offset_x", state.normOffsetX.toDouble())
@@ -68,7 +79,7 @@ object AtharProjectSerializer {
         val customColor = c.optLong("custom_color", 0L)
         val solidBg = c.optLong("solid_bg_color", 0L)
 
-        val stretched = AtharNativeEngine.applyKashida(rawText, stretchLevel, kashidaMode, kashidaTargetIndex)
+        val stretched = PureArabicKashidaEngine.stretchText(rawText, stretchLevel, kashidaMode, kashidaTargetIndex)
 
         return CanvasState(
             rawText = rawText,
@@ -99,7 +110,18 @@ object AtharProjectSerializer {
             solidBgColorLong = if (solidBg != 0L) solidBg else null,
             backgroundImageUri = backgroundUri,
             backgroundDim = c.optDouble("background_dim", 0.25).toFloat(),
+            backgroundBlur = c.optDouble("background_blur", 0.0).toFloat(),
+            backgroundBrightness = c.optDouble("background_brightness", 0.0).toFloat(),
+            backgroundContrast = c.optDouble("background_contrast", 1.0).toFloat(),
+            backgroundSaturation = c.optDouble("background_saturation", 1.0).toFloat(),
+            backgroundVignette = c.optDouble("background_vignette", 0.0).toFloat(),
             backgroundGrayscale = c.optBoolean("background_grayscale", false),
+            enableGlassBackdrop = c.optBoolean("enable_glass_backdrop", false),
+            glassBackdropOpacity = c.optDouble("glass_backdrop_opacity", 0.65).toFloat(),
+            glassBackdropColorLong = c.optLong("glass_backdrop_color", 0xFF0D0F14),
+            glassBackdropBorderColorLong = c.optLong("glass_backdrop_border_color", 0x55E5C07B),
+            glassBackdropCornerRadius = c.optDouble("glass_backdrop_corner_radius", 22.0).toFloat(),
+            glassBackdropPadding = c.optDouble("glass_backdrop_padding", 22.0).toFloat(),
             rotationAngle = c.optDouble("rotation_angle", 0.0).toFloat(),
             scaleFactor = c.optDouble("scale_factor", 1.0).toFloat(),
             normOffsetX = c.optDouble("norm_offset_x", 0.0).toFloat(),

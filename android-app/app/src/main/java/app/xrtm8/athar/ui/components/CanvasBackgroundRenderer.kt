@@ -3,16 +3,16 @@ package app.xrtm8.athar.ui.components
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
+import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.model.CanvasState
 
 /**
  * Renders the canvas viewport background:
  * - Transparency checkerboard grid
- * - Aspect-fit photo image with optional grayscale and dim
+ * - Aspect-fit photo image with composite color adjustments (Brightness, Contrast, Saturation, Dim)
+ * - Cinematic Vignette overlay
  * - Solid theme background color
  */
 object CanvasBackgroundRenderer {
@@ -24,8 +24,7 @@ object CanvasBackgroundRenderer {
         canvasHeight: Float,
         density: Float,
         bgBitmap: Bitmap?,
-        bgPaint: Paint,
-        grayMatrix: ColorMatrix
+        bgPaint: Paint
     ) {
         if (state.isTransparentBg) {
             val tileSize = 16f * density
@@ -47,11 +46,15 @@ object CanvasBackgroundRenderer {
                 }
             }
         } else if (bgBitmap != null) {
-            if (state.backgroundGrayscale) {
-                bgPaint.colorFilter = ColorMatrixColorFilter(grayMatrix)
-            } else {
-                bgPaint.colorFilter = null
-            }
+            // Apply full composite adjustments (Brightness, Contrast, Saturation, Dim, Grayscale)
+            bgPaint.colorFilter = AtharImageProcessor.createCompositeColorFilter(
+                dim = state.backgroundDim,
+                brightness = state.backgroundBrightness,
+                contrast = state.backgroundContrast,
+                saturation = state.backgroundSaturation,
+                isGrayscale = state.backgroundGrayscale
+            )
+
             val srcW = bgBitmap.width.toFloat()
             val srcH = bgBitmap.height.toFloat()
             val srcRatio = srcW / srcH
@@ -69,15 +72,20 @@ object CanvasBackgroundRenderer {
             val dstRect = Rect(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
             nativeCanvas.drawBitmap(bgBitmap, srcRect, dstRect, bgPaint)
 
-            // Dim Overlay for Text Legibility
-            if (state.backgroundDim > 0f) {
-                val alpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
-                nativeCanvas.drawColor(Color.argb(alpha, 0, 0, 0))
+            // Cinematic Vignette overlay
+            if (state.backgroundVignette > 0f) {
+                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
             }
         } else if (state.solidBgColorLong != null) {
             nativeCanvas.drawColor(state.solidBgColorLong.toInt())
+            if (state.backgroundVignette > 0f) {
+                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
+            }
         } else {
             nativeCanvas.drawColor(Color.BLACK)
+            if (state.backgroundVignette > 0f) {
+                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
+            }
         }
     }
 }
