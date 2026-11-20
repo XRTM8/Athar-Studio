@@ -34,10 +34,32 @@ enum class ArabicFontFamily(
     EL_MESSIRI("المسيري الملكي", "فخامة متزنة", "fonts/el_messiri.ttf", "أَثَــر مَلَكِي")
 }
 
+enum class TextAlignOption(val label: String) {
+    RIGHT("يمين"),
+    CENTER("وسط"),
+    LEFT("يسار")
+}
+
 enum class ExportResolution(val label: String, val width: Int, val description: String) {
     HD_1080P("عالية الدقة HD (1080p)", 1080, "مثالية للنشر السريع على انستغرام وتيك توك"),
     ULTRA_4K("فائقة الدقة Ultra 4K (2160p)", 2160, "دقة فائقة النقاء للطباعة وتفاصيل التايبوغرافي الحادة")
 }
+
+data class ColorSwatch(val name: String, val argb: Long)
+
+val LUXURY_SWATCHES = listOf(
+    ColorSwatch("تذهيب تلقائي", 0x00000000), // 0 means default effect shader
+    ColorSwatch("ذهب ملكي", 0xFFFFD700),
+    ColorSwatch("أبيض ناصع", 0xFFFFFFFF),
+    ColorSwatch("رمال نجد", 0xFFE5C07B),
+    ColorSwatch("زمرد نبيل", 0xFF00E676),
+    ColorSwatch("ياقوت قرمزي", 0xFFFF3366),
+    ColorSwatch("كروم بلاتيني", 0xFFE0E0E0),
+    ColorSwatch("أزرق ملكي", 0xFF448AFF),
+    ColorSwatch("خزامي ناعم", 0xFFB388FF),
+    ColorSwatch("برتقالي شمس", 0xFFFF9100),
+    ColorSwatch("فحم داكن", 0xFF212121)
+)
 
 data class CanvasState(
     val rawText: String = "أَثَــر",
@@ -47,10 +69,19 @@ data class CanvasState(
     val selectedFont: ArabicFontFamily = ArabicFontFamily.AREF_RUQAA,
     val fontSize: Float = 52f,
     val textColor: Color = Color.White,
+    val customTextColorLong: Long? = null,
+    val strokeWidth: Float = 0f,
+    val strokeColorLong: Long = 0xFF000000,
+    val shadowRadius: Float = 16f,
+    val shadowDy: Float = 6f,
+    val textAlign: TextAlignOption = TextAlignOption.CENTER,
+    val lineSpacingMultiplier: Float = 1.35f,
     val isTextBehindSubject: Boolean = false,
     val aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
     val backgroundImageUri: Uri? = null,
     val backgroundDim: Float = 0.25f,
+    val backgroundBlur: Float = 0f,
+    val backgroundGrayscale: Boolean = false,
     val letterSpacing: Float = 0f,
     val rotationAngle: Float = 0f,
     val scaleFactor: Float = 1.0f,

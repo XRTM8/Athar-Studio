@@ -3,6 +3,8 @@ package app.xrtm8.athar.ui.components
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BlurMaskFilter
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Rect
@@ -29,6 +31,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.theme.AmoledBlack
@@ -89,11 +92,13 @@ fun CanvasView(
     }
 
     // Pre-allocated paint objects to guarantee 120Hz zero GC drops
-    val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
-    val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
-    val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
-    val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE; textAlign = Paint.Align.CENTER } }
+    val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
+    val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
+    val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
+    val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE } }
     val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#77E5C07B"); strokeWidth = 2.5f } }
+    val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
+    val grayMatrix = remember { ColorMatrix().apply { setSaturation(0f) } }
 
     val ratio = state.aspectRatio.ratio
     val canvasModifier = if (ratio != null) {
@@ -147,20 +152,25 @@ fun CanvasView(
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
 
-                // 1. Draw Background Image
+                // 1. Draw Background Image (Grayscale + Dim)
                 if (bgBitmap != null && !state.isTransparentBg) {
+                    if (state.backgroundGrayscale) {
+                        bgPaint.colorFilter = ColorMatrixColorFilter(grayMatrix)
+                    } else {
+                        bgPaint.colorFilter = null
+                    }
                     val src = Rect(0, 0, bgBitmap!!.width, bgBitmap!!.height)
                     val dst = Rect(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
-                    nativeCanvas.drawBitmap(bgBitmap!!, src, dst, Paint(Paint.FILTER_BITMAP_FLAG))
+                    nativeCanvas.drawBitmap(bgBitmap!!, src, dst, bgPaint)
 
-                    // 2. Dim Overlay for Text Legibility
+                    // Dim Overlay for Text Legibility
                     if (state.backgroundDim > 0f) {
                         val alpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
                         nativeCanvas.drawColor(android.graphics.Color.argb(alpha, 0, 0, 0))
                     }
                 }
 
-                // 3. Smart Snapping Guidelines (visual feedback when centered)
+                // 2. Smart Snapping Guidelines
                 if (abs(localNormX) < 0.005f) {
                     nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
                 }
@@ -186,129 +196,158 @@ fun CanvasView(
                 shadowPaint.typeface = realTypeface
                 strokePaint.typeface = realTypeface
 
+                // Alignment
+                val align = when (state.textAlign) {
+                    TextAlignOption.RIGHT -> Paint.Align.RIGHT
+                    TextAlignOption.CENTER -> Paint.Align.CENTER
+                    TextAlignOption.LEFT -> Paint.Align.LEFT
+                }
+                basePaint.textAlign = align
+                glowPaint.textAlign = align
+                shadowPaint.textAlign = align
+                strokePaint.textAlign = align
+
                 val textSizePx = state.fontSize * density
                 basePaint.textSize = textSizePx
                 glowPaint.textSize = textSizePx
                 shadowPaint.textSize = textSizePx
                 strokePaint.textSize = textSizePx
 
+                // Stroke Configuration
+                if (state.strokeWidth > 0f) {
+                    strokePaint.strokeWidth = state.strokeWidth * density
+                    strokePaint.color = state.strokeColorLong.toInt()
+                }
+
                 val lines = state.displayText.split("\n")
-                val lineHeight = textSizePx * 1.35f
+                val lineHeight = textSizePx * state.lineSpacingMultiplier
                 val totalHeight = (lines.size - 1) * lineHeight
                 val startY = -totalHeight / 2f
 
                 lines.forEachIndexed { index, line ->
                     val lineY = startY + (index * lineHeight)
+                    val lineX = when (state.textAlign) {
+                        TextAlignOption.RIGHT -> canvasWidth * 0.38f
+                        TextAlignOption.CENTER -> 0f
+                        TextAlignOption.LEFT -> -canvasWidth * 0.38f
+                    }
 
-                    when (state.selectedEffect) {
-                        VisualEffect.ROYAL_GOLD -> {
-                            glowPaint.color = android.graphics.Color.parseColor("#44E5C07B")
-                            glowPaint.maskFilter = BlurMaskFilter(22f * density, BlurMaskFilter.Blur.NORMAL)
-                            nativeCanvas.drawText(line, 0f, lineY, glowPaint)
+                    // Stroke Rendering
+                    if (state.strokeWidth > 0f) {
+                        nativeCanvas.drawText(line, lineX, lineY, strokePaint)
+                    }
 
-                            shadowPaint.color = android.graphics.Color.parseColor("#99301B05")
-                            shadowPaint.maskFilter = null
-                            nativeCanvas.drawText(line, 0f, lineY + (5f * density), shadowPaint)
-
-                            basePaint.shader = LinearGradient(
-                                0f, lineY - textSizePx * 0.8f,
-                                0f, lineY + textSizePx * 0.2f,
-                                intArrayOf(
-                                    android.graphics.Color.parseColor("#FFF7DB"),
-                                    android.graphics.Color.parseColor("#F5C369"),
-                                    android.graphics.Color.parseColor("#D49438"),
-                                    android.graphics.Color.parseColor("#FFE8A3"),
-                                    android.graphics.Color.parseColor("#B0731E")
-                                ),
-                                floatArrayOf(0.0f, 0.25f, 0.55f, 0.75f, 1.0f),
-                                Shader.TileMode.CLAMP
-                            )
-                            nativeCanvas.drawText(line, 0f, lineY, basePaint)
+                    // Custom Color or Effect Shaders
+                    if (state.customTextColorLong != null && state.customTextColorLong != 0L) {
+                        basePaint.color = state.customTextColorLong.toInt()
+                        basePaint.shader = null
+                        if (state.shadowRadius > 0f) {
+                            shadowPaint.color = android.graphics.Color.parseColor("#99000000")
+                            shadowPaint.maskFilter = BlurMaskFilter(state.shadowRadius * density, BlurMaskFilter.Blur.NORMAL)
+                            nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
                         }
+                        nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                    } else {
+                        when (state.selectedEffect) {
+                            VisualEffect.ROYAL_GOLD -> {
+                                glowPaint.color = android.graphics.Color.parseColor("#44E5C07B")
+                                glowPaint.maskFilter = BlurMaskFilter(22f * density, BlurMaskFilter.Blur.NORMAL)
+                                nativeCanvas.drawText(line, lineX, lineY, glowPaint)
 
-                        VisualEffect.LIQUID_CHROME -> {
-                            shadowPaint.color = android.graphics.Color.parseColor("#66000000")
-                            shadowPaint.maskFilter = null
-                            nativeCanvas.drawText(line, 0f, lineY + (6f * density), shadowPaint)
-
-                            basePaint.shader = LinearGradient(
-                                -textSizePx * 0.5f, lineY - textSizePx * 0.8f,
-                                textSizePx * 0.5f, lineY + textSizePx * 0.2f,
-                                intArrayOf(
-                                    android.graphics.Color.parseColor("#FFFFFF"),
-                                    android.graphics.Color.parseColor("#9EA5B0"),
-                                    android.graphics.Color.parseColor("#181C22"),
-                                    android.graphics.Color.parseColor("#FFFFFF"),
-                                    android.graphics.Color.parseColor("#505866"),
-                                    android.graphics.Color.parseColor("#DDE2EA")
-                                ),
-                                floatArrayOf(0.0f, 0.2f, 0.45f, 0.55f, 0.8f, 1.0f),
-                                Shader.TileMode.CLAMP
-                            )
-                            nativeCanvas.drawText(line, 0f, lineY, basePaint)
-
-                            strokePaint.strokeWidth = 1.2f * density
-                            strokePaint.shader = null
-                            strokePaint.color = android.graphics.Color.parseColor("#88FFFFFF")
-                            nativeCanvas.drawText(line, 0f, lineY, strokePaint)
-                        }
-
-                        VisualEffect.FROSTED_GLASS -> {
-                            shadowPaint.color = android.graphics.Color.parseColor("#55000000")
-                            shadowPaint.maskFilter = BlurMaskFilter(14f * density, BlurMaskFilter.Blur.NORMAL)
-                            nativeCanvas.drawText(line, 0f, lineY + (4f * density), shadowPaint)
-
-                            basePaint.shader = LinearGradient(
-                                0f, lineY - textSizePx * 0.8f,
-                                0f, lineY + textSizePx * 0.2f,
-                                intArrayOf(
-                                    android.graphics.Color.parseColor("#E6FFFFFF"),
-                                    android.graphics.Color.parseColor("#33E2E8F0")
-                                ),
-                                null,
-                                Shader.TileMode.CLAMP
-                            )
-                            nativeCanvas.drawText(line, 0f, lineY, basePaint)
-
-                            strokePaint.strokeWidth = 1.0f * density
-                            strokePaint.shader = null
-                            strokePaint.color = android.graphics.Color.parseColor("#77FFFFFF")
-                            nativeCanvas.drawText(line, 0f, lineY, strokePaint)
-                        }
-
-                        VisualEffect.CYBER_NEON -> {
-                            glowPaint.color = android.graphics.Color.parseColor("#6600FF9D")
-                            glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
-                            nativeCanvas.drawText(line, 0f, lineY, glowPaint)
-
-                            shadowPaint.color = android.graphics.Color.parseColor("#88009955")
-                            shadowPaint.maskFilter = BlurMaskFilter(12f * density, BlurMaskFilter.Blur.NORMAL)
-                            nativeCanvas.drawText(line, 0f, lineY, shadowPaint)
-
-                            basePaint.shader = null
-                            basePaint.color = android.graphics.Color.WHITE
-                            nativeCanvas.drawText(line, 0f, lineY, basePaint)
-                        }
-
-                        VisualEffect.CINEMATIC_SHADOW -> {
-                            for (step in 1..6) {
-                                shadowPaint.color = android.graphics.Color.argb((110 - step * 16).coerceAtLeast(10), 0, 0, 0)
+                                shadowPaint.color = android.graphics.Color.parseColor("#99301B05")
                                 shadowPaint.maskFilter = null
-                                nativeCanvas.drawText(line, step * 1.5f * density, lineY + (step * 2.2f * density), shadowPaint)
+                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
+
+                                basePaint.shader = LinearGradient(
+                                    0f, lineY - textSizePx * 0.8f,
+                                    0f, lineY + textSizePx * 0.2f,
+                                    intArrayOf(
+                                        android.graphics.Color.parseColor("#FFF7DB"),
+                                        android.graphics.Color.parseColor("#F5C369"),
+                                        android.graphics.Color.parseColor("#D49438"),
+                                        android.graphics.Color.parseColor("#FFE8A3"),
+                                        android.graphics.Color.parseColor("#B0731E")
+                                    ),
+                                    floatArrayOf(0.0f, 0.25f, 0.55f, 0.75f, 1.0f),
+                                    Shader.TileMode.CLAMP
+                                )
+                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
                             }
-                            basePaint.shader = null
-                            basePaint.color = android.graphics.Color.parseColor("#F5F6F8")
-                            nativeCanvas.drawText(line, 0f, lineY, basePaint)
-                        }
 
-                        VisualEffect.MINIMAL_LUXURY -> {
-                            shadowPaint.color = android.graphics.Color.parseColor("#44000000")
-                            shadowPaint.maskFilter = BlurMaskFilter(6f * density, BlurMaskFilter.Blur.NORMAL)
-                            nativeCanvas.drawText(line, 0f, lineY + (2.5f * density), shadowPaint)
+                            VisualEffect.LIQUID_CHROME -> {
+                                shadowPaint.color = android.graphics.Color.parseColor("#66000000")
+                                shadowPaint.maskFilter = null
+                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
 
-                            basePaint.shader = null
-                            basePaint.color = android.graphics.Color.WHITE
-                            nativeCanvas.drawText(line, 0f, lineY, basePaint)
+                                basePaint.shader = LinearGradient(
+                                    -textSizePx * 0.5f, lineY - textSizePx * 0.8f,
+                                    textSizePx * 0.5f, lineY + textSizePx * 0.2f,
+                                    intArrayOf(
+                                        android.graphics.Color.parseColor("#FFFFFF"),
+                                        android.graphics.Color.parseColor("#9EA5B0"),
+                                        android.graphics.Color.parseColor("#181C22"),
+                                        android.graphics.Color.parseColor("#FFFFFF"),
+                                        android.graphics.Color.parseColor("#505866"),
+                                        android.graphics.Color.parseColor("#DDE2EA")
+                                    ),
+                                    floatArrayOf(0.0f, 0.2f, 0.45f, 0.55f, 0.8f, 1.0f),
+                                    Shader.TileMode.CLAMP
+                                )
+                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                            }
+
+                            VisualEffect.FROSTED_GLASS -> {
+                                shadowPaint.color = android.graphics.Color.parseColor("#55000000")
+                                shadowPaint.maskFilter = BlurMaskFilter(14f * density, BlurMaskFilter.Blur.NORMAL)
+                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
+
+                                basePaint.shader = LinearGradient(
+                                    0f, lineY - textSizePx * 0.8f,
+                                    0f, lineY + textSizePx * 0.2f,
+                                    intArrayOf(
+                                        android.graphics.Color.parseColor("#E6FFFFFF"),
+                                        android.graphics.Color.parseColor("#33E2E8F0")
+                                    ),
+                                    null,
+                                    Shader.TileMode.CLAMP
+                                )
+                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                            }
+
+                            VisualEffect.CYBER_NEON -> {
+                                glowPaint.color = android.graphics.Color.parseColor("#6600FF9D")
+                                glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
+                                nativeCanvas.drawText(line, lineX, lineY, glowPaint)
+
+                                shadowPaint.color = android.graphics.Color.parseColor("#88009955")
+                                shadowPaint.maskFilter = BlurMaskFilter(12f * density, BlurMaskFilter.Blur.NORMAL)
+                                nativeCanvas.drawText(line, lineX, lineY, shadowPaint)
+
+                                basePaint.shader = null
+                                basePaint.color = android.graphics.Color.WHITE
+                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                            }
+
+                            VisualEffect.CINEMATIC_SHADOW -> {
+                                for (step in 1..6) {
+                                    shadowPaint.color = android.graphics.Color.argb((110 - step * 16).coerceAtLeast(10), 0, 0, 0)
+                                    shadowPaint.maskFilter = null
+                                    nativeCanvas.drawText(line, lineX + (step * 1.5f * density), lineY + (step * 2.2f * density), shadowPaint)
+                                }
+                                basePaint.shader = null
+                                basePaint.color = android.graphics.Color.parseColor("#F5F6F8")
+                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                            }
+
+                            VisualEffect.MINIMAL_LUXURY -> {
+                                shadowPaint.color = android.graphics.Color.parseColor("#44000000")
+                                shadowPaint.maskFilter = BlurMaskFilter(6f * density, BlurMaskFilter.Blur.NORMAL)
+                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
+
+                                basePaint.shader = null
+                                basePaint.color = android.graphics.Color.WHITE
+                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                            }
                         }
                     }
                 }

@@ -6,6 +6,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Rect
@@ -22,6 +24,7 @@ import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
+import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.OutputStream
+import java.util.ArrayDeque
 
 class AtharStudioViewModel : ViewModel() {
 
@@ -47,41 +50,114 @@ class AtharStudioViewModel : ViewModel() {
     private val _exportMessage = MutableStateFlow<String?>(null)
     val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
 
+    // Undo / Redo History Stacks
+    private val undoStack = ArrayDeque<CanvasState>()
+    private val redoStack = ArrayDeque<CanvasState>()
+
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
+
+    private val _canRedo = MutableStateFlow(false)
+    val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
+
     private var kashidaDebounceJob: Job? = null
 
     init {
         updateKashidaInternal(_canvasState.value.rawText, _canvasState.value.stretchLevel)
     }
 
+    private fun pushHistory(newState: CanvasState) {
+        if (_canvasState.value != newState) {
+            undoStack.addLast(_canvasState.value)
+            if (undoStack.size > 25) undoStack.removeFirst()
+            redoStack.clear()
+            _canUndo.value = true
+            _canRedo.value = false
+            _canvasState.value = newState
+        }
+    }
+
+    fun undo() {
+        if (undoStack.isNotEmpty()) {
+            val previous = undoStack.removeLast()
+            redoStack.addLast(_canvasState.value)
+            _canvasState.value = previous
+            _canUndo.value = undoStack.isNotEmpty()
+            _canRedo.value = true
+        }
+    }
+
+    fun redo() {
+        if (redoStack.isNotEmpty()) {
+            val next = redoStack.removeLast()
+            undoStack.addLast(_canvasState.value)
+            _canvasState.value = next
+            _canUndo.value = true
+            _canRedo.value = redoStack.isNotEmpty()
+        }
+    }
+
     fun setText(newText: String) {
-        _canvasState.update { it.copy(rawText = newText) }
+        pushHistory(_canvasState.value.copy(rawText = newText))
         scheduleKashidaUpdate(newText, _canvasState.value.stretchLevel)
     }
 
     fun setStretchLevel(newLevel: Int) {
         if (newLevel == _canvasState.value.stretchLevel) return
-        _canvasState.update { it.copy(stretchLevel = newLevel) }
+        pushHistory(_canvasState.value.copy(stretchLevel = newLevel))
         scheduleKashidaUpdate(_canvasState.value.rawText, newLevel)
     }
 
     fun setEffect(effect: VisualEffect) {
-        _canvasState.update { it.copy(selectedEffect = effect) }
+        pushHistory(_canvasState.value.copy(selectedEffect = effect, customTextColorLong = null))
     }
 
     fun setFont(font: ArabicFontFamily) {
-        _canvasState.update { it.copy(selectedFont = font) }
+        pushHistory(_canvasState.value.copy(selectedFont = font))
+    }
+
+    fun setCustomColor(colorLong: Long?) {
+        pushHistory(_canvasState.value.copy(customTextColorLong = colorLong))
+    }
+
+    fun setStrokeWidth(width: Float) {
+        pushHistory(_canvasState.value.copy(strokeWidth = width.coerceIn(0f, 16f)))
+    }
+
+    fun setStrokeColor(colorLong: Long) {
+        pushHistory(_canvasState.value.copy(strokeColorLong = colorLong))
+    }
+
+    fun setShadowRadius(radius: Float) {
+        pushHistory(_canvasState.value.copy(shadowRadius = radius.coerceIn(0f, 60f)))
+    }
+
+    fun setShadowDy(dy: Float) {
+        pushHistory(_canvasState.value.copy(shadowDy = dy.coerceIn(-30f, 40f)))
+    }
+
+    fun setTextAlign(alignment: TextAlignOption) {
+        pushHistory(_canvasState.value.copy(textAlign = alignment))
+    }
+
+    fun setLineSpacing(multiplier: Float) {
+        pushHistory(_canvasState.value.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)))
     }
 
     fun setAspectRatio(ratio: CanvasAspectRatio) {
-        _canvasState.update { it.copy(aspectRatio = ratio) }
+        pushHistory(_canvasState.value.copy(aspectRatio = ratio))
     }
 
     fun setBackgroundImageUri(uri: Uri?) {
-        _canvasState.update { it.copy(backgroundImageUri = uri) }
+        pushHistory(_canvasState.value.copy(backgroundImageUri = uri))
     }
 
     fun setBackgroundDim(dim: Float) {
-        _canvasState.update { it.copy(backgroundDim = dim.coerceIn(0f, 0.9f)) }
+        _canvasState.update { it.copy(backgroundDim = dim.coerceIn(0f, 0.95f)) }
+    }
+
+    fun setBackgroundGrayscale(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(backgroundGrayscale = enabled))
     }
 
     fun setFontSize(size: Float) {
@@ -89,13 +165,9 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setTextBehindSubject(enabled: Boolean) {
-        _canvasState.update { it.copy(isTextBehindSubject = enabled) }
+        pushHistory(_canvasState.value.copy(isTextBehindSubject = enabled))
     }
 
-    /**
-     * Unified Normalized Coordinate Transformation:
-     * Receives gestures from CanvasView and persists the final transformation state.
-     */
     fun updateTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
         _canvasState.update {
             it.copy(
@@ -108,26 +180,26 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun alignCenter() {
-        _canvasState.update { it.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f) }
+        pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f))
     }
 
     fun alignTop() {
-        _canvasState.update { it.copy(normOffsetX = 0f, normOffsetY = -0.28f, rotationAngle = 0f) }
+        pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = -0.28f, rotationAngle = 0f))
     }
 
     fun alignBottom() {
-        _canvasState.update { it.copy(normOffsetX = 0f, normOffsetY = 0.28f, rotationAngle = 0f) }
+        pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = 0.28f, rotationAngle = 0f))
     }
 
     fun resetCanvasTransform() {
-        _canvasState.update {
-            it.copy(
+        pushHistory(
+            _canvasState.value.copy(
                 normOffsetX = 0f,
                 normOffsetY = 0f,
                 scaleFactor = 1.0f,
                 rotationAngle = 0f
             )
-        }
+        )
     }
 
     fun clearExportMessage() {
@@ -146,9 +218,6 @@ class AtharStudioViewModel : ViewModel() {
         _canvasState.update { it.copy(displayText = stretched) }
     }
 
-    /**
-     * Memory-safe image decoder preventing OOM crashes with ultra-large camera photos.
-     */
     private fun decodeSampledBitmap(context: Context, uri: Uri, targetW: Int, targetH: Int): Bitmap? {
         return try {
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -173,9 +242,6 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Ultra-High Resolution Rendering Engine supporting up to 4K (2160x3840).
-     */
     fun exportDesign(
         context: Context,
         resolution: ExportResolution = ExportResolution.HD_1080P,
@@ -207,9 +273,14 @@ class AtharStudioViewModel : ViewModel() {
                         if (bgUri != null) {
                             val srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
                             if (srcBitmap != null) {
+                                val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+                                if (currentState.backgroundGrayscale) {
+                                    val cm = ColorMatrix().apply { setSaturation(0f) }
+                                    bgPaint.colorFilter = ColorMatrixColorFilter(cm)
+                                }
                                 val srcRect = Rect(0, 0, srcBitmap.width, srcBitmap.height)
                                 val dstRect = Rect(0, 0, width, height)
-                                canvas.drawBitmap(srcBitmap, srcRect, dstRect, Paint(Paint.FILTER_BITMAP_FLAG))
+                                canvas.drawBitmap(srcBitmap, srcRect, dstRect, bgPaint)
                                 photoDrawn = true
                             }
                         }
@@ -222,70 +293,95 @@ class AtharStudioViewModel : ViewModel() {
                         }
                     }
 
-                    // Scaled typography paint matching preview perfectly
+                    val scaledTextSize = (currentState.fontSize / 380f) * width
+                    val realTypeface = AtharFontManager.getTypeface(context, currentState.selectedFont)
+
                     val paint = Paint().apply {
                         isAntiAlias = true
                         isDither = true
-                        textSize = (currentState.fontSize / 380f) * width
-                        textAlign = Paint.Align.CENTER
-                        typeface = AtharFontManager.getTypeface(context, currentState.selectedFont)
+                        textSize = scaledTextSize
+                        textAlign = when (currentState.textAlign) {
+                            TextAlignOption.RIGHT -> Paint.Align.RIGHT
+                            TextAlignOption.CENTER -> Paint.Align.CENTER
+                            TextAlignOption.LEFT -> Paint.Align.LEFT
+                        }
+                        typeface = realTypeface
                     }
 
-                    // Apply visual metallic shaders
-                    when (currentState.selectedEffect) {
-                        VisualEffect.ROYAL_GOLD -> {
-                            paint.shader = LinearGradient(
-                                0f, -paint.textSize * 0.8f,
-                                0f, paint.textSize * 0.2f,
-                                intArrayOf(
-                                    android.graphics.Color.parseColor("#FFF7DB"),
-                                    android.graphics.Color.parseColor("#F5C369"),
-                                    android.graphics.Color.parseColor("#D49438"),
-                                    android.graphics.Color.parseColor("#FFE8A3")
-                                ),
-                                null,
-                                Shader.TileMode.CLAMP
-                            )
-                            paint.setShadowLayer(paint.textSize * 0.25f, 0f, paint.textSize * 0.08f, android.graphics.Color.parseColor("#994A2800"))
+                    val strokePaint = if (currentState.strokeWidth > 0f) {
+                        Paint().apply {
+                            isAntiAlias = true
+                            isDither = true
+                            style = Paint.Style.STROKE
+                            strokeWidth = (currentState.strokeWidth / 380f) * width
+                            color = currentState.strokeColorLong.toInt()
+                            textSize = scaledTextSize
+                            textAlign = paint.textAlign
+                            typeface = realTypeface
                         }
-                        VisualEffect.LIQUID_CHROME -> {
-                            paint.shader = LinearGradient(
-                                0f, -paint.textSize * 0.8f,
-                                0f, paint.textSize * 0.2f,
-                                intArrayOf(
-                                    android.graphics.Color.parseColor("#FFFFFF"),
-                                    android.graphics.Color.parseColor("#D8D8E0"),
-                                    android.graphics.Color.parseColor("#8E919D"),
-                                    android.graphics.Color.parseColor("#F2F4F8")
-                                ),
-                                null,
-                                Shader.TileMode.CLAMP
-                            )
-                            paint.setShadowLayer(paint.textSize * 0.22f, 0f, paint.textSize * 0.08f, android.graphics.Color.parseColor("#99202028"))
-                        }
-                        VisualEffect.CYBER_NEON -> {
-                            paint.color = android.graphics.Color.parseColor("#00FF9D")
-                            paint.setShadowLayer(paint.textSize * 0.35f, 0f, 0f, android.graphics.Color.parseColor("#FF00FF9D"))
-                        }
-                        VisualEffect.CINEMATIC_SHADOW -> {
-                            paint.color = android.graphics.Color.parseColor("#F2F2F2")
-                            paint.setShadowLayer(paint.textSize * 0.4f, 0f, paint.textSize * 0.15f, android.graphics.Color.parseColor("#DD000000"))
-                        }
-                        VisualEffect.FROSTED_GLASS -> {
-                            paint.color = android.graphics.Color.parseColor("#DDFFFFFF")
-                            paint.setShadowLayer(paint.textSize * 0.2f, 0f, 0f, android.graphics.Color.parseColor("#66FFFFFF"))
-                        }
-                        VisualEffect.MINIMAL_LUXURY -> {
-                            paint.color = android.graphics.Color.WHITE
+                    } else null
+
+                    // Color & Shader configuration
+                    if (currentState.customTextColorLong != null && currentState.customTextColorLong != 0L) {
+                        paint.color = currentState.customTextColorLong.toInt()
+                        paint.shader = null
+                    } else {
+                        when (currentState.selectedEffect) {
+                            VisualEffect.ROYAL_GOLD -> {
+                                paint.shader = LinearGradient(
+                                    0f, -paint.textSize * 0.8f,
+                                    0f, paint.textSize * 0.2f,
+                                    intArrayOf(
+                                        android.graphics.Color.parseColor("#FFF7DB"),
+                                        android.graphics.Color.parseColor("#F5C369"),
+                                        android.graphics.Color.parseColor("#D49438"),
+                                        android.graphics.Color.parseColor("#FFE8A3")
+                                    ),
+                                    null,
+                                    Shader.TileMode.CLAMP
+                                )
+                            }
+                            VisualEffect.LIQUID_CHROME -> {
+                                paint.shader = LinearGradient(
+                                    0f, -paint.textSize * 0.8f,
+                                    0f, paint.textSize * 0.2f,
+                                    intArrayOf(
+                                        android.graphics.Color.parseColor("#FFFFFF"),
+                                        android.graphics.Color.parseColor("#D8D8E0"),
+                                        android.graphics.Color.parseColor("#8E919D"),
+                                        android.graphics.Color.parseColor("#F2F4F8")
+                                    ),
+                                    null,
+                                    Shader.TileMode.CLAMP
+                                )
+                            }
+                            VisualEffect.CYBER_NEON -> {
+                                paint.color = android.graphics.Color.parseColor("#00FF9D")
+                            }
+                            VisualEffect.CINEMATIC_SHADOW -> {
+                                paint.color = android.graphics.Color.parseColor("#F2F2F2")
+                            }
+                            VisualEffect.FROSTED_GLASS -> {
+                                paint.color = android.graphics.Color.parseColor("#DDFFFFFF")
+                            }
+                            VisualEffect.MINIMAL_LUXURY -> {
+                                paint.color = android.graphics.Color.WHITE
+                            }
                         }
                     }
 
-                    // Normalized coordinate translation matching screen preview 100%
+                    // Shadow configuration
+                    if (currentState.shadowRadius > 0f) {
+                        val scaledShadowRadius = (currentState.shadowRadius / 380f) * width
+                        val scaledShadowDy = (currentState.shadowDy / 380f) * width
+                        paint.setShadowLayer(scaledShadowRadius, 0f, scaledShadowDy, android.graphics.Color.parseColor("#AA000000"))
+                    }
+
                     val centerX = width * 0.5f + (width * currentState.normOffsetX)
                     val centerY = height * 0.5f + (height * currentState.normOffsetY)
 
                     val lines = currentState.displayText.split("\n")
-                    val lineHeight = paint.textSize * 1.35f
+                    val lineHeight = paint.textSize * currentState.lineSpacingMultiplier
                     val totalHeight = (lines.size - 1) * lineHeight
                     val startY = centerY - (totalHeight / 2f) + (paint.textSize * 0.32f)
 
@@ -294,7 +390,16 @@ class AtharStudioViewModel : ViewModel() {
                     canvas.scale(currentState.scaleFactor, currentState.scaleFactor, centerX, centerY)
 
                     lines.forEachIndexed { index, line ->
-                        canvas.drawText(line, centerX, startY + (index * lineHeight), paint)
+                        val lineY = startY + (index * lineHeight)
+                        val lineX = when (currentState.textAlign) {
+                            TextAlignOption.RIGHT -> centerX + (width * 0.38f)
+                            TextAlignOption.CENTER -> centerX
+                            TextAlignOption.LEFT -> centerX - (width * 0.38f)
+                        }
+                        strokePaint?.let { sp ->
+                            canvas.drawText(line, lineX, lineY, sp)
+                        }
+                        canvas.drawText(line, lineX, lineY, paint)
                     }
                     canvas.restore()
 
