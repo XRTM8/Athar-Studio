@@ -191,6 +191,10 @@ fun CanvasView(
         BlurMaskFilter((28f * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
     }
 
+    val colorFilterCache = remember { mutableMapOf<Int, ColorMatrixColorFilter>() }
+    val shadowBlurFilterCache = remember { mutableMapOf<Int, BlurMaskFilter>() }
+    val blendModeXfermode = remember { mutableMapOf<LayerBlendMode, PorterDuffXfermode>() }
+
     val ratio = state.aspectRatio.ratio
     val canvasModifier = if (ratio != null) {
         Modifier
@@ -348,7 +352,11 @@ fun CanvasView(
                         val textSizePx = layer.fontSize * density
                         val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
                         val alphaInt = (alphaFloat * 255).toInt()
-                        val alphaColorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })
+                        val alphaColorFilter = if (alphaFloat >= 0.999f) null else {
+                            colorFilterCache.getOrPut(alphaInt) {
+                                ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })
+                            }
+                        }
 
                         basePaint.typeface = realTypeface
                         glowPaint.typeface = realTypeface
@@ -373,7 +381,9 @@ fun CanvasView(
                         basePaint.alpha = alphaInt
                         basePaint.colorFilter = alphaColorFilter
                         basePaint.xfermode = if (layer.blendMode != LayerBlendMode.NORMAL) {
-                            PorterDuffXfermode(layer.blendMode.porterDuffMode)
+                            blendModeXfermode.getOrPut(layer.blendMode) {
+                                PorterDuffXfermode(layer.blendMode.porterDuffMode)
+                            }
                         } else null
 
                         glowPaint.textSize = textSizePx
@@ -427,8 +437,11 @@ fun CanvasView(
 
                         val shadowDxPx = layer.shadowDx * density
                         val shadowDyPx = layer.shadowDy * density
-                        val shadowBlurFilter = if (layer.shadowRadius > 0f) {
-                            BlurMaskFilter((layer.shadowRadius * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+                        val shadowRadiusInt = (layer.shadowRadius * density).toInt()
+                        val shadowBlurFilter = if (shadowRadiusInt > 0) {
+                            shadowBlurFilterCache.getOrPut(shadowRadiusInt) {
+                                BlurMaskFilter(shadowRadiusInt.toFloat().coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+                            }
                         } else null
 
                         layerLayout.lines.forEachIndexed { index, line ->

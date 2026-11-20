@@ -159,4 +159,34 @@ class AtharStudioSupremacyTest {
         assertEquals(2, lines.size)
         assertTrue("Balanced text should be non-empty", balanced.isNotEmpty())
     }
+
+    @Test
+    fun testAtharPureEngineArchitecture() {
+        val ready = app.xrtm8.athar.core.AtharNativeEngine.isNativeReady()
+        assertTrue("Pure Kotlin engine should always be ready", ready)
+        assertEquals("2.0.0-pure", app.xrtm8.athar.core.AtharNativeEngine.getEngineVersion())
+        val opportunities = app.xrtm8.athar.core.AtharNativeEngine.findOpportunities("بسم الله الرحمن الرحيم")
+        assertTrue("Should detect calligraphic kashida opportunities", opportunities.isNotEmpty())
+    }
+
+    @Test
+    fun testAtharTextLayoutCache() {
+        val r1 = app.xrtm8.athar.typography.AtharTextLayout.computeLayout(
+            text = "خط النسخ العربي",
+            lineSpacingMultiplier = 1.2f,
+            textAlign = TextAlignOption.CENTER,
+            fallbackTextSize = 32f,
+            measureText = { it.length * 15f }
+        )
+        val r2 = app.xrtm8.athar.typography.AtharTextLayout.computeLayout(
+            text = "خط النسخ العربي",
+            lineSpacingMultiplier = 1.2f,
+            textAlign = TextAlignOption.CENTER,
+            fallbackTextSize = 32f,
+            measureText = { it.length * 15f }
+        )
+        // Check cache identity
+        org.junit.Assert.assertSame(r1, r2)
+        assertEquals(1, r1.lines.size)
+    }
 }

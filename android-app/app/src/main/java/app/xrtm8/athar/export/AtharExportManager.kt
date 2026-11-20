@@ -164,10 +164,26 @@ object AtharExportManager {
             if (srcBitmap != null) {
                 if (state.backgroundBlur > 0.5f) {
                     val blurR = (state.backgroundBlur * (width / 1080f)).toInt().coerceIn(1, 40)
-                    val blurred = AtharImageProcessor.fastStackBlur(srcBitmap, blurR)
-                    if (blurred != srcBitmap) {
+                    // Downsample to max 1080p for blur processing to prevent 4K heap OOM
+                    val maxBlurDim = 1080f
+                    val scale = kotlin.math.min(1f, maxBlurDim / kotlin.math.max(srcBitmap.width, srcBitmap.height))
+                    if (scale < 0.95f) {
+                        val tw = (srcBitmap.width * scale).toInt().coerceAtLeast(10)
+                        val th = (srcBitmap.height * scale).toInt().coerceAtLeast(10)
+                        val downsampled = Bitmap.createScaledBitmap(srcBitmap, tw, th, true)
+                        val scaledRadius = (blurR * scale).toInt().coerceIn(1, 35)
+                        val blurred = AtharImageProcessor.fastStackBlur(downsampled, scaledRadius)
+                        if (blurred != downsampled) {
+                            downsampled.recycle()
+                        }
                         srcBitmap.recycle()
                         srcBitmap = blurred
+                    } else {
+                        val blurred = AtharImageProcessor.fastStackBlur(srcBitmap, blurR)
+                        if (blurred != srcBitmap) {
+                            srcBitmap.recycle()
+                            srcBitmap = blurred
+                        }
                     }
                 }
 
@@ -468,32 +484,92 @@ object AtharExportManager {
     private fun cropTransparentBitmap(src: Bitmap, paddingPx: Int): Bitmap {
         val width = src.width
         val height = src.height
-        var minX = width
-        var minY = height
-        var maxX = 0
-        var maxY = 0
 
+        val stride = if (width > 2000 || height > 2000) 8 else 4
         val rowPixels = IntArray(width)
-        for (y in 0 until height) {
+
+        // 1. Find top boundary
+        var top = -1
+        for (y in 0 until height step stride) {
             src.getPixels(rowPixels, 0, width, 0, y, width, 1)
-            for (x in 0 until width) {
+            var found = false
+            for (x in 0 until width step stride) {
                 if ((rowPixels[x] ushr 24) > 0) {
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
+                    found = true
+                    break
+                }
+            }
+            if (found) {
+                val exactStart = (y - stride + 1).coerceAtLeast(0)
+                for (refY in exactStart..y) {
+                    src.getPixels(rowPixels, 0, width, 0, refY, width, 1)
+                    for (x in 0 until width) {
+                        if ((rowPixels[x] ushr 24) > 0) {
+                            top = refY
+                            break
+                        }
+                    }
+                    if (top != -1) break
+                }
+                break
+            }
+        }
+
+        if (top == -1) return src
+
+        // 2. Find bottom boundary
+        var bottom = -1
+        for (y in height - 1 downTo top step stride) {
+            src.getPixels(rowPixels, 0, width, 0, y, width, 1)
+            var found = false
+            for (x in 0 until width step stride) {
+                if ((rowPixels[x] ushr 24) > 0) {
+                    found = true
+                    break
+                }
+            }
+            if (found) {
+                val exactEnd = (y + stride - 1).coerceAtMost(height - 1)
+                for (refY in exactEnd downTo y) {
+                    src.getPixels(rowPixels, 0, width, 0, refY, width, 1)
+                    for (x in 0 until width) {
+                        if ((rowPixels[x] ushr 24) > 0) {
+                            bottom = refY
+                            break
+                        }
+                    }
+                    if (bottom != -1) break
+                }
+                break
+            }
+        }
+        if (bottom == -1) bottom = top
+
+        // 3. Scan between top and bottom to find left and right bounds
+        var left = width
+        var right = 0
+        for (y in top..bottom) {
+            src.getPixels(rowPixels, 0, width, 0, y, width, 1)
+            for (x in 0 until left) {
+                if ((rowPixels[x] ushr 24) > 0) {
+                    left = x
+                    break
+                }
+            }
+            for (x in width - 1 downTo kotlin.math.max(right, left)) {
+                if ((rowPixels[x] ushr 24) > 0) {
+                    right = x
+                    break
                 }
             }
         }
 
-        if (minX > maxX || minY > maxY) {
-            return src
-        }
+        if (left > right) return src
 
-        minX = (minX - paddingPx).coerceAtLeast(0)
-        minY = (minY - paddingPx).coerceAtLeast(0)
-        maxX = (maxX + paddingPx).coerceAtMost(width - 1)
-        maxY = (maxY + paddingPx).coerceAtMost(height - 1)
+        val minX = (left - paddingPx).coerceAtLeast(0)
+        val minY = (top - paddingPx).coerceAtLeast(0)
+        val maxX = (right + paddingPx).coerceAtMost(width - 1)
+        val maxY = (bottom + paddingPx).coerceAtMost(height - 1)
 
         val cropW = maxX - minX + 1
         val cropH = maxY - minY + 1

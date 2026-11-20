@@ -14,6 +14,7 @@ import android.graphics.Shader
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
+import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.typography.AtharTextLayout
@@ -22,6 +23,7 @@ import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
 /**
  * Dedicated thumbnail renderer for Athar Projects (.athar).
  * Generates crisp, lightweight preview bitmaps for the Projects bottom sheet.
+ * Renders all visible layers in full fidelity.
  */
 object AtharProjectThumbnailRenderer {
 
@@ -100,103 +102,114 @@ object AtharProjectThumbnailRenderer {
             if (state.solidBgColorLong != null) {
                 canvas.drawColor(state.solidBgColorLong.toInt())
             } else {
-                canvas.drawColor(Color.BLACK)
+                val topColor = Color.parseColor("#12141A")
+                val bottomColor = Color.parseColor("#1B2232")
+                val gradientPaint = Paint().apply {
+                    shader = LinearGradient(
+                        0f, 0f, 0f, height.toFloat(),
+                        topColor, bottomColor, Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), gradientPaint)
             }
-        } else if (state.backgroundDim > 0f) {
-            val dimAlpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
-            canvas.drawColor(Color.argb(dimAlpha, 0, 0, 0))
         }
     }
 
     private fun drawTypography(context: Context, canvas: Canvas, state: CanvasState, width: Int, height: Int) {
-        val scaledTextSize = (state.fontSize / 380f) * width
-        val realTypeface = AtharFontManager.getTypeface(context, state.selectedFont)
+        val layersToRender = if (state.layers.isNotEmpty()) state.layers else listOf(state.activeLayer)
 
-        val paint = Paint().apply {
-            isAntiAlias = true
-            isDither = true
-            textSize = scaledTextSize
-            letterSpacing = state.letterSpacing
-            isUnderlineText = state.isUnderline
-            isFakeBoldText = state.isBold
-            textSkewX = if (state.isItalic) -0.25f else 0f
-            alpha = (state.textOpacity * 255).toInt().coerceIn(20, 255)
-            textAlign = when (state.textAlign) {
-                TextAlignOption.RIGHT -> Paint.Align.RIGHT
-                TextAlignOption.CENTER -> Paint.Align.CENTER
-                TextAlignOption.LEFT -> Paint.Align.LEFT
-            }
-            typeface = realTypeface
-        }
+        layersToRender.forEach { layer ->
+            if (!layer.isVisible || layer.displayText.isEmpty()) return@forEach
 
-        val customColor = state.customTextColorLong
-        if (customColor != null && customColor != 0L) {
-            paint.color = customColor.toInt()
-        } else {
-            when (state.selectedEffect) {
-                VisualEffect.ROYAL_GOLD -> {
-                    paint.shader = LinearGradient(
-                        0f, -paint.textSize * 0.8f,
-                        0f, paint.textSize * 0.2f,
-                        intArrayOf(
-                            Color.parseColor("#FFF7DB"),
-                            Color.parseColor("#F5C369"),
-                            Color.parseColor("#D49438"),
-                            Color.parseColor("#FFE8A3")
-                        ),
-                        null,
-                        Shader.TileMode.CLAMP
-                    )
+            val scaledTextSize = (layer.fontSize / 380f) * width
+            val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
+
+            val paint = Paint().apply {
+                isAntiAlias = true
+                isDither = true
+                textSize = scaledTextSize
+                letterSpacing = layer.letterSpacing
+                isUnderlineText = layer.isUnderline
+                isFakeBoldText = layer.isBold
+                textSkewX = if (layer.isItalic) -0.25f else 0f
+                alpha = (layer.textOpacity * 255).toInt().coerceIn(20, 255)
+                textAlign = when (layer.textAlign) {
+                    TextAlignOption.RIGHT -> Paint.Align.RIGHT
+                    TextAlignOption.CENTER -> Paint.Align.CENTER
+                    TextAlignOption.LEFT -> Paint.Align.LEFT
                 }
-                VisualEffect.LIQUID_CHROME -> {
-                    paint.shader = LinearGradient(
-                        0f, -paint.textSize * 0.8f,
-                        0f, paint.textSize * 0.2f,
-                        intArrayOf(
-                            Color.parseColor("#FFFFFF"),
-                            Color.parseColor("#9EA5B0"),
-                            Color.parseColor("#181C22"),
-                            Color.parseColor("#FFFFFF")
-                        ),
-                        null,
-                        Shader.TileMode.CLAMP
-                    )
-                }
-                VisualEffect.CYBER_NEON -> paint.color = Color.parseColor("#00FF9D")
-                VisualEffect.CINEMATIC_SHADOW -> paint.color = Color.parseColor("#F2F2F2")
-                VisualEffect.FROSTED_GLASS -> paint.color = Color.parseColor("#E6FFFFFF")
-                VisualEffect.MINIMAL_LUXURY -> paint.color = Color.WHITE
+                typeface = realTypeface
             }
+
+            val customColor = layer.customTextColorLong
+            if (customColor != null && customColor != 0L) {
+                paint.color = customColor.toInt()
+            } else {
+                when (layer.selectedEffect) {
+                    VisualEffect.ROYAL_GOLD -> {
+                        paint.shader = LinearGradient(
+                            0f, -paint.textSize * 0.8f,
+                            0f, paint.textSize * 0.2f,
+                            intArrayOf(
+                                Color.parseColor("#FFF7DB"),
+                                Color.parseColor("#F5C369"),
+                                Color.parseColor("#D49438"),
+                                Color.parseColor("#FFE8A3")
+                            ),
+                            null,
+                            Shader.TileMode.CLAMP
+                        )
+                    }
+                    VisualEffect.LIQUID_CHROME -> {
+                        paint.shader = LinearGradient(
+                            0f, -paint.textSize * 0.8f,
+                            0f, paint.textSize * 0.2f,
+                            intArrayOf(
+                                Color.parseColor("#FFFFFF"),
+                                Color.parseColor("#9EA5B0"),
+                                Color.parseColor("#181C22"),
+                                Color.parseColor("#FFFFFF")
+                            ),
+                            null,
+                            Shader.TileMode.CLAMP
+                        )
+                    }
+                    VisualEffect.CYBER_NEON -> paint.color = Color.parseColor("#00FF9D")
+                    VisualEffect.CINEMATIC_SHADOW -> paint.color = Color.parseColor("#F2F2F2")
+                    VisualEffect.FROSTED_GLASS -> paint.color = Color.parseColor("#E6FFFFFF")
+                    VisualEffect.MINIMAL_LUXURY -> paint.color = Color.WHITE
+                }
+            }
+
+            val centerX = width * 0.5f + (width * layer.normOffsetX)
+            val centerY = height * 0.5f + (height * layer.normOffsetY)
+
+            val layout = AtharTextLayout.computeLayout(
+                text = layer.displayText,
+                paint = paint,
+                lineSpacingMultiplier = layer.lineSpacingMultiplier,
+                textAlign = layer.textAlign
+            )
+
+            canvas.save()
+            canvas.translate(centerX, centerY)
+            canvas.rotate(layer.rotationAngle)
+            canvas.scale(layer.scaleFactor, layer.scaleFactor)
+
+            // Draw Frosted Glass Plaque in thumbnail if enabled
+            TextGlassBackdropRenderer.drawGlassBackdrop(
+                canvas = canvas,
+                layer = layer,
+                layout = layout,
+                textSizePx = paint.textSize,
+                density = width / 380f
+            )
+
+            layout.lines.forEachIndexed { index, line ->
+                val lineY = layout.startY + (index * layout.lineHeight)
+                canvas.drawText(line, layout.lineX, lineY, paint)
+            }
+            canvas.restore()
         }
-
-        val centerX = width * 0.5f + (width * state.normOffsetX)
-        val centerY = height * 0.5f + (height * state.normOffsetY)
-
-        val layout = AtharTextLayout.computeLayout(
-            text = state.displayText,
-            paint = paint,
-            lineSpacingMultiplier = state.lineSpacingMultiplier,
-            textAlign = state.textAlign
-        )
-
-        canvas.save()
-        canvas.translate(centerX, centerY)
-        canvas.rotate(state.rotationAngle)
-        canvas.scale(state.scaleFactor, state.scaleFactor)
-
-        // Draw Frosted Glass Plaque in thumbnail if enabled
-        TextGlassBackdropRenderer.drawGlassBackdrop(
-            canvas = canvas,
-            state = state,
-            layout = layout,
-            textSizePx = paint.textSize,
-            density = width / 380f
-        )
-
-        layout.lines.forEachIndexed { index, line ->
-            val lineY = layout.startY + (index * layout.lineHeight)
-            canvas.drawText(line, layout.lineX, lineY, paint)
-        }
-        canvas.restore()
     }
 }

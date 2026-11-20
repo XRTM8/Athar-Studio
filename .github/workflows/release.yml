@@ -23,39 +23,38 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk
-
-      - name: Set up Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b
-
-      - name: Compile Rust Core for ARM64-v8a
+      - name: Prepare Signing Keystore
         run: |
-          cd core-engine
-          cargo ndk -t arm64-v8a -o ../android-app/app/src/main/jniLibs build --release
+          mkdir -p keystore
+          if [ -n "${{ secrets.ATHAR_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ATHAR_KEYSTORE_BASE64 }}" | base64 --decode > keystore/athar-release.jks
+          fi
 
-      - name: Build Signed Release APK
+      - name: Run Unit Tests
         run: |
           cd android-app
           chmod +x gradlew || true
+          ./gradlew testReleaseUnitTest
+
+      - name: Build Signed Release APK
+        env:
+          ATHAR_KEYSTORE_PASSWORD: ${{ secrets.ATHAR_KEYSTORE_PASSWORD || 'AtharRelease2026SecureKey' }}
+          ATHAR_KEY_PASSWORD: ${{ secrets.ATHAR_KEY_PASSWORD || 'AtharRelease2026SecureKey' }}
+          ATHAR_KEY_ALIAS: ${{ secrets.ATHAR_KEY_ALIAS || 'athar_release' }}
+          ATHAR_KEYSTORE_PATH: ${{ github.workspace }}/keystore/athar-release.jks
+        run: |
+          cd android-app
           ./gradlew assembleRelease
 
       - name: Prepare Single Release APK
         run: |
           mkdir -p release
-          cp android-app/app/build/outputs/apk/release/app-release.apk release/athar-${{ github.ref_name }}-arm64.apk
+          cp android-app/app/build/outputs/apk/release/app-release.apk release/athar-${{ github.ref_name }}-universal.apk
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/athar-${{ github.ref_name }}-arm64.apk
+          files: release/athar-${{ github.ref_name }}-universal.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

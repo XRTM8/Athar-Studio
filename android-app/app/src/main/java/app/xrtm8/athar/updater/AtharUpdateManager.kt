@@ -197,7 +197,7 @@ class AtharUpdateManager(private val context: Context) {
                 }
 
                 val fileLength = conn.contentLength
-                val updatesDir = File(context.getExternalFilesDir(null), "updates")
+                val updatesDir = File(context.cacheDir, "updates")
                 if (!updatesDir.exists()) updatesDir.mkdirs()
 
                 val apkFile = File(updatesDir, "athar-latest.apk")
@@ -217,6 +217,14 @@ class AtharUpdateManager(private val context: Context) {
                         }
                         output.flush()
                     }
+                }
+
+                // Security Integrity Verification
+                val pm = context.packageManager
+                val pkgInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, 0)
+                if (pkgInfo == null || pkgInfo.packageName != context.packageName) {
+                    apkFile.delete()
+                    throw SecurityException("حزمة التحديث غير صالحة أو غير مطابقة لتطبيق أَثَــر")
                 }
 
                 _downloadProgress.value = 1.0f

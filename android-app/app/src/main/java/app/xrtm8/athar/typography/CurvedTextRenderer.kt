@@ -11,11 +11,14 @@ import kotlin.math.max
  * Curved and Circular Path Arabic Typography Renderer.
  * Accurately curves cursive Arabic text along an arc path while preserving
  * proper RTL ligature connectivity, bidirectional character flow, and alignment.
+ * 
+ * Thread-safe: Uses ThreadLocal instances for Path and RectF to prevent
+ * concurrency collisions between the UI render loop and background 4K export threads.
  */
 object CurvedTextRenderer {
 
-    private val cachedPath = Path()
-    private val cachedRect = RectF()
+    private val threadPath = ThreadLocal.withInitial { Path() }
+    private val threadRect = ThreadLocal.withInitial { RectF() }
 
     fun drawCurvedText(
         canvas: Canvas,
@@ -43,6 +46,9 @@ object CurvedTextRenderer {
             it in '\uFB50'..'\uFDFF' || 
             it in '\uFE70'..'\uFEFF' 
         }
+
+        val cachedPath = threadPath.get() ?: Path()
+        val cachedRect = threadRect.get() ?: RectF()
 
         cachedPath.reset()
 

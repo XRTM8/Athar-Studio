@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,32 +9,50 @@ plugins {
 android {
     namespace = "app.xrtm8.athar"
     compileSdk = 34
-    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         applicationId = "app.xrtm8.athar"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "1.9.0"
+        versionCode = 24
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        ndk {
-            abiFilters.clear()
-            abiFilters.add("arm64-v8a")
-        }
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file("../../keystore/athar-release.jks")
-            storePassword = "AtharRelease2026SecureKey"
-            keyAlias = "athar_release"
-            keyPassword = "AtharRelease2026SecureKey"
+            val keystorePropsFile = rootProject.file("../keystore/keystore.properties").takeIf { it.exists() }
+                ?: rootProject.file("keystore/keystore.properties").takeIf { it.exists() }
+            val keystoreProperties = Properties()
+            if (keystorePropsFile != null) {
+                keystoreProperties.load(FileInputStream(keystorePropsFile))
+            }
+
+            val keystorePath = System.getenv("ATHAR_KEYSTORE_PATH")
+                ?: keystoreProperties.getProperty("storeFile")
+                ?: "../../keystore/athar-release.jks"
+
+            val ksFile = file(keystorePath)
+            if (ksFile.exists()) {
+                storeFile = ksFile
+            }
+
+            storePassword = System.getenv("ATHAR_KEYSTORE_PASSWORD")
+                ?: keystoreProperties.getProperty("storePassword")
+                ?: "AtharRelease2026SecureKey"
+
+            keyAlias = System.getenv("ATHAR_KEY_ALIAS")
+                ?: keystoreProperties.getProperty("keyAlias")
+                ?: "athar_release"
+
+            keyPassword = System.getenv("ATHAR_KEY_PASSWORD")
+                ?: keystoreProperties.getProperty("keyPassword")
+                ?: "AtharRelease2026SecureKey"
+
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
@@ -63,6 +84,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -72,12 +94,6 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-
-    sourceSets {
-        getByName("main") {
-            jniLibs.srcDirs("src/main/jniLibs")
         }
     }
 }

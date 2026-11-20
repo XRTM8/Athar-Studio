@@ -9,3 +9,12 @@ core-engine/target/
 *.iml
 .DS_Store
 Thumbs.db
+
+# Keystore & Secrets
+keystore/
+*.jks
+*.keystore
+keystore.properties
+
+# Release APK build artifacts
+release/

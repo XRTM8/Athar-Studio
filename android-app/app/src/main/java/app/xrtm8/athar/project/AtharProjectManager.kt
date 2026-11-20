@@ -115,6 +115,7 @@ object AtharProjectManager {
     }
 
     suspend fun listProjects(context: Context): List<AtharProjectMeta> = withContext(Dispatchers.IO) {
+        cleanOldCache(context)
         val projectsDir = getProjectsDir(context)
         val thumbsDir = getThumbsDir(context)
 
@@ -169,9 +170,16 @@ object AtharProjectManager {
                         jsonStr = zis.bufferedReader(Charsets.UTF_8).readText()
                     }
                     BACKGROUND_ENTRY_NAME -> {
+                        cleanOldCache(context)
                         val bgDir = File(context.cacheDir, "athar_bg_cache")
                         if (!bgDir.exists()) bgDir.mkdirs()
                         val bgFile = File(bgDir, "bg_${System.currentTimeMillis()}.png")
+                        
+                        // Zip Slip Security Prevention
+                        if (!bgFile.canonicalPath.startsWith(bgDir.canonicalPath + File.separator)) {
+                            throw SecurityException("محاولة اختراق تراجعي للمسار: ${entry.name}")
+                        }
+                        
                         FileOutputStream(bgFile).use { out -> zis.copyTo(out) }
                         extractedBgUri = Uri.fromFile(bgFile)
                     }
@@ -211,5 +219,44 @@ object AtharProjectManager {
         val dstFile = File(exportDir, "$cleanTitle.athar")
         srcFile.copyTo(dstFile, overwrite = true)
         dstFile
+    }
+
+    /**
+     * Automated Cache Eviction Policy.
+     * Prevents unbounded storage growth in athar_bg_cache:
+     * - Deletes files older than 48 hours
+     * - Caps directory size at 50MB max, evicting oldest files first
+     */
+    fun cleanOldCache(context: Context) {
+        try {
+            val bgDir = File(context.cacheDir, "athar_bg_cache")
+            if (!bgDir.exists()) return
+            val maxSizeBytes = 50L * 1024L * 1024L // 50MB
+            val files = bgDir.listFiles() ?: return
+            val now = System.currentTimeMillis()
+            val twoDaysMs = 48L * 3600L * 1000L
+
+            var totalSize = 0L
+            for (f in files) {
+                if (now - f.lastModified() > twoDaysMs) {
+                    f.delete()
+                } else {
+                    totalSize += f.length()
+                }
+            }
+
+            if (totalSize > maxSizeBytes) {
+                val sorted = files.filter { it.exists() }.sortedBy { it.lastModified() }
+                for (f in sorted) {
+                    if (totalSize <= maxSizeBytes) break
+                    val len = f.length()
+                    if (f.delete()) {
+                        totalSize -= len
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Safe ignore
+        }
     }
 }

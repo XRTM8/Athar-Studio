@@ -1,39 +1,17 @@
 package app.xrtm8.athar.core
 
-import android.util.Log
 import app.xrtm8.athar.model.KashidaMode
 
+/**
+ * Pure Kotlin Athar Calligraphy & Typography Engine.
+ * High performance, zero native binary dependencies, fully universal on all Android ABIs.
+ */
 object AtharNativeEngine {
-    private const val TAG = "AtharNativeEngine"
-    private var isLoaded = false
+    private const val ENGINE_VERSION = "2.0.0-pure"
 
-    init {
-        try {
-            System.loadLibrary("athar_core")
-            isLoaded = true
-            try {
-                Log.i(TAG, "Athar native Rust core loaded successfully. Version: ${nativeGetVersion()}")
-            } catch (_: Throwable) {
-                // Ignore log if in unit test environment
-            }
-        } catch (_: Throwable) {
-            isLoaded = false
-        }
-    }
+    fun isNativeReady(): Boolean = true
 
-    fun isNativeReady(): Boolean = isLoaded
-
-    fun getEngineVersion(): String {
-        return if (isLoaded) {
-            try {
-                nativeGetVersion()
-            } catch (e: Throwable) {
-                "1.6.0-pure"
-            }
-        } else {
-            "1.6.0-pure"
-        }
-    }
+    fun getEngineVersion(): String = ENGINE_VERSION
 
     fun applyKashida(
         text: String,
@@ -50,6 +28,4 @@ object AtharNativeEngine {
     fun findOpportunities(text: String): List<PureArabicKashidaEngine.KashidaOpportunity> {
         return PureArabicKashidaEngine.findOpportunities(text)
     }
-
-    private external fun nativeGetVersion(): String
 }
