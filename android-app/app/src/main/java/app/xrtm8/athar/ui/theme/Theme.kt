@@ -5,31 +5,40 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val GoldPrimary = Color(0xFFE5C07B)
-val GoldSecondary = Color(0xFFD19A66)
-val DarkBackground = Color(0xFF0C0D12)
-val DarkSurface = Color(0xFF161821)
-val DarkCard = Color(0xFF1F222E)
-val TextLight = Color(0xFFF0F0F5)
-val TextMuted = Color(0xFF8F93A3)
+// Pure True AMOLED Black
+val AmoledBlack = Color(0xFF000000)
 
-private val DarkColorScheme = darkColorScheme(
-    primary = GoldPrimary,
-    secondary = GoldSecondary,
-    background = DarkBackground,
-    surface = DarkSurface,
-    surfaceVariant = DarkCard,
-    onPrimary = Color.Black,
-    onSecondary = Color.Black,
-    onBackground = TextLight,
-    onSurface = TextLight,
-    onSurfaceVariant = TextLight
+// Luxury Accents
+val GoldAccent = Color(0xFFE5C07B)
+val GoldWarm = Color(0xFFD49438)
+val PureWhite = Color(0xFFFFFFFF)
+val MutedWhite = Color(0xFFB8BAC6)
+val SubtleGray = Color(0xFF6B6E7E)
+
+// Frosted Glass & Surface Tokens
+val GlassBackground = Color(0xB308090D)   // Translucent deep backdrop
+val GlassSurface = Color(0x40252836)      // Frosted card fill
+val GlassSurfaceHover = Color(0x6633374A) // Active frosted fill
+val GlassBorder = Color(0x33FFFFFF)       // Crisp glass edge highlight
+val GlassBorderActive = Color(0x80E5C07B) // Gold highlighted glass edge
+
+private val AtharColorScheme = darkColorScheme(
+    primary = GoldAccent,
+    secondary = GoldWarm,
+    background = AmoledBlack,
+    surface = GlassSurface,
+    surfaceVariant = GlassSurfaceHover,
+    onPrimary = AmoledBlack,
+    onSecondary = AmoledBlack,
+    onBackground = PureWhite,
+    onSurface = PureWhite,
+    onSurfaceVariant = PureWhite
 )
 
 @Composable
 fun AtharTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = AtharColorScheme,
         content = content
     )
 }
