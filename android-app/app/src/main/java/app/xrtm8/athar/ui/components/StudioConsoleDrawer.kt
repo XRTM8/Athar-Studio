@@ -165,7 +165,8 @@ fun StudioConsoleDrawer(
                             onLineSpacingChange = { viewModel.setLineSpacing(it) },
                             onTextAlignChange = { viewModel.setTextAlign(it) },
                             onSnapPosition = { x, y, a -> viewModel.snapToPosition(x, y, a) },
-                            onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) }
+                            onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
                         1 -> KashidaPanel(
@@ -177,7 +178,8 @@ fun StudioConsoleDrawer(
                             onRotateStep = { viewModel.rotateStep(it) },
                             onAlignTop = { viewModel.alignTop() },
                             onAlignCenter = { viewModel.alignCenter() },
-                            onAlignBottom = { viewModel.alignBottom() }
+                            onAlignBottom = { viewModel.alignBottom() },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
                         2 -> ShadersColorPanel(
@@ -193,7 +195,8 @@ fun StudioConsoleDrawer(
                             onShadowRadiusChange = { viewModel.setShadowRadius(it) },
                             onShadowDyChange = { viewModel.setShadowDy(it) },
                             onShadowDxChange = { viewModel.setShadowDx(it) },
-                            onShadowColorChange = { viewModel.setShadowColor(it) }
+                            onShadowColorChange = { viewModel.setShadowColor(it) },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
                         else -> CanvasBackgroundPanel(
@@ -222,7 +225,8 @@ fun StudioConsoleDrawer(
                             onGlassCornerRadiusChange = { viewModel.setGlassBackdropCornerRadius(it) },
                             onGlassPaddingChange = { viewModel.setGlassBackdropPadding(it) },
                             onAspectRatioChange = { viewModel.setAspectRatio(it) },
-                            onToggleGridGuides = { viewModel.toggleGridGuides() }
+                            onToggleGridGuides = { viewModel.toggleGridGuides() },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
                     }
                 }

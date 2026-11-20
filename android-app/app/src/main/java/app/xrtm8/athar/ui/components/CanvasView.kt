@@ -33,6 +33,7 @@ import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
+import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.GlassBorder
@@ -97,13 +98,13 @@ fun CanvasView(
         }
     }
 
-    // Process blur off-thread when blur value or raw image changes
+    // Process blur off-thread when blur value or raw image changes (accelerated preview)
     LaunchedEffect(rawBgBitmap, state.backgroundBlur) {
         val base = rawBgBitmap
         processedBgBitmap = if (base != null) {
             if (state.backgroundBlur > 0.5f) {
                 withContext(Dispatchers.Default) {
-                    AtharImageProcessor.fastStackBlur(base, state.backgroundBlur.toInt().coerceIn(1, 35))
+                    AtharImageProcessor.fastPreviewBlur(base, state.backgroundBlur.toInt().coerceIn(1, 35))
                 }
             } else {
                 base
@@ -288,39 +289,24 @@ fun CanvasView(
                 val shadowDxPx = state.shadowDx * density
                 val shadowDyPx = state.shadowDy * density
 
-                val lines = state.displayText.split("\n")
-                val lineHeight = textSizePx * state.lineSpacingMultiplier
-                val totalHeight = (lines.size - 1) * lineHeight
-                // Accurate vertical baseline centering
-                val startY = -totalHeight / 2f + (textSizePx * 0.35f)
-
-                var maxLineWidth = 0f
-                lines.forEach { line ->
-                    val w = basePaint.measureText(line)
-                    if (w > maxLineWidth) maxLineWidth = w
-                }
-                val halfBlockW = maxLineWidth / 2f
-                val lineX = when (state.textAlign) {
-                    TextAlignOption.RIGHT -> halfBlockW
-                    TextAlignOption.CENTER -> 0f
-                    TextAlignOption.LEFT -> -halfBlockW
-                }
+                val layout = AtharTextLayout.computeLayout(
+                    text = state.displayText,
+                    paint = basePaint,
+                    lineSpacingMultiplier = state.lineSpacingMultiplier,
+                    textAlign = state.textAlign
+                )
 
                 // Draw Frosted Glass Plaque / Card behind text if enabled
                 TextGlassBackdropRenderer.drawGlassBackdrop(
                     canvas = nativeCanvas,
                     state = state,
-                    textAlign = state.textAlign,
-                    maxLineWidth = maxLineWidth,
-                    halfBlockW = halfBlockW,
-                    startY = startY,
-                    totalHeight = totalHeight,
+                    layout = layout,
                     textSizePx = textSizePx,
                     density = density
                 )
 
-                lines.forEachIndexed { index, line ->
-                    val lineY = startY + (index * lineHeight)
+                layout.lines.forEachIndexed { index, line ->
+                    val lineY = layout.startY + (index * layout.lineHeight)
 
                     // 1. Draw 2D Directional Shadow with Blur for ALL modes
                     if (state.shadowRadius > 0f) {
@@ -328,12 +314,12 @@ fun CanvasView(
                         val shadowAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
                         shadowPaint.color = (sColor and 0x00FFFFFF) or (shadowAlpha shl 24)
                         shadowPaint.maskFilter = BlurMaskFilter((state.shadowRadius * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
-                        nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
+                        nativeCanvas.drawText(line, layout.lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
                     }
 
                     // 2. Draw Smooth Stroke
                     if (state.strokeWidth > 0f) {
-                        nativeCanvas.drawText(line, lineX, lineY, strokePaint)
+                        nativeCanvas.drawText(line, layout.lineX, lineY, strokePaint)
                     }
 
                     // 3. Custom Color or Effect Shaders Fill
@@ -341,29 +327,29 @@ fun CanvasView(
                         val baseColor = state.customTextColorLong.toInt()
                         basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
                         basePaint.shader = null
-                        nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                        nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
                     } else {
                         val effectShader = CanvasShaderFactory.createEffectShader(state.selectedEffect, lineY, textSizePx)
                         if (effectShader != null) {
                             basePaint.shader = effectShader
-                            nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                            nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
                         } else {
                             basePaint.shader = null
                             when (state.selectedEffect) {
                                 VisualEffect.CYBER_NEON -> {
                                     glowPaint.color = Color.parseColor("#6600FF9D")
                                     glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
-                                    nativeCanvas.drawText(line, lineX, lineY, glowPaint)
+                                    nativeCanvas.drawText(line, layout.lineX, lineY, glowPaint)
                                     basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                    nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                                    nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
                                 }
                                 VisualEffect.CINEMATIC_SHADOW -> {
                                     basePaint.color = (Color.parseColor("#F5F6F8") and 0x00FFFFFF) or (alphaInt shl 24)
-                                    nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                                    nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
                                 }
                                 else -> {
                                     basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                    nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                                    nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
                                 }
                             }
                         }
@@ -375,10 +361,7 @@ fun CanvasView(
                     CanvasBoundingBoxRenderer.drawBoundingBox(
                         nativeCanvas = nativeCanvas,
                         textAlign = state.textAlign,
-                        maxLineWidth = maxLineWidth,
-                        halfBlockW = halfBlockW,
-                        startY = startY,
-                        totalHeight = totalHeight,
+                        layout = layout,
                         textSizePx = textSizePx,
                         density = density,
                         selectBoxPaint = selectBoxPaint,

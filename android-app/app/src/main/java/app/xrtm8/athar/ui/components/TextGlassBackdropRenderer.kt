@@ -9,6 +9,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
+import app.xrtm8.athar.typography.TypographyLayoutResult
 
 /**
  * Renders an ultra-luxurious frosted glass plaque / card behind Arabic typography.
@@ -19,29 +20,25 @@ object TextGlassBackdropRenderer {
     fun drawGlassBackdrop(
         canvas: Canvas,
         state: CanvasState,
-        textAlign: TextAlignOption,
-        maxLineWidth: Float,
-        halfBlockW: Float,
-        startY: Float,
-        totalHeight: Float,
+        layout: TypographyLayoutResult,
         textSizePx: Float,
         density: Float
     ) {
         if (!state.enableGlassBackdrop) return
 
         val pad = state.glassBackdropPadding * density
-        val bLeft = when (textAlign) {
-            TextAlignOption.RIGHT -> -maxLineWidth - pad
-            TextAlignOption.CENTER -> -halfBlockW - pad
+        val bLeft = when (state.textAlign) {
+            TextAlignOption.RIGHT -> -layout.maxLineWidth - pad
+            TextAlignOption.CENTER -> -layout.halfBlockW - pad
             TextAlignOption.LEFT -> -pad
         }
-        val bRight = when (textAlign) {
+        val bRight = when (state.textAlign) {
             TextAlignOption.RIGHT -> pad
-            TextAlignOption.CENTER -> halfBlockW + pad
-            TextAlignOption.LEFT -> maxLineWidth + pad
+            TextAlignOption.CENTER -> layout.halfBlockW + pad
+            TextAlignOption.LEFT -> layout.maxLineWidth + pad
         }
-        val bTop = startY - textSizePx * 0.75f - pad
-        val bBottom = startY + totalHeight + textSizePx * 0.25f + pad
+        val bTop = layout.startY - textSizePx * 0.75f - pad
+        val bBottom = layout.startY + layout.totalHeight + textSizePx * 0.25f + pad
 
         val rectF = RectF(bLeft, bTop, bRight, bBottom)
         val cornerR = (state.glassBackdropCornerRadius * density).coerceAtLeast(4f)

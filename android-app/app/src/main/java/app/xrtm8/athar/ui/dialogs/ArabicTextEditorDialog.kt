@@ -43,8 +43,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,7 +73,9 @@ fun ArabicTextEditorDialog(
     onDismiss: () -> Unit,
     onApplyText: (String) -> Unit
 ) {
-    var draftText by remember { mutableStateOf(initialText) }
+    var textFieldValue by remember {
+        mutableStateOf(TextFieldValue(text = initialText, selection = TextRange(initialText.length)))
+    }
     val haptic = LocalHapticFeedback.current
 
     ModalBottomSheet(
@@ -101,7 +105,7 @@ fun ArabicTextEditorDialog(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "محرر التايبوغرافي العربي",
+                    text = "محرر التايبوغرافيا العربي",
                     color = PureWhite,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp
@@ -112,7 +116,8 @@ fun ArabicTextEditorDialog(
                     TextButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            draftText = stripArabicDiacritics(draftText)
+                            val stripped = stripArabicDiacritics(textFieldValue.text)
+                            textFieldValue = TextFieldValue(text = stripped, selection = TextRange(stripped.length))
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = GoldAccent)
                     ) {
@@ -125,7 +130,7 @@ fun ArabicTextEditorDialog(
                     TextButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            draftText = ""
+                            textFieldValue = TextFieldValue(text = "", selection = TextRange.Zero)
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = SubtleGray)
                     ) {
@@ -140,8 +145,8 @@ fun ArabicTextEditorDialog(
 
             // Main Typographic Hero Input
             OutlinedTextField(
-                value = draftText,
-                onValueChange = { draftText = it },
+                value = textFieldValue,
+                onValueChange = { textFieldValue = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 90.dp),
@@ -179,16 +184,16 @@ fun ArabicTextEditorDialog(
             )
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Robust marks with base consonant so they never render as tofu or broken square boxes on any device
+            // Robust marks with base Tatweel so they render flawlessly across all Android devices
             val marks = listOf(
-                "بَ" to "َ",   // الفتحة
-                "بُ" to "ُ",   // الضمة
-                "بِ" to "ِ",   // الكسرة
-                "بّ" to "ّ",   // الشدة
-                "بْ" to "ْ",   // السكون
-                "بً" to "ً",   // تنوين الفتح
-                "بٌ" to "ٌ",   // تنوين الضم
-                "بٍ" to "ٍ",   // تنوين الكسر
+                "ـَ" to "َ",   // الفتحة
+                "ـُ" to "ُ",   // الضمة
+                "ـِ" to "ِ",   // الكسرة
+                "ـّ" to "ّ",   // الشدة
+                "ـْ" to "ْ",   // السكون
+                "ـً" to "ً",   // تنوين الفتح
+                "ـٌ" to "ٌ",   // تنوين الضم
+                "ـٍ" to "ٍ",   // تنوين الكسر
                 "ـ" to "ـ",    // تطويل / كشيدة
                 "ﷺ" to "ﷺ",
                 "ﷻ" to "ﷻ",
@@ -213,7 +218,16 @@ fun ArabicTextEditorDialog(
                             .border(0.5.dp, GlassBorderActive, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                draftText += insertChar
+                                val currentText = textFieldValue.text
+                                val sel = textFieldValue.selection
+                                val start = sel.min.coerceIn(0, currentText.length)
+                                val end = sel.max.coerceIn(0, currentText.length)
+                                val newText = currentText.replaceRange(start, end, insertChar)
+                                val newCursor = start + insertChar.length
+                                textFieldValue = TextFieldValue(
+                                    text = newText,
+                                    selection = TextRange(newCursor)
+                                )
                             }
                             .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
@@ -264,7 +278,7 @@ fun ArabicTextEditorDialog(
                             .border(0.5.dp, GlassBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                draftText = suggestion
+                                textFieldValue = TextFieldValue(text = suggestion, selection = TextRange(suggestion.length))
                             }
                             .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
@@ -288,8 +302,8 @@ fun ArabicTextEditorDialog(
                 Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (draftText.isNotBlank()) {
-                            onApplyText(draftText)
+                        if (textFieldValue.text.isNotBlank()) {
+                            onApplyText(textFieldValue.text)
                         }
                         onDismiss()
                     },

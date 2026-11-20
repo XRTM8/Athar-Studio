@@ -51,7 +51,8 @@ fun PhotoAdjustmentsPanel(
     onSaturationChange: (Float) -> Unit,
     onVignetteChange: (Float) -> Unit,
     onResetAdjustments: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -61,6 +62,7 @@ fun PhotoAdjustmentsPanel(
             title = "نسبة ضبابية الصورة (Blur)",
             value = state.backgroundBlur,
             onValueChange = onBlurChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0f..30f,
             step = 1f,
             valueDisplay = "${((state.backgroundBlur / 30f) * 100).toInt()}%",
@@ -74,6 +76,7 @@ fun PhotoAdjustmentsPanel(
             title = "تعتيم الصورة لبروز الخط (Dim)",
             value = state.backgroundDim,
             onValueChange = onDimChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0f..0.90f,
             step = 0.05f,
             valueDisplay = "${(state.backgroundDim * 100).toInt()}%",
@@ -87,6 +90,7 @@ fun PhotoAdjustmentsPanel(
             title = "السطوع (Brightness)",
             value = state.backgroundBrightness,
             onValueChange = onBrightnessChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = -0.5f..0.5f,
             step = 0.05f,
             valueDisplay = if (state.backgroundBrightness > 0f) "+${(state.backgroundBrightness * 100).toInt()}%" else "${(state.backgroundBrightness * 100).toInt()}%",
@@ -100,6 +104,7 @@ fun PhotoAdjustmentsPanel(
             title = "التباين (Contrast)",
             value = state.backgroundContrast,
             onValueChange = onContrastChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0.5f..1.8f,
             step = 0.05f,
             valueDisplay = "${(state.backgroundContrast * 100).toInt()}%",
@@ -113,6 +118,7 @@ fun PhotoAdjustmentsPanel(
             title = "التشبع اللوني (Saturation)",
             value = state.backgroundSaturation,
             onValueChange = onSaturationChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0f..2.0f,
             step = 0.05f,
             valueDisplay = "${(state.backgroundSaturation * 100).toInt()}%",
@@ -126,6 +132,7 @@ fun PhotoAdjustmentsPanel(
             title = "الظل السينمائي المحيطي (Vignette)",
             value = state.backgroundVignette,
             onValueChange = onVignetteChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0f..1.0f,
             step = 0.05f,
             valueDisplay = "${(state.backgroundVignette * 100).toInt()}%",

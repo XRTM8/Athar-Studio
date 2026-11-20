@@ -16,6 +16,7 @@ import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
 
 /**
@@ -156,22 +157,12 @@ object AtharProjectThumbnailRenderer {
         val centerX = width * 0.5f + (width * state.normOffsetX)
         val centerY = height * 0.5f + (height * state.normOffsetY)
 
-        val lines = state.displayText.split("\n")
-        val lineHeight = paint.textSize * state.lineSpacingMultiplier
-        val totalHeight = (lines.size - 1) * lineHeight
-        val startY = -totalHeight / 2f + (paint.textSize * 0.35f)
-
-        var maxLineWidth = 0f
-        lines.forEach { line ->
-            val w = paint.measureText(line)
-            if (w > maxLineWidth) maxLineWidth = w
-        }
-        val halfBlockW = maxLineWidth / 2f
-        val lineX = when (state.textAlign) {
-            TextAlignOption.RIGHT -> halfBlockW
-            TextAlignOption.CENTER -> 0f
-            TextAlignOption.LEFT -> -halfBlockW
-        }
+        val layout = AtharTextLayout.computeLayout(
+            text = state.displayText,
+            paint = paint,
+            lineSpacingMultiplier = state.lineSpacingMultiplier,
+            textAlign = state.textAlign
+        )
 
         canvas.save()
         canvas.translate(centerX, centerY)
@@ -182,18 +173,14 @@ object AtharProjectThumbnailRenderer {
         TextGlassBackdropRenderer.drawGlassBackdrop(
             canvas = canvas,
             state = state,
-            textAlign = state.textAlign,
-            maxLineWidth = maxLineWidth,
-            halfBlockW = halfBlockW,
-            startY = startY,
-            totalHeight = totalHeight,
+            layout = layout,
             textSizePx = paint.textSize,
             density = width / 380f
         )
 
-        lines.forEachIndexed { index, line ->
-            val lineY = startY + (index * lineHeight)
-            canvas.drawText(line, lineX, lineY, paint)
+        layout.lines.forEachIndexed { index, line ->
+            val lineY = layout.startY + (index * layout.lineHeight)
+            canvas.drawText(line, layout.lineX, lineY, paint)
         }
         canvas.restore()
     }

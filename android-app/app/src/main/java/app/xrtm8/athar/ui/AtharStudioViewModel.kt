@@ -52,6 +52,7 @@ class AtharStudioViewModel : ViewModel() {
     val projectsList: StateFlow<List<AtharProjectMeta>> = _projectsList.asStateFlow()
 
     private var kashidaDebounceJob: Job? = null
+    private var sliderDragInitialState: CanvasState? = null
 
     init {
         updateKashidaInternal(
@@ -60,6 +61,29 @@ class AtharStudioViewModel : ViewModel() {
             _canvasState.value.kashidaMode,
             _canvasState.value.kashidaTargetIndex
         )
+    }
+
+    private fun markSliderChange() {
+        if (sliderDragInitialState == null) {
+            sliderDragInitialState = _canvasState.value
+        }
+    }
+
+    /**
+     * Commits a single undo checkpoint when slider touch drag ends.
+     * Prevents flooding the undo stack while maintaining 120Hz smooth interactivity.
+     */
+    fun commitHistoryCheckpoint() {
+        val initial = sliderDragInitialState
+        val current = _canvasState.value
+        if (initial != null && initial != current) {
+            undoStack.addLast(initial)
+            if (undoStack.size > 25) undoStack.removeFirst()
+            redoStack.clear()
+            _canUndo.value = true
+            _canRedo.value = false
+        }
+        sliderDragInitialState = null
     }
 
     private fun pushHistory(newState: CanvasState) {
@@ -128,7 +152,8 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setStrokeWidth(width: Float) {
-        pushHistory(_canvasState.value.copy(strokeWidth = width.coerceIn(0f, 16f)))
+        markSliderChange()
+        _canvasState.update { it.copy(strokeWidth = width.coerceIn(0f, 16f)) }
     }
 
     fun setStrokeColor(colorLong: Long) {
@@ -136,15 +161,18 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setShadowRadius(radius: Float) {
-        pushHistory(_canvasState.value.copy(shadowRadius = radius.coerceIn(0f, 60f)))
+        markSliderChange()
+        _canvasState.update { it.copy(shadowRadius = radius.coerceIn(0f, 60f)) }
     }
 
     fun setShadowDx(dx: Float) {
-        pushHistory(_canvasState.value.copy(shadowDx = dx.coerceIn(-30f, 30f)))
+        markSliderChange()
+        _canvasState.update { it.copy(shadowDx = dx.coerceIn(-30f, 30f)) }
     }
 
     fun setShadowDy(dy: Float) {
-        pushHistory(_canvasState.value.copy(shadowDy = dy.coerceIn(-30f, 40f)))
+        markSliderChange()
+        _canvasState.update { it.copy(shadowDy = dy.coerceIn(-30f, 40f)) }
     }
 
     fun setShadowColor(colorLong: Long) {
@@ -152,11 +180,13 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setLetterSpacing(spacing: Float) {
-        pushHistory(_canvasState.value.copy(letterSpacing = spacing.coerceIn(-0.05f, 0.35f)))
+        markSliderChange()
+        _canvasState.update { it.copy(letterSpacing = spacing.coerceIn(-0.05f, 0.35f)) }
     }
 
     fun setTextOpacity(opacity: Float) {
-        pushHistory(_canvasState.value.copy(textOpacity = opacity.coerceIn(0.1f, 1.0f)))
+        markSliderChange()
+        _canvasState.update { it.copy(textOpacity = opacity.coerceIn(0.1f, 1.0f)) }
     }
 
     fun toggleBold() {
@@ -184,7 +214,8 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setRotationAngle(angle: Float) {
-        _canvasState.update { it.copy(rotationAngle = angle) }
+        markSliderChange()
+        _canvasState.update { it.copy(rotationAngle = (angle % 360f + 360f) % 360f) }
     }
 
     fun rotateStep(deltaAngle: Float) {
@@ -197,7 +228,8 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setLineSpacing(multiplier: Float) {
-        pushHistory(_canvasState.value.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)))
+        markSliderChange()
+        _canvasState.update { it.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)) }
     }
 
     fun setAspectRatio(ratio: CanvasAspectRatio) {
@@ -209,26 +241,32 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setBackgroundDim(dim: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(backgroundDim = dim.coerceIn(0f, 0.95f)) }
     }
 
     fun setBackgroundBlur(blur: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(backgroundBlur = blur.coerceIn(0f, 35f)) }
     }
 
     fun setBackgroundBrightness(brightness: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(backgroundBrightness = brightness.coerceIn(-0.5f, 0.5f)) }
     }
 
     fun setBackgroundContrast(contrast: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(backgroundContrast = contrast.coerceIn(0.5f, 1.8f)) }
     }
 
     fun setBackgroundSaturation(saturation: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(backgroundSaturation = saturation.coerceIn(0f, 2.0f)) }
     }
 
     fun setBackgroundVignette(vignette: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(backgroundVignette = vignette.coerceIn(0f, 1.0f)) }
     }
 
@@ -245,14 +283,17 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setGlassBackdropOpacity(opacity: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(glassBackdropOpacity = opacity.coerceIn(0.1f, 0.98f)) }
     }
 
     fun setGlassBackdropCornerRadius(radius: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(glassBackdropCornerRadius = radius.coerceIn(4f, 48f)) }
     }
 
     fun setGlassBackdropPadding(padding: Float) {
+        markSliderChange()
         _canvasState.update { it.copy(glassBackdropPadding = padding.coerceIn(8f, 56f)) }
     }
 

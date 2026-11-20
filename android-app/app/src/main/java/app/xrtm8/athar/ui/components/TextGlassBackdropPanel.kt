@@ -54,7 +54,8 @@ fun TextGlassBackdropPanel(
     onOpacityChange: (Float) -> Unit,
     onCornerRadiusChange: (Float) -> Unit,
     onPaddingChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -140,6 +141,7 @@ fun TextGlassBackdropPanel(
                 title = "عتامة وشفافية الزجاج",
                 value = state.glassBackdropOpacity,
                 onValueChange = onOpacityChange,
+                onValueChangeFinished = onSliderChangeFinished,
                 valueRange = 0.15f..0.95f,
                 step = 0.05f,
                 valueDisplay = "${(state.glassBackdropOpacity * 100).toInt()}%",
@@ -153,6 +155,7 @@ fun TextGlassBackdropPanel(
                 title = "استدارة حواف البطاقة",
                 value = state.glassBackdropCornerRadius,
                 onValueChange = onCornerRadiusChange,
+                onValueChangeFinished = onSliderChangeFinished,
                 valueRange = 6f..44f,
                 step = 2f,
                 valueDisplay = "${state.glassBackdropCornerRadius.toInt()}dp",
@@ -166,6 +169,7 @@ fun TextGlassBackdropPanel(
                 title = "اتساع وهوامش البطاقة",
                 value = state.glassBackdropPadding,
                 onValueChange = onPaddingChange,
+                onValueChangeFinished = onSliderChangeFinished,
                 valueRange = 10f..48f,
                 step = 2f,
                 valueDisplay = "${state.glassBackdropPadding.toInt()}dp",

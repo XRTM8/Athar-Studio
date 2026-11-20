@@ -89,7 +89,8 @@ fun CanvasBackgroundPanel(
     onGlassPaddingChange: (Float) -> Unit,
     onAspectRatioChange: (CanvasAspectRatio) -> Unit,
     onToggleGridGuides: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     var subSection by remember { mutableIntStateOf(0) }
@@ -326,7 +327,8 @@ fun CanvasBackgroundPanel(
                             onContrastChange = onContrastChange,
                             onSaturationChange = onSaturationChange,
                             onVignetteChange = onVignetteChange,
-                            onResetAdjustments = onResetPhotoAdjustments
+                            onResetAdjustments = onResetPhotoAdjustments,
+                            onSliderChangeFinished = onSliderChangeFinished
                         )
                     } else {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -353,7 +355,8 @@ fun CanvasBackgroundPanel(
                     onSelectPreset = onSelectGlassPreset,
                     onOpacityChange = onGlassOpacityChange,
                     onCornerRadiusChange = onGlassCornerRadiusChange,
-                    onPaddingChange = onGlassPaddingChange
+                    onPaddingChange = onGlassPaddingChange,
+                    onSliderChangeFinished = onSliderChangeFinished
                 )
             }
         }

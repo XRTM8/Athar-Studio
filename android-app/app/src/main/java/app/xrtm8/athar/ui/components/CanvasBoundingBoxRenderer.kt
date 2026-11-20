@@ -3,6 +3,7 @@ package app.xrtm8.athar.ui.components
 import android.graphics.Canvas
 import android.graphics.Paint
 import app.xrtm8.athar.model.TextAlignOption
+import app.xrtm8.athar.typography.TypographyLayoutResult
 
 /**
  * Draws active selection bounding boxes, precision L-shaped corner brackets,
@@ -13,10 +14,7 @@ object CanvasBoundingBoxRenderer {
     fun drawBoundingBox(
         nativeCanvas: Canvas,
         textAlign: TextAlignOption,
-        maxLineWidth: Float,
-        halfBlockW: Float,
-        startY: Float,
-        totalHeight: Float,
+        layout: TypographyLayoutResult,
         textSizePx: Float,
         density: Float,
         selectBoxPaint: Paint,
@@ -25,17 +23,17 @@ object CanvasBoundingBoxRenderer {
     ) {
         val pad = 12f * density
         val bLeft = when (textAlign) {
-            TextAlignOption.RIGHT -> -maxLineWidth - pad
-            TextAlignOption.CENTER -> -halfBlockW - pad
+            TextAlignOption.RIGHT -> -layout.maxLineWidth - pad
+            TextAlignOption.CENTER -> -layout.halfBlockW - pad
             TextAlignOption.LEFT -> -pad
         }
         val bRight = when (textAlign) {
             TextAlignOption.RIGHT -> pad
-            TextAlignOption.CENTER -> halfBlockW + pad
-            TextAlignOption.LEFT -> maxLineWidth + pad
+            TextAlignOption.CENTER -> layout.halfBlockW + pad
+            TextAlignOption.LEFT -> layout.maxLineWidth + pad
         }
-        val bTop = startY - textSizePx * 0.75f - pad
-        val bBottom = startY + totalHeight + textSizePx * 0.25f + pad
+        val bTop = layout.startY - textSizePx * 0.75f - pad
+        val bBottom = layout.startY + layout.totalHeight + textSizePx * 0.25f + pad
 
         // Bounding Box
         nativeCanvas.drawRect(bLeft, bTop, bRight, bBottom, selectBoxPaint)

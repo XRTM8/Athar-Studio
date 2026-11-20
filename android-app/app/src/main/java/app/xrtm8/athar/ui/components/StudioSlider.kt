@@ -37,7 +37,8 @@ fun StudioSlider(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     step: Float = (valueRange.endInclusive - valueRange.start) / 20f,
-    steps: Int = 0
+    steps: Int = 0,
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -84,6 +85,7 @@ fun StudioSlider(
                             val newVal = (value - step).coerceIn(valueRange.start, valueRange.endInclusive)
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onValueChange(newVal)
+                            onValueChangeFinished?.invoke()
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -112,6 +114,7 @@ fun StudioSlider(
                             val newVal = (value + step).coerceIn(valueRange.start, valueRange.endInclusive)
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onValueChange(newVal)
+                            onValueChangeFinished?.invoke()
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -133,6 +136,7 @@ fun StudioSlider(
                 }
                 onValueChange(newVal)
             },
+            onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             steps = steps,
             colors = SliderDefaults.colors(

@@ -30,7 +30,8 @@ fun EffectsDepthPanel(
     onShadowDyChange: (Float) -> Unit,
     onShadowDxChange: (Float) -> Unit,
     onShadowColorChange: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -40,6 +41,7 @@ fun EffectsDepthPanel(
             title = "سماكة التحديد الخارجي (Stroke)",
             value = state.strokeWidth,
             onValueChange = onStrokeWidthChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0f..20f,
             step = 1f,
             valueDisplay = "${state.strokeWidth.toInt()} px",
@@ -87,6 +89,7 @@ fun EffectsDepthPanel(
             title = "تشتت الظل والوهج (Blur Radius)",
             value = state.shadowRadius,
             onValueChange = onShadowRadiusChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0f..50f,
             step = 2f,
             valueDisplay = "${state.shadowRadius.toInt()} px",
@@ -100,6 +103,7 @@ fun EffectsDepthPanel(
             title = "عمق الظل الرأسي (Dy)",
             value = state.shadowDy,
             onValueChange = onShadowDyChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = -15f..35f,
             step = 1f,
             valueDisplay = "${state.shadowDy.toInt()} px"
@@ -111,6 +115,7 @@ fun EffectsDepthPanel(
             title = "انحراف الظل الأفقي (Dx)",
             value = state.shadowDx,
             onValueChange = onShadowDxChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = -25f..25f,
             step = 1f,
             valueDisplay = "${state.shadowDx.toInt()} px"

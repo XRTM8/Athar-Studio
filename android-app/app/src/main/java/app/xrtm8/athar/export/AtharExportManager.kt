@@ -26,6 +26,7 @@ import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -236,22 +237,12 @@ object AtharExportManager {
         val centerX = width * 0.5f + (width * state.normOffsetX)
         val centerY = height * 0.5f + (height * state.normOffsetY)
 
-        val lines = state.displayText.split("\n")
-        val lineHeight = paint.textSize * state.lineSpacingMultiplier
-        val totalHeight = (lines.size - 1) * lineHeight
-        val startY = -totalHeight / 2f + (paint.textSize * 0.35f)
-
-        var maxLineWidth = 0f
-        lines.forEach { line ->
-            val w = paint.measureText(line)
-            if (w > maxLineWidth) maxLineWidth = w
-        }
-        val halfBlockW = maxLineWidth / 2f
-        val lineX = when (state.textAlign) {
-            TextAlignOption.RIGHT -> halfBlockW
-            TextAlignOption.CENTER -> 0f
-            TextAlignOption.LEFT -> -halfBlockW
-        }
+        val layout = AtharTextLayout.computeLayout(
+            text = state.displayText,
+            paint = paint,
+            lineSpacingMultiplier = state.lineSpacingMultiplier,
+            textAlign = state.textAlign
+        )
 
         canvas.save()
         canvas.translate(centerX, centerY)
@@ -262,26 +253,22 @@ object AtharExportManager {
         TextGlassBackdropRenderer.drawGlassBackdrop(
             canvas = canvas,
             state = state,
-            textAlign = state.textAlign,
-            maxLineWidth = maxLineWidth,
-            halfBlockW = halfBlockW,
-            startY = startY,
-            totalHeight = totalHeight,
+            layout = layout,
             textSizePx = paint.textSize,
             density = densityFactor
         )
 
-        lines.forEachIndexed { index, line ->
-            val lineY = startY + (index * lineHeight)
+        layout.lines.forEachIndexed { index, line ->
+            val lineY = layout.startY + (index * layout.lineHeight)
 
             // 1. Draw 2D Directional Shadow
             shadowPaint?.let { shp ->
-                canvas.drawText(line, lineX + scaledShadowDx, lineY + scaledShadowDy, shp)
+                canvas.drawText(line, layout.lineX + scaledShadowDx, lineY + scaledShadowDy, shp)
             }
 
             // 2. Draw Stroke
             strokePaint?.let { sp ->
-                canvas.drawText(line, lineX, lineY, sp)
+                canvas.drawText(line, layout.lineX, lineY, sp)
             }
 
             // 3. Exact Shader and Color calculation per line matching CanvasView
@@ -349,7 +336,7 @@ object AtharExportManager {
                 }
             }
 
-            canvas.drawText(line, lineX, lineY, paint)
+            canvas.drawText(line, layout.lineX, lineY, paint)
         }
         canvas.restore()
     }

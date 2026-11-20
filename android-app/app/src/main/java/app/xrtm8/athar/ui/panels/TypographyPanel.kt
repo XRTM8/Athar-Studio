@@ -41,7 +41,8 @@ fun TypographyPanel(
     onTextAlignChange: (TextAlignOption) -> Unit,
     onSnapPosition: (normX: Float, normY: Float, align: TextAlignOption) -> Unit,
     onNudgeOffset: (deltaX: Float, deltaY: Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -112,6 +113,7 @@ fun TypographyPanel(
             title = "حجم الخط",
             value = state.fontSize,
             onValueChange = onFontSizeChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 24f..110f,
             step = 2f,
             valueDisplay = "${state.fontSize.toInt()} sp",
@@ -224,6 +226,7 @@ fun TypographyPanel(
             title = "شفافية النص",
             value = state.textOpacity,
             onValueChange = onOpacityChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0.15f..1.0f,
             step = 0.05f,
             valueDisplay = "${(state.textOpacity * 100).toInt()}%",
@@ -237,6 +240,7 @@ fun TypographyPanel(
             title = "تباعد الحروف (Letter Spacing)",
             value = state.letterSpacing,
             onValueChange = onLetterSpacingChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = -0.05f..0.25f,
             step = 0.01f,
             valueDisplay = String.format(Locale.ENGLISH, "%.2f", state.letterSpacing)
@@ -249,6 +253,7 @@ fun TypographyPanel(
             title = "تباعد الأسطر (Line Spacing)",
             value = state.lineSpacingMultiplier,
             onValueChange = onLineSpacingChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 1.0f..2.2f,
             step = 0.05f,
             valueDisplay = "${String.format(Locale.ENGLISH, "%.2f", state.lineSpacingMultiplier)}x"

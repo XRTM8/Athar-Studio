@@ -53,7 +53,8 @@ fun KashidaPanel(
     onAlignTop: () -> Unit,
     onAlignCenter: () -> Unit,
     onAlignBottom: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -63,6 +64,7 @@ fun KashidaPanel(
             title = "مستوى المد المتجهي (الكشيدة)",
             value = state.stretchLevel.toFloat(),
             onValueChange = { onStretchLevelChange(it.toInt()) },
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = 0f..8f,
             step = 1f,
             steps = 7,
@@ -223,6 +225,7 @@ fun KashidaPanel(
             title = "زاوية الدوران",
             value = state.rotationAngle,
             onValueChange = onRotationChange,
+            onValueChangeFinished = onSliderChangeFinished,
             valueRange = -180f..180f,
             step = 5f,
             valueDisplay = "${state.rotationAngle.toInt()}°"
