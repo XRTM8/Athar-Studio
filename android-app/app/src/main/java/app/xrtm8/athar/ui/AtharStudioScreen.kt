@@ -370,8 +370,8 @@ fun AtharStudioScreen(
             ) {
                 CanvasView(
                     state = canvasState,
-                    onTransformChanged = { normX, normY, scale, rot ->
-                        viewModel.updateTransform(normX, normY, scale, rot)
+                    onTransformFinished = { normX, normY, scale, rot ->
+                        viewModel.commitTransform(normX, normY, scale, rot)
                     },
                     onDoubleTap = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -939,7 +939,7 @@ fun AtharStudioScreen(
                                                             modifier = Modifier
                                                                 .size(28.dp)
                                                                 .clip(CircleShape)
-                                                                .background(if (swatch.argb == 0L) GoldAccent else Color(swatch.argb))
+                                                                .background(if (swatch.argb == 0L) GoldAccent else Color(swatch.argb.toInt()))
                                                                 .border(
                                                                     width = if (isSelected) 2.5.dp else 1.dp,
                                                                     color = if (isSelected) PureWhite else GlassBorder,
@@ -1092,16 +1092,26 @@ fun AtharStudioScreen(
                                                 ) {
                                                     LUXURY_BG_PRESETS.forEach { bg ->
                                                         val isSelected = canvasState.solidBgColorLong == bg.argb || (bg.argb == 0xFF000000 && canvasState.solidBgColorLong == null)
-                                                        Box(
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
                                                             modifier = Modifier
-                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .clip(RoundedCornerShape(10.dp))
                                                                 .background(if (isSelected) GoldAccent else GlassSurface)
+                                                                .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
                                                                 .clickable {
                                                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                                     viewModel.setSolidBgColor(if (bg.argb == 0xFF000000) null else bg.argb)
                                                                 }
-                                                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                                                .padding(horizontal = 10.dp, vertical = 6.dp)
                                                         ) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(10.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(Color(bg.argb.toInt()))
+                                                                    .border(0.5.dp, if (isSelected) AmoledBlack else PureWhite, CircleShape)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(6.dp))
                                                             Text(
                                                                 text = bg.name,
                                                                 color = if (isSelected) AmoledBlack else PureWhite,
@@ -1545,11 +1555,16 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 1. Export Transparent PNG Sticker (Trimmed tightly to text)
+                    // 1. Export Full Canvas Frame (Matching current canvas settings)
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.exportDesign(context, resolution = selectedResolution, isTransparent = true, isStickerTrimmed = true)
+                            viewModel.exportDesign(
+                                context,
+                                resolution = selectedResolution,
+                                isTransparent = canvasState.isTransparentBg,
+                                isStickerTrimmed = false
+                            )
                             showExportSheet = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
@@ -1563,11 +1578,20 @@ fun AtharStudioScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Share, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text(text = "ملصق شفاف مقصوص للستوري (PNG)", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Text(text = "بدون خلفية ومقصوص بدقة حول الخط مباشرة للستوري والتطبيقات", color = AmoledBlack.copy(alpha = 0.75f), fontSize = 10.sp)
+                                    Text(
+                                        text = if (canvasState.isTransparentBg) "تصدير الكانفاس الشفاف الكامل (PNG)" else "تصدير التصميم الكامل (${selectedResolution.label})",
+                                        color = AmoledBlack,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = "بالأبعاد الكاملة مع ضبط الخلفية والظلال الحالي بدقة الشاشة",
+                                        color = AmoledBlack.copy(alpha = 0.75f),
+                                        fontSize = 10.sp
+                                    )
                                 }
                             }
                         }
@@ -1575,11 +1599,16 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 2. Export Image with Photo Background (Full Frame)
+                    // 2. Export Transparent PNG Sticker (Trimmed tightly to text)
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.exportDesign(context, resolution = selectedResolution, isTransparent = false, isStickerTrimmed = false)
+                            viewModel.exportDesign(
+                                context,
+                                resolution = selectedResolution,
+                                isTransparent = true,
+                                isStickerTrimmed = true
+                            )
                             showExportSheet = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
@@ -1594,11 +1623,11 @@ fun AtharStudioScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Share, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text(text = "صورة كاملة مع الخلفية (${selectedResolution.label})", color = PureWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                    Text(text = "بالأبعاد الكاملة مع خلفية الصورة أو اللون المختار", color = SubtleGray, fontSize = 10.sp)
+                                    Text(text = "ملصق شفاف مقصوص للستوري (Sticker PNG)", color = PureWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text(text = "مفرغ بدون خلفية ومقصوص بدقة حول الخط مباشرة", color = SubtleGray, fontSize = 10.sp)
                                 }
                             }
                         }

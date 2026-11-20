@@ -46,7 +46,9 @@ enum class ExportResolution(val label: String, val width: Int, val description: 
     ULTRA_4K("فائقة الدقة Ultra 4K (2160p)", 2160, "دقة فائقة النقاء للطباعة وتفاصيل التايبوغرافي الحادة")
 }
 
-data class ColorSwatch(val name: String, val argb: Long)
+data class ColorSwatch(val name: String, val argb: Long) {
+    val composeColor: Color get() = Color(argb.toInt())
+}
 
 val LUXURY_SWATCHES = listOf(
     ColorSwatch("تذهيب تلقائي", 0x00000000), // 0 means default effect shader

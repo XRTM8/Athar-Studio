@@ -102,10 +102,20 @@ object AtharProjectManager {
                 put("stroke_width", state.strokeWidth.toDouble())
                 put("stroke_color", state.strokeColorLong)
                 put("shadow_radius", state.shadowRadius.toDouble())
+                put("shadow_dx", state.shadowDx.toDouble())
                 put("shadow_dy", state.shadowDy.toDouble())
+                put("shadow_color", state.shadowColorLong)
                 put("text_align", state.textAlign.name)
                 put("line_spacing", state.lineSpacingMultiplier.toDouble())
+                put("letter_spacing", state.letterSpacing.toDouble())
+                put("text_opacity", state.textOpacity.toDouble())
+                put("is_bold", state.isBold)
+                put("is_italic", state.isItalic)
+                put("is_underline", state.isUnderline)
+                put("is_locked", state.isLocked)
+                put("show_grid_guides", state.showGridGuides)
                 put("aspect_ratio", state.aspectRatio.name)
+                put("solid_bg_color", state.solidBgColorLong ?: 0L)
                 put("has_background_photo", bgBytes != null)
                 put("background_dim", state.backgroundDim.toDouble())
                 put("background_grayscale", state.backgroundGrayscale)
@@ -233,6 +243,7 @@ object AtharProjectManager {
         val align = try { TextAlignOption.valueOf(textAlignStr) } catch (e: Exception) { TextAlignOption.CENTER }
 
         val customColor = c.optLong("custom_color", 0L)
+        val solidBg = c.optLong("solid_bg_color", 0L)
 
         // Native Kashida calculation
         val stretched = AtharNativeEngine.applyKashida(rawText, stretchLevel)
@@ -248,10 +259,20 @@ object AtharProjectManager {
             strokeWidth = c.optDouble("stroke_width", 0.0).toFloat(),
             strokeColorLong = c.optLong("stroke_color", 0xFF000000),
             shadowRadius = c.optDouble("shadow_radius", 16.0).toFloat(),
+            shadowDx = c.optDouble("shadow_dx", 0.0).toFloat(),
             shadowDy = c.optDouble("shadow_dy", 6.0).toFloat(),
+            shadowColorLong = c.optLong("shadow_color", 0xAA000000),
             textAlign = align,
             lineSpacingMultiplier = c.optDouble("line_spacing", 1.35).toFloat(),
+            letterSpacing = c.optDouble("letter_spacing", 0.0).toFloat(),
+            textOpacity = c.optDouble("text_opacity", 1.0).toFloat(),
+            isBold = c.optBoolean("is_bold", false),
+            isItalic = c.optBoolean("is_italic", false),
+            isUnderline = c.optBoolean("is_underline", false),
+            isLocked = c.optBoolean("is_locked", false),
+            showGridGuides = c.optBoolean("show_grid_guides", false),
             aspectRatio = aspect,
+            solidBgColorLong = if (solidBg != 0L) solidBg else null,
             backgroundImageUri = extractedBgUri,
             backgroundDim = c.optDouble("background_dim", 0.25).toFloat(),
             backgroundGrayscale = c.optBoolean("background_grayscale", false),
@@ -338,7 +359,11 @@ object AtharProjectManager {
             }
 
             if (!photoDrawn) {
-                canvas.drawColor(android.graphics.Color.BLACK)
+                if (state.solidBgColorLong != null) {
+                    canvas.drawColor(state.solidBgColorLong.toInt())
+                } else {
+                    canvas.drawColor(android.graphics.Color.BLACK)
+                }
             } else if (state.backgroundDim > 0f) {
                 val dimAlpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
                 canvas.drawColor(android.graphics.Color.argb(dimAlpha, 0, 0, 0))
@@ -352,6 +377,11 @@ object AtharProjectManager {
             isAntiAlias = true
             isDither = true
             textSize = scaledTextSize
+            letterSpacing = state.letterSpacing
+            isUnderlineText = state.isUnderline
+            isFakeBoldText = state.isBold
+            textSkewX = if (state.isItalic) -0.25f else 0f
+            alpha = (state.textOpacity * 255).toInt().coerceIn(20, 255)
             textAlign = when (state.textAlign) {
                 TextAlignOption.RIGHT -> Paint.Align.RIGHT
                 TextAlignOption.CENTER -> Paint.Align.CENTER

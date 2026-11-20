@@ -11,8 +11,13 @@ import android.graphics.Rect
 import android.graphics.Shader
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroidSize
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateRotation
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,23 +31,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.theme.AmoledBlack
+import app.xrtm8.athar.ui.theme.GlassBorder
 import kotlin.math.abs
 
 @Composable
 fun CanvasView(
     state: CanvasState,
     modifier: Modifier = Modifier,
-    onTransformChanged: ((normX: Float, normY: Float, scale: Float, rotation: Float) -> Unit)? = null,
+    onTransformFinished: ((normX: Float, normY: Float, scale: Float, rotation: Float) -> Unit)? = null,
     onDoubleTap: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -104,8 +114,10 @@ fun CanvasView(
     val ratio = state.aspectRatio.ratio
     val canvasModifier = if (ratio != null) {
         Modifier
-            .aspectRatio(ratio)
+            .fillMaxSize()
+            .aspectRatio(ratio, matchHeightConstraintsFirst = false)
             .clipToBounds()
+            .border(0.5.dp, GlassBorder)
     } else {
         Modifier.fillMaxSize()
     }
@@ -118,33 +130,30 @@ fun CanvasView(
     ) {
         Canvas(
             modifier = canvasModifier
-                .fillMaxSize()
                 .background(if (state.isTransparentBg) Color.Transparent else AmoledBlack)
-                .pointerInput(Unit) {
-                    detectTapGestures(
+                .pointerInput(state.isLocked) {
+                    detectCanvasGestures(
+                        isLocked = state.isLocked,
+                        onTransform = { pan, zoom, rotate ->
+                            val cw = canvasW.coerceAtLeast(10f)
+                            val ch = canvasH.coerceAtLeast(10f)
+
+                            localNormX += pan.x / cw
+                            localNormY += pan.y / ch
+                            localScale = (localScale * zoom).coerceIn(0.25f, 6.0f)
+                            localRotation = (localRotation + rotate) % 360f
+
+                            // Magnetic Snap to Center
+                            if (abs(localNormX) < 0.015f) localNormX = 0f
+                            if (abs(localNormY) < 0.015f) localNormY = 0f
+                        },
+                        onGestureEnd = {
+                            onTransformFinished?.invoke(localNormX, localNormY, localScale, localRotation)
+                        },
                         onDoubleTap = {
                             onDoubleTap?.invoke()
                         }
                     )
-                }
-                .pointerInput(state.isLocked) {
-                    detectTransformGestures { _, pan, zoom, rotate ->
-                        if (state.isLocked) return@detectTransformGestures
-
-                        val cw = canvasW.coerceAtLeast(10f)
-                        val ch = canvasH.coerceAtLeast(10f)
-
-                        localNormX += pan.x / cw
-                        localNormY += pan.y / ch
-                        localScale = (localScale * zoom).coerceIn(0.3f, 6.0f)
-                        localRotation += rotate
-
-                        // Magnetic Snap to Center
-                        if (abs(localNormX) < 0.015f) localNormX = 0f
-                        if (abs(localNormY) < 0.015f) localNormY = 0f
-
-                        onTransformChanged?.invoke(localNormX, localNormY, localScale, localRotation)
-                    }
                 }
         ) {
             val canvasWidth = size.width
@@ -157,7 +166,7 @@ fun CanvasView(
 
                 // 1. Draw Background: Transparency Checkerboard or Image or Solid Color
                 if (state.isTransparentBg) {
-                    val tileSize = 24f * density
+                    val tileSize = 20f * density
                     val darkTile = android.graphics.Color.parseColor("#0E0E0E")
                     val lightTile = android.graphics.Color.parseColor("#181818")
                     val tilePaint = Paint()
@@ -260,12 +269,21 @@ fun CanvasView(
                 strokePaint.textAlign = align
 
                 val textSizePx = state.fontSize * density
+                val alphaFloat = state.textOpacity.coerceIn(0.15f, 1.0f)
+                val alphaInt = (alphaFloat * 255).toInt()
+
                 basePaint.textSize = textSizePx
                 basePaint.letterSpacing = state.letterSpacing
                 basePaint.isUnderlineText = state.isUnderline
                 basePaint.isFakeBoldText = state.isBold
                 basePaint.textSkewX = if (state.isItalic) -0.25f else 0f
-                basePaint.alpha = (state.textOpacity * 255).toInt().coerceIn(10, 255)
+                basePaint.alpha = alphaInt
+
+                // Color Filter for Opacity across Shaders and Colors
+                val alphaMatrix = ColorMatrix().apply {
+                    setScale(1f, 1f, 1f, alphaFloat)
+                }
+                basePaint.colorFilter = ColorMatrixColorFilter(alphaMatrix)
 
                 glowPaint.textSize = textSizePx
                 glowPaint.letterSpacing = state.letterSpacing
@@ -274,6 +292,7 @@ fun CanvasView(
                 shadowPaint.textSize = textSizePx
                 shadowPaint.letterSpacing = state.letterSpacing
                 shadowPaint.textSkewX = basePaint.textSkewX
+                shadowPaint.isFakeBoldText = state.isBold
 
                 strokePaint.textSize = textSizePx
                 strokePaint.strokeJoin = Paint.Join.ROUND
@@ -282,7 +301,8 @@ fun CanvasView(
                 strokePaint.isUnderlineText = state.isUnderline
                 strokePaint.isFakeBoldText = state.isBold
                 strokePaint.textSkewX = basePaint.textSkewX
-                strokePaint.alpha = basePaint.alpha
+                strokePaint.alpha = alphaInt
+                strokePaint.colorFilter = basePaint.colorFilter
 
                 // Stroke Configuration
                 if (state.strokeWidth > 0f) {
@@ -296,7 +316,8 @@ fun CanvasView(
                 val lines = state.displayText.split("\n")
                 val lineHeight = textSizePx * state.lineSpacingMultiplier
                 val totalHeight = (lines.size - 1) * lineHeight
-                val startY = -totalHeight / 2f
+                // Accurate vertical baseline centering
+                val startY = -totalHeight / 2f + (textSizePx * 0.35f)
 
                 var maxLineWidth = 0f
                 lines.forEach { line ->
@@ -313,35 +334,32 @@ fun CanvasView(
                 lines.forEachIndexed { index, line ->
                     val lineY = startY + (index * lineHeight)
 
-                    // Stroke Rendering
+                    // 1. Draw 2D Directional Shadow with Blur for ALL modes
+                    if (state.shadowRadius > 0f) {
+                        val sColor = state.shadowColorLong.toInt()
+                        val shadowAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
+                        shadowPaint.color = (sColor and 0x00FFFFFF) or (shadowAlpha shl 24)
+                        shadowPaint.maskFilter = BlurMaskFilter((state.shadowRadius * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+                        nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
+                    }
+
+                    // 2. Draw Smooth Stroke
                     if (state.strokeWidth > 0f) {
                         nativeCanvas.drawText(line, lineX, lineY, strokePaint)
                     }
 
-                    // Custom Color or Effect Shaders
+                    // 3. Custom Color or Effect Shaders Fill
                     if (state.customTextColorLong != null && state.customTextColorLong != 0L) {
-                        basePaint.color = state.customTextColorLong.toInt()
+                        val baseColor = state.customTextColorLong.toInt()
+                        basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
                         basePaint.shader = null
-                        if (state.shadowRadius > 0f) {
-                            shadowPaint.color = state.shadowColorLong.toInt()
-                            shadowPaint.maskFilter = BlurMaskFilter(state.shadowRadius * density, BlurMaskFilter.Blur.NORMAL)
-                            nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
-                        }
                         nativeCanvas.drawText(line, lineX, lineY, basePaint)
                     } else {
                         when (state.selectedEffect) {
                             VisualEffect.ROYAL_GOLD -> {
-                                glowPaint.color = android.graphics.Color.parseColor("#44E5C07B")
-                                glowPaint.maskFilter = BlurMaskFilter(22f * density, BlurMaskFilter.Blur.NORMAL)
-                                nativeCanvas.drawText(line, lineX, lineY, glowPaint)
-
-                                shadowPaint.color = state.shadowColorLong.toInt()
-                                shadowPaint.maskFilter = null
-                                nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
-
                                 basePaint.shader = LinearGradient(
-                                    0f, lineY - textSizePx * 0.8f,
-                                    0f, lineY + textSizePx * 0.2f,
+                                    0f, lineY - textSizePx * 0.85f,
+                                    0f, lineY + textSizePx * 0.25f,
                                     intArrayOf(
                                         android.graphics.Color.parseColor("#FFF7DB"),
                                         android.graphics.Color.parseColor("#F5C369"),
@@ -356,13 +374,9 @@ fun CanvasView(
                             }
 
                             VisualEffect.LIQUID_CHROME -> {
-                                shadowPaint.color = state.shadowColorLong.toInt()
-                                shadowPaint.maskFilter = null
-                                nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
-
                                 basePaint.shader = LinearGradient(
-                                    -textSizePx * 0.5f, lineY - textSizePx * 0.8f,
-                                    textSizePx * 0.5f, lineY + textSizePx * 0.2f,
+                                    -textSizePx * 0.5f, lineY - textSizePx * 0.85f,
+                                    textSizePx * 0.5f, lineY + textSizePx * 0.25f,
                                     intArrayOf(
                                         android.graphics.Color.parseColor("#FFFFFF"),
                                         android.graphics.Color.parseColor("#9EA5B0"),
@@ -378,13 +392,9 @@ fun CanvasView(
                             }
 
                             VisualEffect.FROSTED_GLASS -> {
-                                shadowPaint.color = android.graphics.Color.parseColor("#55000000")
-                                shadowPaint.maskFilter = BlurMaskFilter(14f * density, BlurMaskFilter.Blur.NORMAL)
-                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
-
                                 basePaint.shader = LinearGradient(
-                                    0f, lineY - textSizePx * 0.8f,
-                                    0f, lineY + textSizePx * 0.2f,
+                                    0f, lineY - textSizePx * 0.85f,
+                                    0f, lineY + textSizePx * 0.25f,
                                     intArrayOf(
                                         android.graphics.Color.parseColor("#E6FFFFFF"),
                                         android.graphics.Color.parseColor("#33E2E8F0")
@@ -400,33 +410,20 @@ fun CanvasView(
                                 glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
                                 nativeCanvas.drawText(line, lineX, lineY, glowPaint)
 
-                                shadowPaint.color = android.graphics.Color.parseColor("#88009955")
-                                shadowPaint.maskFilter = BlurMaskFilter(12f * density, BlurMaskFilter.Blur.NORMAL)
-                                nativeCanvas.drawText(line, lineX, lineY, shadowPaint)
-
                                 basePaint.shader = null
-                                basePaint.color = android.graphics.Color.WHITE
+                                basePaint.color = (android.graphics.Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
                                 nativeCanvas.drawText(line, lineX, lineY, basePaint)
                             }
 
                             VisualEffect.CINEMATIC_SHADOW -> {
-                                for (step in 1..6) {
-                                    shadowPaint.color = android.graphics.Color.argb((110 - step * 16).coerceAtLeast(10), 0, 0, 0)
-                                    shadowPaint.maskFilter = null
-                                    nativeCanvas.drawText(line, lineX + (step * 1.5f * density), lineY + (step * 2.2f * density), shadowPaint)
-                                }
                                 basePaint.shader = null
-                                basePaint.color = android.graphics.Color.parseColor("#F5F6F8")
+                                basePaint.color = (android.graphics.Color.parseColor("#F5F6F8") and 0x00FFFFFF) or (alphaInt shl 24)
                                 nativeCanvas.drawText(line, lineX, lineY, basePaint)
                             }
 
                             VisualEffect.MINIMAL_LUXURY -> {
-                                shadowPaint.color = android.graphics.Color.parseColor("#44000000")
-                                shadowPaint.maskFilter = BlurMaskFilter(6f * density, BlurMaskFilter.Blur.NORMAL)
-                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
-
                                 basePaint.shader = null
-                                basePaint.color = android.graphics.Color.WHITE
+                                basePaint.color = (android.graphics.Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
                                 nativeCanvas.drawText(line, lineX, lineY, basePaint)
                             }
                         }
@@ -435,6 +432,78 @@ fun CanvasView(
 
                 nativeCanvas.restore()
             }
+        }
+    }
+}
+
+/**
+ * High-performance pointer gesture detector for interactive studio canvas.
+ * Handles double-tap and transform gestures without recomposition lag or event conflicts.
+ */
+private suspend fun PointerInputScope.detectCanvasGestures(
+    isLocked: Boolean,
+    onTransform: (pan: Offset, zoom: Float, rotation: Float) -> Unit,
+    onGestureEnd: () -> Unit,
+    onDoubleTap: () -> Unit
+) {
+    var lastTapTime = 0L
+
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val now = System.currentTimeMillis()
+        if (now - lastTapTime < 320L) {
+            onDoubleTap()
+            lastTapTime = 0L
+        } else {
+            lastTapTime = now
+        }
+
+        if (isLocked) return@awaitEachGesture
+
+        var zoom = 1f
+        var rotation = 0f
+        var pan = Offset.Zero
+        var pastTouchSlop = false
+        val touchSlop = viewConfiguration.touchSlop
+
+        do {
+            val event = awaitPointerEvent()
+            val canceled = event.changes.any { it.isConsumed }
+            if (!canceled) {
+                val zoomChange = event.calculateZoom()
+                val rotationChange = event.calculateRotation()
+                val panChange = event.calculatePan()
+
+                if (!pastTouchSlop) {
+                    zoom *= zoomChange
+                    rotation += rotationChange
+                    pan += panChange
+
+                    val centroidSize = event.calculateCentroidSize(useCurrent = false)
+                    val zoomMotion = abs(1f - zoom) * centroidSize
+                    val rotationMotion = abs(rotation * Math.PI.toFloat() * centroidSize / 180f)
+                    val panMotion = pan.getDistance()
+
+                    if (zoomMotion > touchSlop || rotationMotion > touchSlop || panMotion > touchSlop) {
+                        pastTouchSlop = true
+                    }
+                }
+
+                if (pastTouchSlop) {
+                    if (zoomChange != 1f || rotationChange != 0f || panChange != Offset.Zero) {
+                        onTransform(panChange, zoomChange, rotationChange)
+                    }
+                    event.changes.forEach {
+                        if (it.positionChanged()) {
+                            it.consume()
+                        }
+                    }
+                }
+            }
+        } while (!canceled && event.changes.any { it.pressed })
+
+        if (pastTouchSlop) {
+            onGestureEnd()
         }
     }
 }

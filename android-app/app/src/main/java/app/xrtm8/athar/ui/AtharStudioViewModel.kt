@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
@@ -237,6 +238,17 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    fun commitTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
+        pushHistory(
+            _canvasState.value.copy(
+                normOffsetX = normX,
+                normOffsetY = normY,
+                scaleFactor = scale,
+                rotationAngle = rotation
+            )
+        )
+    }
+
     fun alignCenter() {
         pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f))
     }
@@ -433,10 +445,11 @@ class AtharStudioViewModel : ViewModel() {
                         CanvasAspectRatio.FREE -> (width * 16f / 9f).toInt()
                     }
 
+                    val effectiveTransparent = isTransparent || currentState.isTransparentBg
                     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     val canvas = Canvas(bitmap)
 
-                    if (!isTransparent) {
+                    if (!effectiveTransparent) {
                         var photoDrawn = false
                         val bgUri = currentState.backgroundImageUri
                         if (bgUri != null) {
@@ -481,6 +494,13 @@ class AtharStudioViewModel : ViewModel() {
 
                     val scaledTextSize = (currentState.fontSize / 380f) * width
                     val realTypeface = AtharFontManager.getTypeface(context, currentState.selectedFont)
+                    val alphaFloat = currentState.textOpacity.coerceIn(0.15f, 1.0f)
+                    val alphaInt = (alphaFloat * 255).toInt()
+
+                    val alphaMatrix = ColorMatrix().apply {
+                        setScale(1f, 1f, 1f, alphaFloat)
+                    }
+                    val opacityFilter = ColorMatrixColorFilter(alphaMatrix)
 
                     val paint = Paint().apply {
                         isAntiAlias = true
@@ -490,7 +510,8 @@ class AtharStudioViewModel : ViewModel() {
                         isUnderlineText = currentState.isUnderline
                         isFakeBoldText = currentState.isBold
                         textSkewX = if (currentState.isItalic) -0.25f else 0f
-                        alpha = (currentState.textOpacity * 255).toInt().coerceIn(10, 255)
+                        alpha = alphaInt
+                        colorFilter = opacityFilter
                         textAlign = when (currentState.textAlign) {
                             TextAlignOption.RIGHT -> Paint.Align.RIGHT
                             TextAlignOption.CENTER -> Paint.Align.CENTER
@@ -512,20 +533,35 @@ class AtharStudioViewModel : ViewModel() {
                             isUnderlineText = currentState.isUnderline
                             isFakeBoldText = currentState.isBold
                             textSkewX = if (currentState.isItalic) -0.25f else 0f
-                            alpha = (currentState.textOpacity * 255).toInt().coerceIn(10, 255)
+                            alpha = alphaInt
+                            colorFilter = opacityFilter
                             textSize = scaledTextSize
                             textAlign = paint.textAlign
                             typeface = realTypeface
                         }
                     } else null
 
-                    // Shadow configuration
-                    if (currentState.shadowRadius > 0f) {
-                        val scaledShadowRadius = (currentState.shadowRadius / 380f) * width
-                        val scaledShadowDx = (currentState.shadowDx / 380f) * width
-                        val scaledShadowDy = (currentState.shadowDy / 380f) * width
-                        paint.setShadowLayer(scaledShadowRadius, scaledShadowDx, scaledShadowDy, currentState.shadowColorLong.toInt())
-                    }
+                    // 2D Directional Shadow with Blur for ALL modes
+                    val shadowPaint = if (currentState.shadowRadius > 0f) {
+                        Paint().apply {
+                            isAntiAlias = true
+                            isDither = true
+                            textSize = scaledTextSize
+                            letterSpacing = currentState.letterSpacing
+                            isFakeBoldText = currentState.isBold
+                            textSkewX = if (currentState.isItalic) -0.25f else 0f
+                            textAlign = paint.textAlign
+                            typeface = realTypeface
+                            val sColor = currentState.shadowColorLong.toInt()
+                            val sAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
+                            color = (sColor and 0x00FFFFFF) or (sAlpha shl 24)
+                            val scaledBlur = ((currentState.shadowRadius / 380f) * width).coerceAtLeast(1f)
+                            maskFilter = BlurMaskFilter(scaledBlur, BlurMaskFilter.Blur.NORMAL)
+                        }
+                    } else null
+
+                    val scaledShadowDx = (currentState.shadowDx / 380f) * width
+                    val scaledShadowDy = (currentState.shadowDy / 380f) * width
 
                     val centerX = width * 0.5f + (width * currentState.normOffsetX)
                     val centerY = height * 0.5f + (height * currentState.normOffsetY)
@@ -533,7 +569,7 @@ class AtharStudioViewModel : ViewModel() {
                     val lines = currentState.displayText.split("\n")
                     val lineHeight = paint.textSize * currentState.lineSpacingMultiplier
                     val totalHeight = (lines.size - 1) * lineHeight
-                    val startY = -totalHeight / 2f + (paint.textSize * 0.32f)
+                    val startY = -totalHeight / 2f + (paint.textSize * 0.35f)
 
                     var maxLineWidth = 0f
                     lines.forEach { line ->
@@ -555,16 +591,27 @@ class AtharStudioViewModel : ViewModel() {
                     lines.forEachIndexed { index, line ->
                         val lineY = startY + (index * lineHeight)
 
-                        // Exact Shader and Color calculation per line matching CanvasView
+                        // 1. Draw 2D Directional Shadow
+                        shadowPaint?.let { shp ->
+                            canvas.drawText(line, lineX + scaledShadowDx, lineY + scaledShadowDy, shp)
+                        }
+
+                        // 2. Draw Stroke
+                        strokePaint?.let { sp ->
+                            canvas.drawText(line, lineX, lineY, sp)
+                        }
+
+                        // 3. Exact Shader and Color calculation per line matching CanvasView
                         if (currentState.customTextColorLong != null && currentState.customTextColorLong != 0L) {
-                            paint.color = currentState.customTextColorLong.toInt()
+                            val baseColor = currentState.customTextColorLong.toInt()
+                            paint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
                             paint.shader = null
                         } else {
                             when (currentState.selectedEffect) {
                                 VisualEffect.ROYAL_GOLD -> {
                                     paint.shader = LinearGradient(
-                                        0f, lineY - paint.textSize * 0.8f,
-                                        0f, lineY + paint.textSize * 0.2f,
+                                        0f, lineY - paint.textSize * 0.85f,
+                                        0f, lineY + paint.textSize * 0.25f,
                                         intArrayOf(
                                             android.graphics.Color.parseColor("#FFF7DB"),
                                             android.graphics.Color.parseColor("#F5C369"),
@@ -578,8 +625,8 @@ class AtharStudioViewModel : ViewModel() {
                                 }
                                 VisualEffect.LIQUID_CHROME -> {
                                     paint.shader = LinearGradient(
-                                        -paint.textSize * 0.5f, lineY - paint.textSize * 0.8f,
-                                        paint.textSize * 0.5f, lineY + paint.textSize * 0.2f,
+                                        -paint.textSize * 0.5f, lineY - paint.textSize * 0.85f,
+                                        paint.textSize * 0.5f, lineY + paint.textSize * 0.25f,
                                         intArrayOf(
                                             android.graphics.Color.parseColor("#FFFFFF"),
                                             android.graphics.Color.parseColor("#9EA5B0"),
@@ -593,33 +640,38 @@ class AtharStudioViewModel : ViewModel() {
                                     )
                                 }
                                 VisualEffect.CYBER_NEON -> {
-                                    paint.color = android.graphics.Color.parseColor("#00FF9D")
+                                    paint.color = (android.graphics.Color.parseColor("#00FF9D") and 0x00FFFFFF) or (alphaInt shl 24)
                                     paint.shader = null
                                 }
                                 VisualEffect.CINEMATIC_SHADOW -> {
-                                    paint.color = android.graphics.Color.parseColor("#F2F2F2")
+                                    paint.color = (android.graphics.Color.parseColor("#F2F2F2") and 0x00FFFFFF) or (alphaInt shl 24)
                                     paint.shader = null
                                 }
                                 VisualEffect.FROSTED_GLASS -> {
-                                    paint.color = android.graphics.Color.parseColor("#DDFFFFFF")
-                                    paint.shader = null
+                                    paint.shader = LinearGradient(
+                                        0f, lineY - paint.textSize * 0.85f,
+                                        0f, lineY + paint.textSize * 0.25f,
+                                        intArrayOf(
+                                            android.graphics.Color.parseColor("#E6FFFFFF"),
+                                            android.graphics.Color.parseColor("#33E2E8F0")
+                                        ),
+                                        null,
+                                        Shader.TileMode.CLAMP
+                                    )
                                 }
                                 VisualEffect.MINIMAL_LUXURY -> {
-                                    paint.color = android.graphics.Color.WHITE
+                                    paint.color = (android.graphics.Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
                                     paint.shader = null
                                 }
                             }
                         }
 
-                        strokePaint?.let { sp ->
-                            canvas.drawText(line, lineX, lineY, sp)
-                        }
                         canvas.drawText(line, lineX, lineY, paint)
                     }
                     canvas.restore()
 
                     // Trim transparent margins if sticker export requested
-                    val finalBitmap = if (isTransparent && isStickerTrimmed) {
+                    val finalBitmap = if (effectiveTransparent && isStickerTrimmed) {
                         val padding = (48f * (width / 1080f)).toInt()
                         val cropped = cropTransparentBitmap(bitmap, paddingPx = padding)
                         if (cropped != bitmap) {
@@ -631,10 +683,10 @@ class AtharStudioViewModel : ViewModel() {
                     }
 
                     // Save to Gallery via MediaStore
-                    val filename = "Athar_${System.currentTimeMillis()}.${if (isTransparent) "png" else "jpg"}"
+                    val filename = "Athar_${System.currentTimeMillis()}.${if (effectiveTransparent) "png" else "jpg"}"
                     val contentValues = ContentValues().apply {
                         put(MediaStore.Images.Media.DISPLAY_NAME, filename)
-                        put(MediaStore.Images.Media.MIME_TYPE, if (isTransparent) "image/png" else "image/jpeg")
+                        put(MediaStore.Images.Media.MIME_TYPE, if (effectiveTransparent) "image/png" else "image/jpeg")
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Athar")
                             put(MediaStore.Images.Media.IS_PENDING, 1)
@@ -647,7 +699,7 @@ class AtharStudioViewModel : ViewModel() {
                     if (imageUri != null) {
                         resolver.openOutputStream(imageUri)?.use { out ->
                             finalBitmap.compress(
-                                if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
+                                if (effectiveTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
                                 100,
                                 out
                             )
@@ -666,7 +718,7 @@ class AtharStudioViewModel : ViewModel() {
                     val cacheFile = File(exportDir, filename)
                     FileOutputStream(cacheFile).use { out ->
                         finalBitmap.compress(
-                            if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
+                            if (effectiveTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
                             100,
                             out
                         )
@@ -676,7 +728,7 @@ class AtharStudioViewModel : ViewModel() {
 
                     if (onShareRequested) {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = if (isTransparent) "image/png" else "image/jpeg"
+                            type = if (effectiveTransparent) "image/png" else "image/jpeg"
                             putExtra(Intent.EXTRA_STREAM, shareUri)
                             flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                         }
@@ -684,7 +736,7 @@ class AtharStudioViewModel : ViewModel() {
                     }
 
                     Result.success(
-                        if (isTransparent && isStickerTrimmed) {
+                        if (effectiveTransparent && isStickerTrimmed) {
                             "تم تصدير الملصق الشفاف المقصوص بنجاح (PNG)"
                         } else {
                             "تم حفظ التصميم في المعرض بنجاح (${resolution.label})"
