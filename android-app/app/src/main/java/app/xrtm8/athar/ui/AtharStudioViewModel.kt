@@ -278,7 +278,20 @@ class AtharStudioViewModel : ViewModel() {
                                     val cm = ColorMatrix().apply { setSaturation(0f) }
                                     bgPaint.colorFilter = ColorMatrixColorFilter(cm)
                                 }
-                                val srcRect = Rect(0, 0, srcBitmap.width, srcBitmap.height)
+                                val srcW = srcBitmap.width.toFloat()
+                                val srcH = srcBitmap.height.toFloat()
+                                val srcRatio = srcW / srcH
+                                val dstRatio = width.toFloat() / height.toFloat()
+
+                                val srcRect = if (srcRatio > dstRatio) {
+                                    val newW = (srcH * dstRatio).toInt()
+                                    val xOffset = ((srcW - newW) / 2).toInt()
+                                    Rect(xOffset, 0, xOffset + newW, srcH.toInt())
+                                } else {
+                                    val newH = (srcW / dstRatio).toInt()
+                                    val yOffset = ((srcH - newH) / 2).toInt()
+                                    Rect(0, yOffset, srcW.toInt(), yOffset + newH)
+                                }
                                 val dstRect = Rect(0, 0, width, height)
                                 canvas.drawBitmap(srcBitmap, srcRect, dstRect, bgPaint)
                                 photoDrawn = true
@@ -383,19 +396,27 @@ class AtharStudioViewModel : ViewModel() {
                     val lines = currentState.displayText.split("\n")
                     val lineHeight = paint.textSize * currentState.lineSpacingMultiplier
                     val totalHeight = (lines.size - 1) * lineHeight
-                    val startY = centerY - (totalHeight / 2f) + (paint.textSize * 0.32f)
+                    val startY = -totalHeight / 2f + (paint.textSize * 0.32f)
+
+                    var maxLineWidth = 0f
+                    lines.forEach { line ->
+                        val w = paint.measureText(line)
+                        if (w > maxLineWidth) maxLineWidth = w
+                    }
+                    val halfBlockW = maxLineWidth / 2f
+                    val lineX = when (currentState.textAlign) {
+                        TextAlignOption.RIGHT -> halfBlockW
+                        TextAlignOption.CENTER -> 0f
+                        TextAlignOption.LEFT -> -halfBlockW
+                    }
 
                     canvas.save()
-                    canvas.rotate(currentState.rotationAngle, centerX, centerY)
-                    canvas.scale(currentState.scaleFactor, currentState.scaleFactor, centerX, centerY)
+                    canvas.translate(centerX, centerY)
+                    canvas.rotate(currentState.rotationAngle)
+                    canvas.scale(currentState.scaleFactor, currentState.scaleFactor)
 
                     lines.forEachIndexed { index, line ->
                         val lineY = startY + (index * lineHeight)
-                        val lineX = when (currentState.textAlign) {
-                            TextAlignOption.RIGHT -> centerX + (width * 0.38f)
-                            TextAlignOption.CENTER -> centerX
-                            TextAlignOption.LEFT -> centerX - (width * 0.38f)
-                        }
                         strokePaint?.let { sp ->
                             canvas.drawText(line, lineX, lineY, sp)
                         }

@@ -152,16 +152,30 @@ fun CanvasView(
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
 
-                // 1. Draw Background Image (Grayscale + Dim)
+                // 1. Draw Background Image with Proportional Aspect-Fill (Center-Crop)
                 if (bgBitmap != null && !state.isTransparentBg) {
                     if (state.backgroundGrayscale) {
                         bgPaint.colorFilter = ColorMatrixColorFilter(grayMatrix)
                     } else {
                         bgPaint.colorFilter = null
                     }
-                    val src = Rect(0, 0, bgBitmap!!.width, bgBitmap!!.height)
-                    val dst = Rect(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
-                    nativeCanvas.drawBitmap(bgBitmap!!, src, dst, bgPaint)
+                    val bm = bgBitmap!!
+                    val srcW = bm.width.toFloat()
+                    val srcH = bm.height.toFloat()
+                    val srcRatio = srcW / srcH
+                    val dstRatio = canvasWidth / canvasHeight
+
+                    val srcRect = if (srcRatio > dstRatio) {
+                        val newW = (srcH * dstRatio).toInt()
+                        val xOffset = ((srcW - newW) / 2).toInt()
+                        Rect(xOffset, 0, xOffset + newW, srcH.toInt())
+                    } else {
+                        val newH = (srcW / dstRatio).toInt()
+                        val yOffset = ((srcH - newH) / 2).toInt()
+                        Rect(0, yOffset, srcW.toInt(), yOffset + newH)
+                    }
+                    val dstRect = Rect(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
+                    nativeCanvas.drawBitmap(bm, srcRect, dstRect, bgPaint)
 
                     // Dim Overlay for Text Legibility
                     if (state.backgroundDim > 0f) {
@@ -224,13 +238,20 @@ fun CanvasView(
                 val totalHeight = (lines.size - 1) * lineHeight
                 val startY = -totalHeight / 2f
 
+                var maxLineWidth = 0f
+                lines.forEach { line ->
+                    val w = basePaint.measureText(line)
+                    if (w > maxLineWidth) maxLineWidth = w
+                }
+                val halfBlockW = maxLineWidth / 2f
+                val lineX = when (state.textAlign) {
+                    TextAlignOption.RIGHT -> halfBlockW
+                    TextAlignOption.CENTER -> 0f
+                    TextAlignOption.LEFT -> -halfBlockW
+                }
+
                 lines.forEachIndexed { index, line ->
                     val lineY = startY + (index * lineHeight)
-                    val lineX = when (state.textAlign) {
-                        TextAlignOption.RIGHT -> canvasWidth * 0.38f
-                        TextAlignOption.CENTER -> 0f
-                        TextAlignOption.LEFT -> -canvasWidth * 0.38f
-                    }
 
                     // Stroke Rendering
                     if (state.strokeWidth > 0f) {
