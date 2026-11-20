@@ -195,6 +195,9 @@ fun AtharStudioScreen(
                     onPhotoFramingFinished = { px, py, pScale ->
                         viewModel.commitPhotoFraming(px, py, pScale)
                     },
+                    onSelectLayer = { layerId ->
+                        viewModel.selectLayer(layerId)
+                    },
                     onDoubleTap = {
                         showTextDialog = true
                     }

@@ -72,7 +72,7 @@ fun OpticalAndGrainPanel(
         )
 
         Spacer(modifier = Modifier.height(14.dp))
-        Divider(color = GlassBorder, thickness = 0.5.dp)
+        HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
         Spacer(modifier = Modifier.height(12.dp))
 
         // 2. Cinematic Lens Flare Section

@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -172,7 +174,7 @@ fun FreeTashkeelPanel(
                         },
                         modifier = Modifier.size(32.dp).background(GlassCard, CircleShape)
                     ) {
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "يمين", tint = GoldAccent)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "يمين", tint = GoldAccent)
                     }
                     IconButton(
                         onClick = {
@@ -181,7 +183,7 @@ fun FreeTashkeelPanel(
                         },
                         modifier = Modifier.size(32.dp).background(GlassCard, CircleShape)
                     ) {
-                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "يسار", tint = GoldAccent)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "يسار", tint = GoldAccent)
                     }
 
                     IconButton(

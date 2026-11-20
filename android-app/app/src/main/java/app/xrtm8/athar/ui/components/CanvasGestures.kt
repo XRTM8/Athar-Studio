@@ -12,28 +12,38 @@ import androidx.compose.ui.input.pointer.positionChanged
 import kotlin.math.abs
 
 /**
- * High-performance pointer gesture detector for interactive studio canvas.
- * Handles double-tap and transform gestures without recomposition lag or event conflicts.
+ * Company-Grade pointer gesture detector for interactive studio canvas.
+ * Seamlessly arbitrates between:
+ * - Precision layer hit-testing and direct selection on single tap
+ * - Fast text editor modal invocation on double tap
+ * - Multi-touch 120Hz translation, scaling, and rotation transforms
  */
 suspend fun PointerInputScope.detectCanvasGestures(
     isLocked: Boolean,
     onTransform: (pan: Offset, zoom: Float, rotation: Float) -> Unit,
     onGestureEnd: () -> Unit,
-    onDoubleTap: () -> Unit
+    onTap: (Offset) -> Unit,
+    onDoubleTap: (Offset) -> Unit
 ) {
     var lastTapTime = 0L
+    var lastTapPos = Offset.Zero
 
     awaitEachGesture {
-        awaitFirstDown(requireUnconsumed = false)
-        val now = System.currentTimeMillis()
-        if (now - lastTapTime < 320L) {
-            onDoubleTap()
-            lastTapTime = 0L
-        } else {
-            lastTapTime = now
-        }
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val downPos = down.position
 
-        if (isLocked) return@awaitEachGesture
+        if (isLocked) {
+            val now = System.currentTimeMillis()
+            if (now - lastTapTime < 350L && (downPos - lastTapPos).getDistance() < 45f) {
+                onDoubleTap(downPos)
+                lastTapTime = 0L
+            } else {
+                onTap(downPos)
+                lastTapTime = now
+                lastTapPos = downPos
+            }
+            return@awaitEachGesture
+        }
 
         var zoom = 1f
         var rotation = 0f
@@ -79,6 +89,16 @@ suspend fun PointerInputScope.detectCanvasGestures(
 
         if (pastTouchSlop) {
             onGestureEnd()
+        } else {
+            val now = System.currentTimeMillis()
+            if (now - lastTapTime < 350L && (downPos - lastTapPos).getDistance() < 45f) {
+                onDoubleTap(downPos)
+                lastTapTime = 0L
+            } else {
+                onTap(downPos)
+                lastTapTime = now
+                lastTapPos = downPos
+            }
         }
     }
 }

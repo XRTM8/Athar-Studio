@@ -234,7 +234,7 @@ fun StyleEffectsPanel(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    Divider(color = GlassBorder, thickness = 0.5.dp)
+                    HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // 1-Tap Auto Harmonize with background if photo exists

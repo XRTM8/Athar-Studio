@@ -185,6 +185,26 @@ fun CanvasBackgroundPanel(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "إظهار شبكة المحاذاة الذهبية", color = MutedWhite, fontSize = 11.5.sp)
+                        Switch(
+                            checked = state.showGridGuides,
+                            onCheckedChange = { onToggleGridGuides() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = GoldAccent,
+                                checkedTrackColor = GlassSurface,
+                                uncheckedThumbColor = SubtleGray,
+                                uncheckedTrackColor = AmoledBlack
+                            )
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Photo from Gallery Action Card

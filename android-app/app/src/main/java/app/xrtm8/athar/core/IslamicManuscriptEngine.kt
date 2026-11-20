@@ -18,7 +18,8 @@ object IslamicManuscriptEngine {
         SALAWAT("صلوات وأدعية"),
         QURANIC("آيات قرآنية"),
         OCCASIONS("تهاني ومناسبات"),
-        WISDOM("حكم وأذكار")
+        WISDOM("حكم وأذكار"),
+        ORNAMENTS("زخارف ورموز إسلامية")
     }
 
     data class ManuscriptEntry(
@@ -232,6 +233,78 @@ object IslamicManuscriptEngine {
             recommendedEffect = VisualEffect.ROYAL_GOLD,
             recommendedStretch = 4,
             recommendedFontSize = 52f
+        ),
+
+        // زخارف ورموز إسلامية
+        ManuscriptEntry(
+            id = "ornament_bismillah_ligature",
+            category = ManuscriptCategory.ORNAMENTS,
+            titleAr = "طغراء البسملة الجامعة (﷽)",
+            fullText = "﷽",
+            recommendedFont = ArabicFontFamily.AMIRI,
+            recommendedEffect = VisualEffect.ROYAL_GOLD,
+            recommendedStretch = 0,
+            recommendedFontSize = 64f
+        ),
+        ManuscriptEntry(
+            id = "ornament_ayah_end",
+            category = ManuscriptCategory.ORNAMENTS,
+            titleAr = "رأس آية محلى (۝)",
+            fullText = "۝ ١ ۝",
+            recommendedFont = ArabicFontFamily.AMIRI,
+            recommendedEffect = VisualEffect.ROYAL_GOLD,
+            recommendedStretch = 0,
+            recommendedFontSize = 48f
+        ),
+        ManuscriptEntry(
+            id = "ornament_rub_el_hizb",
+            category = ManuscriptCategory.ORNAMENTS,
+            titleAr = "حزب وربع شريف (۞)",
+            fullText = "۞ سُبْحَانَ اللَّهِ ۞",
+            recommendedFont = ArabicFontFamily.SCHEHERAZADE_NEW,
+            recommendedEffect = VisualEffect.ROYAL_GOLD,
+            recommendedStretch = 2,
+            recommendedFontSize = 44f
+        ),
+        ManuscriptEntry(
+            id = "ornament_sajdah_cartouche",
+            category = ManuscriptCategory.ORNAMENTS,
+            titleAr = "علامة السجدة المحلاة (۩)",
+            fullText = "۩ وَاسْجُدْ وَاقْتَرِب ۩",
+            recommendedFont = ArabicFontFamily.ELGHARIB_HAFS_TAWEEL,
+            recommendedEffect = VisualEffect.ROYAL_GOLD,
+            recommendedStretch = 3,
+            recommendedFontSize = 42f
+        ),
+        ManuscriptEntry(
+            id = "ornament_salawat_ligature",
+            category = ManuscriptCategory.ORNAMENTS,
+            titleAr = "الصلاة على النبي بالرمز الشريف (ﷺ)",
+            fullText = "ﷺ مُحَمَّدٌ رَسُولُ اللَّهِ ﷺ",
+            recommendedFont = ArabicFontFamily.AMIRI,
+            recommendedEffect = VisualEffect.ROYAL_GOLD,
+            recommendedStretch = 1,
+            recommendedFontSize = 46f
+        ),
+        ManuscriptEntry(
+            id = "ornament_jalla_jalaluh",
+            category = ManuscriptCategory.ORNAMENTS,
+            titleAr = "لفظ الجلالة مع جل جلاله (ﷻ)",
+            fullText = "ﷻ اللَّهُ جَلَّ جَلَالُهُ ﷻ",
+            recommendedFont = ArabicFontFamily.AMIRI,
+            recommendedEffect = VisualEffect.ROYAL_GOLD,
+            recommendedStretch = 2,
+            recommendedFontSize = 46f
+        ),
+        ManuscriptEntry(
+            id = "ornament_divider",
+            category = ManuscriptCategory.ORNAMENTS,
+            titleAr = "فاصل أرابيسك هندسي",
+            fullText = "ـ ❖ ✦ ۞ ✦ ❖ ـ",
+            recommendedFont = ArabicFontFamily.REEM_KUFI,
+            recommendedEffect = VisualEffect.ROYAL_GOLD,
+            recommendedStretch = 0,
+            recommendedFontSize = 36f
         )
     )
 

@@ -83,21 +83,21 @@ object AtharExportManager {
                 var srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
                 if (srcBitmap != null) {
                     val behindLayers = state.layers.filter { it.isBehindSubject }
-                    drawLayers(context, canvas, behindLayers, state, width, height)
+                    drawLayers(context, canvas, behindLayers, width, height)
 
                     val cutout = SubjectDepthEngine.getSubjectCutout(srcBitmap, state.subjectDepthSensitivity)
                     drawForegroundCutout(canvas, cutout, state, width, height)
 
                     val frontLayers = state.layers.filter { !it.isBehindSubject }
-                    drawLayers(context, canvas, frontLayers, state, width, height)
+                    drawLayers(context, canvas, frontLayers, width, height)
 
                     if (cutout != srcBitmap) cutout.recycle()
                     srcBitmap.recycle()
                 } else {
-                    drawLayers(context, canvas, state.layers, state, width, height)
+                    drawLayers(context, canvas, state.layers, width, height)
                 }
             } else {
-                drawLayers(context, canvas, state.layers, state, width, height)
+                drawLayers(context, canvas, state.layers, width, height)
             }
 
             // Lens Flare Overlay
@@ -265,7 +265,7 @@ object AtharExportManager {
         canvas.drawBitmap(cutout, srcRect, dstRect, paint)
     }
 
-    private fun drawLayers(context: Context, canvas: Canvas, layers: List<TextLayer>, state: CanvasState, width: Int, height: Int) {
+    private fun drawLayers(context: Context, canvas: Canvas, layers: List<TextLayer>, width: Int, height: Int) {
         val densityFactor = width / 380f
 
         layers.forEach { layer ->

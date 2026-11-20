@@ -145,4 +145,9 @@ class AtharStudioSupremacyTest {
         assertEquals(android.graphics.PorterDuff.Mode.LIGHTEN, LayerBlendMode.LIGHTEN.porterDuffMode)
         assertEquals(android.graphics.PorterDuff.Mode.DARKEN, LayerBlendMode.DARKEN.porterDuffMode)
     }
+
+    @Test
+    fun testSubjectDepthEngineCache() {
+        app.xrtm8.athar.core.SubjectDepthEngine.clearCache()
+    }
 }

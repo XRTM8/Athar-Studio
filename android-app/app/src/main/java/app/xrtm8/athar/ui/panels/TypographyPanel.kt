@@ -342,7 +342,7 @@ fun TypographyPanel(
         )
 
         Spacer(modifier = Modifier.height(10.dp))
-        Divider(color = GlassBorder, thickness = 0.5.dp)
+        HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
         Spacer(modifier = Modifier.height(10.dp))
 
         // 7. Curved / Arc Path Typography

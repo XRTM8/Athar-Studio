@@ -28,8 +28,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.core.CinematicOpticalEngine
@@ -55,10 +57,12 @@ fun CanvasView(
     modifier: Modifier = Modifier,
     onTransformFinished: ((normX: Float, normY: Float, scale: Float, rotation: Float) -> Unit)? = null,
     onPhotoFramingFinished: ((normX: Float, normY: Float, scale: Float) -> Unit)? = null,
+    onSelectLayer: ((String) -> Unit)? = null,
     onDoubleTap: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
+    val haptic = LocalHapticFeedback.current
 
     val active = state.activeLayer
 
@@ -235,8 +239,29 @@ fun CanvasView(
                                 localScale = (localScale * zoom).coerceIn(0.25f, 6.0f)
                                 localRotation = (localRotation + rotate) % 360f
 
-                                if (abs(localNormX) < 0.015f) localNormX = 0f
-                                if (abs(localNormY) < 0.015f) localNormY = 0f
+                                var snapped = false
+                                if (abs(localNormX) < 0.015f) {
+                                    if (localNormX != 0f) snapped = true
+                                    localNormX = 0f
+                                }
+                                if (abs(localNormY) < 0.015f) {
+                                    if (localNormY != 0f) snapped = true
+                                    localNormY = 0f
+                                }
+
+                                val rot360 = ((localRotation % 360f) + 360f) % 360f
+                                for (cardinal in listOf(0f, 90f, 180f, 270f, 360f)) {
+                                    if (abs(rot360 - cardinal) < 2.5f) {
+                                        val target = if (cardinal == 360f) 0f else cardinal
+                                        if (localRotation != target) snapped = true
+                                        localRotation = target
+                                        break
+                                    }
+                                }
+
+                                if (snapped) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
                             }
                         },
                         onGestureEnd = {
@@ -247,8 +272,28 @@ fun CanvasView(
                                 onTransformFinished?.invoke(localNormX, localNormY, localScale, localRotation)
                             }
                         },
-                        onDoubleTap = {
-                            onDoubleTap?.invoke()
+                        onTap = { tapOffset ->
+                            if (!state.isFramingMode) {
+                                val hit = findHitLayer(tapOffset.x, tapOffset.y, canvasW, canvasH, state, density)
+                                if (hit != null) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelectLayer?.invoke(hit.id)
+                                }
+                            }
+                        },
+                        onDoubleTap = { tapOffset ->
+                            if (!state.isFramingMode) {
+                                val hit = findHitLayer(tapOffset.x, tapOffset.y, canvasW, canvasH, state, density)
+                                if (hit != null) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onSelectLayer?.invoke(hit.id)
+                                    onDoubleTap?.invoke()
+                                } else {
+                                    onDoubleTap?.invoke()
+                                }
+                            } else {
+                                onDoubleTap?.invoke()
+                            }
                         }
                     )
                 }
@@ -484,8 +529,8 @@ fun CanvasView(
                             }
                         }
 
-                        // 5. Draw Selection Handles on the active layer when interacting
-                        if (isCurrentActive && isInteracting && !state.isFramingMode) {
+                        // 5. Draw Selection Handles on the active layer
+                        if (isCurrentActive && !state.isFramingMode) {
                             CanvasBoundingBoxRenderer.drawBoundingBox(
                                 nativeCanvas = nativeCanvas,
                                 textAlign = layer.textAlign,
@@ -543,4 +588,51 @@ fun CanvasView(
             }
         }
     }
+}
+
+/**
+ * Precision canvas hit-testing to detect which text layer the user tapped.
+ * Accounts for canvas offset, scaling, rotation angle, and finger touch targets.
+ */
+private fun findHitLayer(
+    touchX: Float,
+    touchY: Float,
+    canvasW: Float,
+    canvasH: Float,
+    state: CanvasState,
+    density: Float
+): TextLayer? {
+    val pad = 28f * density
+    // Search top-to-bottom in visual z-order
+    for (layer in state.layers.asReversed()) {
+        if (!layer.isVisible || layer.displayText.isEmpty()) continue
+
+        val cx = canvasW / 2f + (layer.normOffsetX * canvasW)
+        val cy = canvasH / 2f + (layer.normOffsetY * canvasH)
+        val scale = layer.scaleFactor.coerceAtLeast(0.1f)
+
+        val textSizePx = layer.fontSize * density
+        val lines = layer.displayText.split("\n")
+        val lineHeight = textSizePx * layer.lineSpacingMultiplier
+        val totalH = kotlin.math.max(textSizePx, lines.size * lineHeight)
+        val maxChars = lines.maxOfOrNull { it.length } ?: 1
+        val totalW = kotlin.math.max(textSizePx * 2f, maxChars * textSizePx * 0.62f)
+
+        val halfW = (totalW / 2f) * scale + pad
+        val halfH = (totalH / 2f) * scale + pad
+
+        val dx = touchX - cx
+        val dy = touchY - cy
+
+        val rad = Math.toRadians(-layer.rotationAngle.toDouble())
+        val cosA = Math.cos(rad).toFloat()
+        val sinA = Math.sin(rad).toFloat()
+        val localX = dx * cosA - dy * sinA
+        val localY = dx * sinA + dy * cosA
+
+        if (abs(localX) <= halfW && abs(localY) <= halfH) {
+            return layer
+        }
+    }
+    return null
 }
