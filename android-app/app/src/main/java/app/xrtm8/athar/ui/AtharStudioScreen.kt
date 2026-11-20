@@ -1,6 +1,9 @@
 package app.xrtm8.athar.ui
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -30,12 +33,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FormatAlignJustify
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.VerticalAlignBottom
+import androidx.compose.material.icons.filled.VerticalAlignCenter
+import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,6 +53,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
@@ -72,6 +82,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.xrtm8.athar.model.ArabicFontFamily
+import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.ui.components.CanvasView
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
@@ -109,7 +121,18 @@ fun AtharStudioScreen(
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
 
-    // Handle export message toast
+    // Photo picker contract for selecting background image from gallery
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            if (uri != null) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.setBackgroundImageUri(uri)
+                Toast.makeText(context, "تم تعيين الصورة كخلفية للتصميم", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
     LaunchedEffect(exportMessage) {
         exportMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -173,9 +196,14 @@ fun AtharStudioScreen(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 coroutineScope.launch {
-                                    val info = updateManager.checkForUpdates(showNotificationOnFound = false)
+                                    val currentVersion = try {
+                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.1.0"
+                                    } catch (e: Exception) {
+                                        "1.1.0"
+                                    }
+                                    val info = updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = false)
                                     if (info == null) {
-                                        Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v1.0.3)", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v$currentVersion)", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -189,7 +217,7 @@ fun AtharStudioScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
 
                         // Reset Canvas Transform
                         IconButton(
@@ -207,7 +235,7 @@ fun AtharStudioScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
                         // Export Button
                         Button(
@@ -246,7 +274,7 @@ fun AtharStudioScreen(
                 }
             }
 
-            // Interactive Canvas Area (Phase 3 Isolated - Zero Recomposition)
+            // Interactive Canvas Area (Draw-Phase Isolated)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -254,7 +282,7 @@ fun AtharStudioScreen(
             ) {
                 CanvasView(state = canvasState)
 
-                // Quick Edit Text FAB (Glassmorphism circle)
+                // Quick Edit Text FAB
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -278,54 +306,55 @@ fun AtharStudioScreen(
                 }
             }
 
-            // Frosted Glass Bottom Studio Console
+            // Expanded Frosted Glass Bottom Studio Console
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
                     .clip(RoundedCornerShape(26.dp))
                     .background(GlassBackground)
                     .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(26.dp))
-                    .padding(18.dp)
+                    .padding(16.dp)
             ) {
                 Column {
-                    // Segmented Pill Tabs
+                    // 5-Tab Segmented Glass Pills
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
                             .clip(RoundedCornerShape(14.dp))
                             .background(GlassSurface)
                             .border(0.5.dp, GlassBorder, RoundedCornerShape(14.dp))
-                            .padding(4.dp)
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        val tabs = listOf("المَدّ الذكي", "التأثيرات", "الحجم والعمق")
+                        val tabs = listOf("المَدّ والمحاذاة", "التأثيرات", "الخطوط", "الخلفية والصورة", "الحجم والعمق")
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTab == index
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .weight(1f)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (isSelected) GoldAccent else Color.Transparent)
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         selectedTab = index
                                     }
-                                    .padding(vertical = 8.dp)
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
                             ) {
                                 Text(
                                     text = title,
                                     color = if (isSelected) AmoledBlack else MutedWhite,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp
+                                    fontSize = 12.5.sp
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // Tab Content with Smooth Spring Transitions
+                    // Tab Content
                     AnimatedContent(
                         targetState = selectedTab,
                         transitionSpec = {
@@ -341,8 +370,9 @@ fun AtharStudioScreen(
                     ) { tabIndex ->
                         when (tabIndex) {
                             0 -> {
-                                // Smart Kashida Tab
+                                // Kashida & Alignment Tab
                                 Column {
+                                    // Kashida Slider
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -351,7 +381,7 @@ fun AtharStudioScreen(
                                         Text(
                                             text = "مستوى المد المتجهي (الكشيدة)",
                                             color = PureWhite,
-                                            fontSize = 13.5.sp,
+                                            fontSize = 13.sp,
                                             fontWeight = FontWeight.Medium
                                         )
                                         Box(
@@ -364,13 +394,11 @@ fun AtharStudioScreen(
                                             Text(
                                                 text = "${canvasState.stretchLevel}x",
                                                 color = GoldAccent,
-                                                fontSize = 14.sp,
+                                                fontSize = 13.5.sp,
                                                 fontWeight = FontWeight.Black
                                             )
                                         }
                                     }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
 
                                     Slider(
                                         value = canvasState.stretchLevel.toFloat(),
@@ -388,11 +416,43 @@ fun AtharStudioScreen(
                                             inactiveTrackColor = GlassSurface
                                         )
                                     )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Quick Alignment Snapping Tools
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(GlassSurface)
+                                            .padding(6.dp)
+                                    ) {
+                                        IconButton(onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            viewModel.alignTop()
+                                        }) {
+                                            Icon(Icons.Default.VerticalAlignTop, contentDescription = "محاذاة لأعلى", tint = PureWhite)
+                                        }
+                                        IconButton(onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            viewModel.alignCenter()
+                                        }) {
+                                            Icon(Icons.Default.VerticalAlignCenter, contentDescription = "محاذاة للوسط", tint = GoldAccent)
+                                        }
+                                        IconButton(onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            viewModel.alignBottom()
+                                        }) {
+                                            Icon(Icons.Default.VerticalAlignBottom, contentDescription = "محاذاة لأسفل", tint = PureWhite)
+                                        }
+                                    }
                                 }
                             }
 
                             1 -> {
-                                // Visual Effects Shaders
+                                // Shaders Tab
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -401,15 +461,8 @@ fun AtharStudioScreen(
                                 ) {
                                     VisualEffect.values().forEach { effect ->
                                         val isSelected = canvasState.selectedEffect == effect
-                                        val scaleAnim by animateFloatAsState(
-                                            targetValue = if (isSelected) 1.04f else 1.0f,
-                                            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
-                                            label = "chipScale"
-                                        )
-
                                         Box(
                                             modifier = Modifier
-                                                .scale(scaleAnim)
                                                 .clip(RoundedCornerShape(14.dp))
                                                 .background(if (isSelected) GoldAccent else GlassSurface)
                                                 .border(
@@ -446,7 +499,156 @@ fun AtharStudioScreen(
                             }
 
                             2 -> {
-                                // Depth & Font Size Tab
+                                // Arabic Fonts Tab
+                                Column {
+                                    Text(
+                                        text = "اختر نمط ونوع الخط العربي",
+                                        color = MutedWhite,
+                                        fontSize = 12.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        ArabicFontFamily.values().forEach { font ->
+                                            val isSelected = canvasState.selectedFont == font
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(14.dp))
+                                                    .background(if (isSelected) GoldAccent else GlassSurface)
+                                                    .border(
+                                                        width = if (isSelected) 1.5.dp else 0.5.dp,
+                                                        color = if (isSelected) GoldAccent else GlassBorder,
+                                                        shape = RoundedCornerShape(14.dp)
+                                                    )
+                                                    .clickable {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        viewModel.setFont(font)
+                                                    }
+                                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text(
+                                                        text = font.fontName,
+                                                        color = if (isSelected) AmoledBlack else PureWhite,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp
+                                                    )
+                                                    Text(
+                                                        text = font.category,
+                                                        color = if (isSelected) AmoledBlack.copy(alpha = 0.7f) else SubtleGray,
+                                                        fontSize = 11.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            3 -> {
+                                // Photo & Background Canvas Tab
+                                Column {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        // Pick photo button
+                                        Button(
+                                            onClick = {
+                                                photoPickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorderActive)
+                                        ) {
+                                            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = if (canvasState.backgroundImageUri != null) "تغيير الصورة" else "إضافة صورة من المعرض",
+                                                color = PureWhite,
+                                                fontSize = 12.5.sp
+                                            )
+                                        }
+
+                                        if (canvasState.backgroundImageUri != null) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    viewModel.setBackgroundImageUri(null)
+                                                },
+                                                shape = RoundedCornerShape(12.dp),
+                                                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder)
+                                            ) {
+                                                Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("إزالة", color = Color(0xFFFF5252), fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Photo Dimming Slider (if image is present)
+                                    if (canvasState.backgroundImageUri != null) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(text = "تعتيم الصورة لبروز النص", color = PureWhite, fontSize = 12.5.sp)
+                                            Text(text = "${(canvasState.backgroundDim * 100).toInt()}%", color = GoldAccent, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Slider(
+                                            value = canvasState.backgroundDim,
+                                            onValueChange = { viewModel.setBackgroundDim(it) },
+                                            valueRange = 0f..0.85f,
+                                            colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+
+                                    // Aspect Ratio Selector
+                                    Text(text = "أبعاد التصميم والستوري", color = MutedWhite, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        CanvasAspectRatio.values().forEach { ratio ->
+                                            val isSelected = canvasState.aspectRatio == ratio
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(if (isSelected) GoldAccent else GlassSurface)
+                                                    .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
+                                                    .clickable {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        viewModel.setAspectRatio(ratio)
+                                                    }
+                                                    .padding(vertical = 8.dp)
+                                            ) {
+                                                Text(
+                                                    text = ratio.label,
+                                                    color = if (isSelected) AmoledBlack else PureWhite,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                    fontSize = 11.5.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            4 -> {
+                                // Size & Depth Tab
                                 Column {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -454,60 +656,29 @@ fun AtharStudioScreen(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.FormatSize,
-                                                contentDescription = null,
-                                                tint = MutedWhite,
-                                                modifier = Modifier.size(18.dp)
-                                            )
+                                            Icon(Icons.Default.FormatSize, contentDescription = null, tint = MutedWhite, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "حجم الخط",
-                                                color = PureWhite,
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
+                                            Text(text = "حجم الخط", color = PureWhite, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
                                         }
-                                        Text(
-                                            text = "${canvasState.fontSize.toInt()} sp",
-                                            color = GoldAccent,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Text(text = "${canvasState.fontSize.toInt()} sp", color = GoldAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Slider(
                                         value = canvasState.fontSize,
-                                        onValueChange = {
-                                            viewModel.setFontSize(it)
-                                        },
+                                        onValueChange = { viewModel.setFontSize(it) },
                                         valueRange = 24f..96f,
-                                        colors = SliderDefaults.colors(
-                                            thumbColor = GoldAccent,
-                                            activeTrackColor = GoldAccent,
-                                            inactiveTrackColor = GlassSurface
-                                        )
+                                        colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                     )
 
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
 
-                                    // Text Behind Subject Toggle
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Column {
-                                            Text(
-                                                text = "وضع النص خلف العنصر (Text Behind Subject)",
-                                                color = PureWhite,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                            Text(
-                                                text = "عزل أوتوماتيكي للعناصر ثلاثية الأبعاد",
-                                                color = SubtleGray,
-                                                fontSize = 11.5.sp
-                                            )
+                                            Text(text = "وضع النص خلف العنصر (Text Behind Subject)", color = PureWhite, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                            Text(text = "عزل أوتوماتيكي للعناصر ثلاثية الأبعاد", color = SubtleGray, fontSize = 11.5.sp)
                                         }
                                         Switch(
                                             checked = canvasState.isTextBehindSubject,
@@ -555,14 +726,7 @@ fun AtharStudioScreen(
                 onDismissRequest = { showTextDialog = false },
                 containerColor = GlassBackground,
                 shape = RoundedCornerShape(24.dp),
-                title = {
-                    Text(
-                        text = "كتابة وتنسيق النص",
-                        color = PureWhite,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                },
+                title = { Text(text = "كتابة وتنسيق النص", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
                 text = {
                     OutlinedTextField(
                         value = tempText,
@@ -621,22 +785,13 @@ fun AtharStudioScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                 ) {
-                    Text(
-                        text = "تصدير التصميم الفاخر",
-                        color = PureWhite,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = "تصدير التصميم الفاخر", color = PureWhite, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "اختر صيغة الحفظ المناسبة لقصص سناب شات وإنستغرام أو الطباعة",
-                        color = SubtleGray,
-                        fontSize = 12.5.sp
-                    )
+                    Text(text = "اختر صيغة الحفظ المناسبة للستوري أو المنشورات", color = SubtleGray, fontSize = 12.5.sp)
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // 1. Export Transparent PNG
+                    // 1. Export Transparent PNG Sticker
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -645,22 +800,15 @@ fun AtharStudioScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         enabled = !isExporting
                     ) {
-                        Text(
-                            text = "حفظ كملصق شفاف للستوري (PNG)",
-                            color = AmoledBlack,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
+                        Text(text = "حفظ كملصق شفاف للستوري (PNG)", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // 2. Export Ultra HD Image
+                    // 2. Export Ultra HD Image with Photo / Canvas Background
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -670,17 +818,10 @@ fun AtharStudioScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         enabled = !isExporting
                     ) {
-                        Text(
-                            text = "حفظ الصورة بخلفية AMOLED كاملة (Ultra HD)",
-                            color = PureWhite,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
+                        Text(text = "حفظ الصورة كاملة بخلفية (Ultra HD)", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                     }
                     Spacer(modifier = Modifier.height(28.dp))
                 }

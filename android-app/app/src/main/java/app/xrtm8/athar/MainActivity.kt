@@ -41,7 +41,12 @@ class MainActivity : ComponentActivity() {
 
         // Silent non-blocking update check in background upon launch
         lifecycleScope.launch {
-            updateManager.checkForUpdates(currentVersionCode = 4, showNotificationOnFound = true)
+            val currentVersion = try {
+                packageManager.getPackageInfo(packageName, 0).versionName ?: "1.1.0"
+            } catch (e: Exception) {
+                "1.1.0"
+            }
+            updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = true)
         }
 
         setContent {

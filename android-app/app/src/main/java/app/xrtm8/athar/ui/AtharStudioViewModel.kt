@@ -3,15 +3,20 @@ package app.xrtm8.athar.ui
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.xrtm8.athar.core.AtharNativeEngine
+import app.xrtm8.athar.model.ArabicFontFamily
+import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.VisualEffect
 import kotlinx.coroutines.Dispatchers
@@ -57,12 +62,40 @@ class AtharStudioViewModel : ViewModel() {
         _canvasState.update { it.copy(selectedEffect = effect) }
     }
 
+    fun setFont(font: ArabicFontFamily) {
+        _canvasState.update { it.copy(selectedFont = font) }
+    }
+
+    fun setAspectRatio(ratio: CanvasAspectRatio) {
+        _canvasState.update { it.copy(aspectRatio = ratio) }
+    }
+
+    fun setBackgroundImageUri(uri: Uri?) {
+        _canvasState.update { it.copy(backgroundImageUri = uri) }
+    }
+
+    fun setBackgroundDim(dim: Float) {
+        _canvasState.update { it.copy(backgroundDim = dim.coerceIn(0f, 0.9f)) }
+    }
+
     fun setFontSize(size: Float) {
         _canvasState.update { it.copy(fontSize = size) }
     }
 
     fun setTextBehindSubject(enabled: Boolean) {
         _canvasState.update { it.copy(isTextBehindSubject = enabled) }
+    }
+
+    fun alignCenter() {
+        _canvasState.update { it.copy(offsetX = 0f, offsetY = 0f, rotationAngle = 0f) }
+    }
+
+    fun alignTop() {
+        _canvasState.update { it.copy(offsetX = 0f, offsetY = -350f, rotationAngle = 0f) }
+    }
+
+    fun alignBottom() {
+        _canvasState.update { it.copy(offsetX = 0f, offsetY = 350f, rotationAngle = 0f) }
     }
 
     fun resetCanvasTransform() {
@@ -72,17 +105,6 @@ class AtharStudioViewModel : ViewModel() {
                 offsetY = 0f,
                 scaleFactor = 1.0f,
                 rotationAngle = 0f
-            )
-        }
-    }
-
-    fun updateTransform(ox: Float, oy: Float, scale: Float, rot: Float) {
-        _canvasState.update {
-            it.copy(
-                offsetX = ox,
-                offsetY = oy,
-                scaleFactor = scale,
-                rotationAngle = rot
             )
         }
     }
@@ -113,12 +135,43 @@ class AtharStudioViewModel : ViewModel() {
             val exportResult = withContext(Dispatchers.IO) {
                 try {
                     val width = 1080
-                    val height = 1920
+                    val height = when (currentState.aspectRatio) {
+                        CanvasAspectRatio.STORY_9_16 -> 1920
+                        CanvasAspectRatio.SQUARE_1_1 -> 1080
+                        CanvasAspectRatio.PORTRAIT_4_5 -> 1350
+                        CanvasAspectRatio.FREE -> 1920
+                    }
+
                     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     val canvas = Canvas(bitmap)
 
                     if (!isTransparent) {
-                        canvas.drawColor(android.graphics.Color.BLACK)
+                        // 1. Draw photo background if selected
+                        var photoDrawn = false
+                        val bgUri = currentState.backgroundImageUri
+                        if (bgUri != null) {
+                            try {
+                                context.contentResolver.openInputStream(bgUri)?.use { stream ->
+                                    val srcBitmap = BitmapFactory.decodeStream(stream)
+                                    if (srcBitmap != null) {
+                                        val srcRect = Rect(0, 0, srcBitmap.width, srcBitmap.height)
+                                        val dstRect = Rect(0, 0, width, height)
+                                        canvas.drawBitmap(srcBitmap, srcRect, dstRect, Paint(Paint.FILTER_BITMAP_FLAG))
+                                        photoDrawn = true
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                // fallback to black
+                            }
+                        }
+
+                        if (!photoDrawn) {
+                            canvas.drawColor(android.graphics.Color.BLACK)
+                        } else if (currentState.backgroundDim > 0f) {
+                            // Darken overlay for photo readability
+                            val dimAlpha = (currentState.backgroundDim * 255).toInt().coerceIn(0, 240)
+                            canvas.drawColor(android.graphics.Color.argb(dimAlpha, 0, 0, 0))
+                        }
                     }
 
                     val paint = Paint().apply {
@@ -126,10 +179,18 @@ class AtharStudioViewModel : ViewModel() {
                         isDither = true
                         textSize = currentState.fontSize * 3.5f
                         textAlign = Paint.Align.CENTER
+                        typeface = when (currentState.selectedFont) {
+                            ArabicFontFamily.TRADITIONAL -> Typeface.SERIF
+                            ArabicFontFamily.MODERN_SANS -> Typeface.SANS_SERIF
+                            ArabicFontFamily.RUQAA -> Typeface.SERIF
+                            ArabicFontFamily.KUFI -> Typeface.DEFAULT_BOLD
+                            ArabicFontFamily.ELEGANT -> Typeface.DEFAULT
+                            ArabicFontFamily.MONOSPACE -> Typeface.MONOSPACE
+                        }
                     }
 
-                    val centerX = width / 2f
-                    val centerY = height / 2f
+                    val centerX = width / 2f + (currentState.offsetX * 2.5f)
+                    val centerY = height / 2f + (currentState.offsetY * 2.5f)
 
                     paint.shader = LinearGradient(
                         0f, -paint.textSize * 0.8f,
@@ -145,11 +206,14 @@ class AtharStudioViewModel : ViewModel() {
                     )
 
                     val lines = currentState.displayText.split("\n")
-                    val lineHeight = paint.textSize * 1.3f
+                    val lineHeight = paint.textSize * 1.32f
                     val totalHeight = (lines.size - 1) * lineHeight
                     val startY = centerY - (totalHeight / 2f)
 
                     canvas.save()
+                    canvas.rotate(currentState.rotationAngle, centerX, centerY)
+                    canvas.scale(currentState.scaleFactor, currentState.scaleFactor, centerX, centerY)
+
                     lines.forEachIndexed { index, line ->
                         canvas.drawText(line, centerX, startY + (index * lineHeight), paint)
                     }

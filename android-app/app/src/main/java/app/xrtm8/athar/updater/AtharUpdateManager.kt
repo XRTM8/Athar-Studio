@@ -57,7 +57,28 @@ class AtharUpdateManager(private val context: Context) {
         }
     }
 
-    suspend fun checkForUpdates(currentVersionCode: Int = 1, showNotificationOnFound: Boolean = true): UpdateInfo? {
+    /**
+     * Checks if a remote version tag is strictly newer than current local version using Semantic Versioning.
+     */
+    fun isNewerVersion(remoteTag: String, localVersionName: String): Boolean {
+        val cleanRemote = remoteTag.removePrefix("v").trim()
+        val cleanLocal = localVersionName.removePrefix("v").trim()
+        if (cleanRemote == cleanLocal) return false
+
+        val remoteParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
+        val localParts = cleanLocal.split(".").mapNotNull { it.toIntOrNull() }
+
+        val length = maxOf(remoteParts.size, localParts.size)
+        for (i in 0 until length) {
+            val r = remoteParts.getOrElse(i) { 0 }
+            val l = localParts.getOrElse(i) { 0 }
+            if (r > l) return true
+            if (r < l) return false
+        }
+        return false
+    }
+
+    suspend fun checkForUpdates(currentVersionName: String = "1.1.0", showNotificationOnFound: Boolean = true): UpdateInfo? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL(RELEASES_API_URL)
@@ -71,7 +92,7 @@ class AtharUpdateManager(private val context: Context) {
                     val response = conn.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(response)
 
-                    val tagName = json.optString("tag_name", "v1.0.0")
+                    val tagName = json.optString("tag_name", "").trim()
                     val body = json.optString("body", "تحسينات جديدة وتأثيرات إضافية")
 
                     var downloadUrl = ""
@@ -88,13 +109,12 @@ class AtharUpdateManager(private val context: Context) {
                     }
 
                     val cleanTag = tagName.removePrefix("v")
-                    val remoteVersionCode = parseVersionCode(cleanTag)
 
-                    if (remoteVersionCode > currentVersionCode && downloadUrl.isNotEmpty()) {
+                    if (isNewerVersion(tagName, currentVersionName) && downloadUrl.isNotEmpty()) {
                         val updateInfo = UpdateInfo(
                             hasUpdate = true,
                             latestVersionName = cleanTag,
-                            latestVersionCode = remoteVersionCode,
+                            latestVersionCode = 0,
                             releaseNotes = body,
                             downloadUrl = downloadUrl,
                             isMandatory = false
@@ -105,24 +125,15 @@ class AtharUpdateManager(private val context: Context) {
                             showGentleNotification(updateInfo)
                         }
                         return@withContext updateInfo
+                    } else {
+                        // Already up to date! Clear any stale update state
+                        _updateState.value = null
                     }
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "Update check completed without update or network is offline: ${e.message}")
+                Log.d(TAG, "Update check completed without update or offline: ${e.message}")
             }
             null
-        }
-    }
-
-    private fun parseVersionCode(versionName: String): Int {
-        return try {
-            val parts = versionName.split(".")
-            val major = parts.getOrNull(0)?.toIntOrNull() ?: 1
-            val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
-            val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
-            major * 10000 + minor * 100 + patch
-        } catch (e: Exception) {
-            1
         }
     }
 
@@ -168,27 +179,23 @@ class AtharUpdateManager(private val context: Context) {
                 val apkFile = File(updatesDir, "athar-latest.apk")
                 if (apkFile.exists()) apkFile.delete()
 
-                val input = conn.inputStream
-                val output = FileOutputStream(apkFile)
-
-                val data = ByteArray(8192)
-                var total: Long = 0
-                var count: Int
-
-                while (input.read(data).also { count = it } != -1) {
-                    total += count
-                    if (fileLength > 0) {
-                        _downloadProgress.value = (total.toFloat() / fileLength.toFloat()).coerceIn(0f, 1f)
+                conn.inputStream.use { input ->
+                    FileOutputStream(apkFile).use { output ->
+                        val data = ByteArray(8192)
+                        var total: Long = 0
+                        var count: Int
+                        while (input.read(data).also { count = it } != -1) {
+                            total += count
+                            if (fileLength > 0) {
+                                _downloadProgress.value = (total.toFloat() / fileLength.toFloat()).coerceIn(0f, 1f)
+                            }
+                            output.write(data, 0, count)
+                        }
+                        output.flush()
                     }
-                    output.write(data, 0, count)
                 }
 
-                output.flush()
-                output.close()
-                input.close()
-
                 _downloadProgress.value = 1.0f
-
                 installApk(apkFile)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to download update APK", e)

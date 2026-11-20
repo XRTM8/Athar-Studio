@@ -1,122 +1,165 @@
 package app.xrtm8.athar.ui.components
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.BlurMaskFilter
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Shader
+import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.ui.theme.AmoledBlack
+import kotlin.math.abs
 
-/**
- * High-Performance 120 FPS Canvas View.
- *
- * Implements Jetpack Compose Draw-Phase Isolation: Touch translation, scaling,
- * and rotation are read strictly inside the Draw Phase, completely skipping
- * the Recomposition and Layout phases for zero-overhead, buttery-smooth 120Hz gesture response.
- */
 @Composable
 fun CanvasView(
     state: CanvasState,
     modifier: Modifier = Modifier
 ) {
-    // Local transform states read strictly in Draw phase
+    val context = LocalContext.current
+
     var localOffsetX by remember { mutableFloatStateOf(state.offsetX) }
     var localOffsetY by remember { mutableFloatStateOf(state.offsetY) }
     var localScale by remember { mutableFloatStateOf(state.scaleFactor) }
     var localRotation by remember { mutableFloatStateOf(state.rotationAngle) }
 
-    // Sync if external reset is requested (e.g. from reset button)
+    // Sync if external alignment is triggered (e.g. Align Center/Top/Bottom)
     LaunchedEffect(state.offsetX, state.offsetY, state.scaleFactor, state.rotationAngle) {
-        if (state.offsetX == 0f && state.offsetY == 0f && state.scaleFactor == 1.0f && state.rotationAngle == 0f) {
-            localOffsetX = 0f
-            localOffsetY = 0f
-            localScale = 1.0f
-            localRotation = 0f
+        localOffsetX = state.offsetX
+        localOffsetY = state.offsetY
+        localScale = state.scaleFactor
+        localRotation = state.rotationAngle
+    }
+
+    // Load background image bitmap when URI changes
+    var bgBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(state.backgroundImageUri) {
+        val uri = state.backgroundImageUri
+        bgBitmap = if (uri != null) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it)
+                }
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
         }
     }
 
-    // Pre-allocated reusable Paint objects to avoid garbage collection during 120Hz draw loops
-    val basePaint = remember {
-        Paint().apply {
-            isAntiAlias = true
-            isDither = true
-            textAlign = Paint.Align.CENTER
-        }
-    }
-    val glowPaint = remember {
-        Paint().apply {
-            isAntiAlias = true
-            isDither = true
-            textAlign = Paint.Align.CENTER
-        }
-    }
-    val shadowPaint = remember {
-        Paint().apply {
-            isAntiAlias = true
-            isDither = true
-            textAlign = Paint.Align.CENTER
-        }
-    }
-    val strokePaint = remember {
-        Paint().apply {
-            isAntiAlias = true
-            isDither = true
-            style = Paint.Style.STROKE
-            textAlign = Paint.Align.CENTER
-        }
+    // Pre-allocated paint objects to guarantee 120Hz zero GC drops
+    val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
+    val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
+    val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
+    val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE; textAlign = Paint.Align.CENTER } }
+    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#55E5C07B"); strokeWidth = 2f } }
+
+    val ratio = state.aspectRatio.ratio
+    val canvasModifier = if (ratio != null) {
+        Modifier
+            .aspectRatio(ratio)
+            .clipToBounds()
+    } else {
+        Modifier.fillMaxSize()
     }
 
     Box(
+        contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxSize()
             .background(AmoledBlack)
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, rotate ->
-                    localOffsetX += pan.x
-                    localOffsetY += pan.y
-                    localScale = (localScale * zoom).coerceIn(0.35f, 5.0f)
-                    localRotation += rotate
-                }
-            }
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            if (state.displayText.isEmpty()) return@Canvas
-
-            // Access local transforms here inside the DrawScope (Phase 3)
-            val currentOx = localOffsetX
-            val currentOy = localOffsetY
-            val currentSc = localScale
-            val currentRot = localRotation
-
+        Canvas(
+            modifier = canvasModifier
+                .fillMaxSize()
+                .background(AmoledBlack)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, rotate ->
+                        localOffsetX += pan.x
+                        localOffsetY += pan.y
+                        localScale = (localScale * zoom).coerceIn(0.35f, 5.0f)
+                        localRotation += rotate
+                    }
+                }
+        ) {
             val canvasWidth = size.width
             val canvasHeight = size.height
-            val centerX = canvasWidth / 2f + currentOx
-            val centerY = canvasHeight / 2f + currentOy
 
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
+
+                // 1. Draw Background Image (if loaded)
+                if (bgBitmap != null && !state.isTransparentBg) {
+                    val src = Rect(0, 0, bgBitmap!!.width, bgBitmap!!.height)
+                    val dst = Rect(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
+                    nativeCanvas.drawBitmap(bgBitmap!!, src, dst, Paint(Paint.FILTER_BITMAP_FLAG))
+
+                    // 2. Dim Overlay for Text Legibility
+                    if (state.backgroundDim > 0f) {
+                        val alpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
+                        nativeCanvas.drawColor(android.graphics.Color.argb(alpha, 0, 0, 0))
+                    }
+                }
+
+                // 3. Smart Snapping Guidelines (visual feedback when centered)
+                val currentOx = localOffsetX
+                val currentOy = localOffsetY
+                if (abs(currentOx) < 18f) {
+                    nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
+                }
+                if (abs(currentOy) < 18f) {
+                    nativeCanvas.drawLine(0f, canvasHeight / 2f, canvasWidth, canvasHeight / 2f, guidePaint)
+                }
+
+                if (state.displayText.isEmpty()) return@drawIntoCanvas
+
                 nativeCanvas.save()
 
+                val centerX = canvasWidth / 2f + currentOx
+                val centerY = canvasHeight / 2f + currentOy
+
                 nativeCanvas.translate(centerX, centerY)
-                nativeCanvas.rotate(currentRot)
-                nativeCanvas.scale(currentSc, currentSc)
+                nativeCanvas.rotate(localRotation)
+                nativeCanvas.scale(localScale, localScale)
+
+                // Set Typeface according to selected font
+                val selectedTypeface = when (state.selectedFont) {
+                    ArabicFontFamily.TRADITIONAL -> Typeface.SERIF
+                    ArabicFontFamily.MODERN_SANS -> Typeface.SANS_SERIF
+                    ArabicFontFamily.RUQAA -> Typeface.SERIF
+                    ArabicFontFamily.KUFI -> Typeface.DEFAULT_BOLD
+                    ArabicFontFamily.ELEGANT -> Typeface.DEFAULT
+                    ArabicFontFamily.MONOSPACE -> Typeface.MONOSPACE
+                }
+                basePaint.typeface = selectedTypeface
+                glowPaint.typeface = selectedTypeface
+                shadowPaint.typeface = selectedTypeface
+                strokePaint.typeface = selectedTypeface
 
                 val textSizePx = state.fontSize * density
                 basePaint.textSize = textSizePx
