@@ -175,7 +175,7 @@ fun AtharStudioScreen(
                                 coroutineScope.launch {
                                     val info = updateManager.checkForUpdates(showNotificationOnFound = false)
                                     if (info == null) {
-                                        Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v1.0.2)", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v1.0.3)", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },

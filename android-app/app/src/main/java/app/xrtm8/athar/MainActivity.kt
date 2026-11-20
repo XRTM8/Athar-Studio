@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
 
         // Silent non-blocking update check in background upon launch
         lifecycleScope.launch {
-            updateManager.checkForUpdates(currentVersionCode = 2, showNotificationOnFound = true)
+            updateManager.checkForUpdates(currentVersionCode = 4, showNotificationOnFound = true)
         }
 
         setContent {
