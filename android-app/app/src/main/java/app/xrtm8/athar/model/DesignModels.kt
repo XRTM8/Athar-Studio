@@ -1,5 +1,6 @@
 package app.xrtm8.athar.model
 
+import android.graphics.PorterDuff
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import java.util.UUID
@@ -17,8 +18,28 @@ enum class CanvasAspectRatio(val label: String, val ratio: Float?) {
     STORY_9_16("ستوري 9:16", 9f / 16f),
     SQUARE_1_1("مربع 1:1", 1f),
     PORTRAIT_4_5("بورتريه 4:5", 4f / 5f),
+    LANDSCAPE_16_9("عرضي 16:9", 16f / 9f),
+    WALLPAPER_9_19_5("خلفية 9:19.5", 9f / 19.5f),
     FREE("حر / شفاف", null)
 }
+
+enum class LayerBlendMode(val labelAr: String, val porterDuffMode: PorterDuff.Mode) {
+    NORMAL("عادي", PorterDuff.Mode.SRC_OVER),
+    MULTIPLY("ضرب (تعتيم)", PorterDuff.Mode.MULTIPLY),
+    SCREEN("شاشة (تفتيح)", PorterDuff.Mode.SCREEN),
+    OVERLAY("تراكب سينمائي", PorterDuff.Mode.OVERLAY),
+    LIGHTEN("إنارة ساطعة", PorterDuff.Mode.LIGHTEN),
+    DARKEN("تغميق عميق", PorterDuff.Mode.DARKEN)
+}
+
+data class TashkeelItem(
+    val id: String = UUID.randomUUID().toString(),
+    val symbol: String = "َ",
+    val normX: Float = 0f,
+    val normY: Float = -0.35f,
+    val scale: Float = 1.0f,
+    val colorLong: Long? = null
+)
 
 enum class ArabicFontFamily(
     val fontName: String,
@@ -190,7 +211,12 @@ data class TextLayer(
     val glassBackdropColorLong: Long = 0xFF0D0F14,
     val glassBackdropBorderColorLong: Long = 0x55E5C07B,
     val glassBackdropCornerRadius: Float = 22f,
-    val glassBackdropPadding: Float = 22f
+    val glassBackdropPadding: Float = 22f,
+    val blendMode: LayerBlendMode = LayerBlendMode.NORMAL,
+    val isCurved: Boolean = false,
+    val curveAngle: Float = 0f,
+    val isBehindSubject: Boolean = false,
+    val tashkeelItems: List<TashkeelItem> = emptyList()
 )
 
 data class CanvasState(
@@ -198,6 +224,7 @@ data class CanvasState(
     val activeLayerId: String = "layer_primary",
     val showGridGuides: Boolean = false,
     val isTextBehindSubject: Boolean = false,
+    val subjectDepthSensitivity: Float = 0.5f,
     val aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
     val solidBgColorLong: Long? = null,
     val backgroundImageUri: Uri? = null,
@@ -211,6 +238,12 @@ data class CanvasState(
     val isTransparentBg: Boolean = false,
     val gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
     val filmPreset: FilmPreset = FilmPreset.NONE,
+    val filmGrainIntensity: Float = 0f,
+    val lensFlareEnabled: Boolean = false,
+    val lensFlareX: Float = 0.5f,
+    val lensFlareY: Float = 0.2f,
+    val lensFlareIntensity: Float = 0.7f,
+    val lensFlareColorLong: Long = 0xFFFFE082,
     val bgPhotoOffsetX: Float = 0f,
     val bgPhotoOffsetY: Float = 0f,
     val bgPhotoScale: Float = 1.0f,
@@ -254,6 +287,11 @@ data class CanvasState(
     val glassBackdropBorderColorLong: Long get() = activeLayer.glassBackdropBorderColorLong
     val glassBackdropCornerRadius: Float get() = activeLayer.glassBackdropCornerRadius
     val glassBackdropPadding: Float get() = activeLayer.glassBackdropPadding
+    val blendMode: LayerBlendMode get() = activeLayer.blendMode
+    val isCurved: Boolean get() = activeLayer.isCurved
+    val curveAngle: Float get() = activeLayer.curveAngle
+    val isBehindSubject: Boolean get() = activeLayer.isBehindSubject
+    val tashkeelItems: List<TashkeelItem> get() = activeLayer.tashkeelItems
 
     // Convenience constructor for legacy / single-layer callers
     constructor(
@@ -283,6 +321,7 @@ data class CanvasState(
         isLocked: Boolean = false,
         showGridGuides: Boolean = false,
         isTextBehindSubject: Boolean = false,
+        subjectDepthSensitivity: Float = 0.5f,
         aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
         solidBgColorLong: Long? = null,
         backgroundImageUri: Uri? = null,
@@ -306,10 +345,21 @@ data class CanvasState(
         isTransparentBg: Boolean = false,
         gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
         filmPreset: FilmPreset = FilmPreset.NONE,
+        filmGrainIntensity: Float = 0f,
+        lensFlareEnabled: Boolean = false,
+        lensFlareX: Float = 0.5f,
+        lensFlareY: Float = 0.2f,
+        lensFlareIntensity: Float = 0.7f,
+        lensFlareColorLong: Long = 0xFFFFE082,
         bgPhotoOffsetX: Float = 0f,
         bgPhotoOffsetY: Float = 0f,
         bgPhotoScale: Float = 1.0f,
-        isFramingMode: Boolean = false
+        isFramingMode: Boolean = false,
+        blendMode: LayerBlendMode = LayerBlendMode.NORMAL,
+        isCurved: Boolean = false,
+        curveAngle: Float = 0f,
+        isBehindSubject: Boolean = false,
+        tashkeelItems: List<TashkeelItem> = emptyList()
     ) : this(
         layers = listOf(
             TextLayer(
@@ -348,12 +398,18 @@ data class CanvasState(
                 glassBackdropColorLong = glassBackdropColorLong,
                 glassBackdropBorderColorLong = glassBackdropBorderColorLong,
                 glassBackdropCornerRadius = glassBackdropCornerRadius,
-                glassBackdropPadding = glassBackdropPadding
+                glassBackdropPadding = glassBackdropPadding,
+                blendMode = blendMode,
+                isCurved = isCurved,
+                curveAngle = curveAngle,
+                isBehindSubject = isBehindSubject,
+                tashkeelItems = tashkeelItems
             )
         ),
         activeLayerId = "layer_primary",
         showGridGuides = showGridGuides,
         isTextBehindSubject = isTextBehindSubject,
+        subjectDepthSensitivity = subjectDepthSensitivity,
         aspectRatio = aspectRatio,
         solidBgColorLong = solidBgColorLong,
         backgroundImageUri = backgroundImageUri,
@@ -367,6 +423,12 @@ data class CanvasState(
         isTransparentBg = isTransparentBg,
         gradientScrim = gradientScrim,
         filmPreset = filmPreset,
+        filmGrainIntensity = filmGrainIntensity,
+        lensFlareEnabled = lensFlareEnabled,
+        lensFlareX = lensFlareX,
+        lensFlareY = lensFlareY,
+        lensFlareIntensity = lensFlareIntensity,
+        lensFlareColorLong = lensFlareColorLong,
         bgPhotoOffsetX = bgPhotoOffsetX,
         bgPhotoOffsetY = bgPhotoOffsetY,
         bgPhotoScale = bgPhotoScale,

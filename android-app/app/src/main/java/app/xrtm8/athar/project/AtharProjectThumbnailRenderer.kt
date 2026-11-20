@@ -31,6 +31,8 @@ object AtharProjectThumbnailRenderer {
             CanvasAspectRatio.STORY_9_16 -> (width * 16f / 9f).toInt()
             CanvasAspectRatio.SQUARE_1_1 -> width
             CanvasAspectRatio.PORTRAIT_4_5 -> (width * 5f / 4f).toInt()
+            CanvasAspectRatio.LANDSCAPE_16_9 -> (width * 9f / 16f).toInt()
+            CanvasAspectRatio.WALLPAPER_9_19_5 -> (width * 19.5f / 9f).toInt()
             CanvasAspectRatio.FREE -> (width * 16f / 9f).toInt()
         }
 

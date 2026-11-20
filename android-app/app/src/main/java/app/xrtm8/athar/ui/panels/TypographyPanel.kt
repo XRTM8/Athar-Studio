@@ -50,6 +50,8 @@ fun TypographyPanel(
     onLetterSpacingChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onTextAlignChange: (TextAlignOption) -> Unit,
+    onToggleCurvedText: (Boolean) -> Unit = {},
+    onCurveAngleChange: (Float) -> Unit = {},
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -338,5 +340,58 @@ fun TypographyPanel(
             valueDisplay = "${(state.textOpacity * 100).toInt()}%",
             icon = Icons.Default.Opacity
         )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        Divider(color = GlassBorder, thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 7. Curved / Arc Path Typography
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "تقويس النص (مسار قوسي)",
+                    color = PureWhite,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "ثني الكلمات على مسار دائري متزن",
+                    color = SubtleGray,
+                    fontSize = 10.5.sp
+                )
+            }
+
+            Switch(
+                checked = state.isCurved,
+                onCheckedChange = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onToggleCurvedText(it)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = AmoledBlack,
+                    checkedTrackColor = GoldAccent,
+                    uncheckedThumbColor = SubtleGray,
+                    uncheckedTrackColor = GlassCard
+                )
+            )
+        }
+
+        if (state.isCurved) {
+            Spacer(modifier = Modifier.height(6.dp))
+            StudioSlider(
+                title = "زاوية انحناء القوس",
+                value = state.curveAngle,
+                onValueChange = onCurveAngleChange,
+                onValueChangeFinished = onSliderChangeFinished,
+                valueRange = -180f..180f,
+                step = 5f,
+                valueDisplay = "${state.curveAngle.toInt()}°",
+                icon = Icons.Default.LinearScale
+            )
+        }
     }
 }

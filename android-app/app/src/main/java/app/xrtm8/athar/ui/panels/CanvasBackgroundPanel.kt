@@ -78,6 +78,8 @@ fun CanvasBackgroundPanel(
     onGradientScrimColorChange: (Long) -> Unit,
     onGradientScrimOpacityChange: (Float) -> Unit,
     onGradientScrimMidpointChange: (Float) -> Unit,
+    onToggleTextBehindSubject: (Boolean) -> Unit = {},
+    onSubjectDepthSensitivityChange: (Float) -> Unit = {},
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -154,14 +156,15 @@ fun CanvasBackgroundPanel(
                     Text(text = "أبعاد التصميم:", color = MutedWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(5.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         CanvasAspectRatio.entries.forEach { ratio ->
                             val isSelected = state.aspectRatio == ratio
                             Box(
                                 modifier = Modifier
-                                    .weight(1f)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (isSelected) GoldAccent else GlassSurface)
                                     .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
@@ -169,7 +172,7 @@ fun CanvasBackgroundPanel(
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         onAspectRatioChange(ratio)
                                     }
-                                    .padding(vertical = 8.dp),
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -223,6 +226,62 @@ fun CanvasBackgroundPanel(
                             ) {
                                 Icon(Icons.Default.DeleteSweep, contentDescription = "حذف الصورة", tint = Color(0xFFFF5252))
                             }
+                        }
+                    }
+
+                    // Text Behind Subject (AI Depth Cutout)
+                    if (state.backgroundImageUri != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(GlassSurface)
+                                .border(0.5.dp, if (state.isTextBehindSubject) GoldAccent else GlassBorder, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "النص خلف موضوع الصورة (Text Behind Subject)",
+                                    color = if (state.isTextBehindSubject) GoldAccent else PureWhite,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "عزل ذكي ثلاثي الأبعاد يضع النصوص المحددة خلف الشخصيات والمباني",
+                                    color = SubtleGray,
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Switch(
+                                checked = state.isTextBehindSubject,
+                                onCheckedChange = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onToggleTextBehindSubject(it)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = AmoledBlack,
+                                    checkedTrackColor = GoldAccent,
+                                    uncheckedThumbColor = SubtleGray,
+                                    uncheckedTrackColor = GlassCard
+                                )
+                            )
+                        }
+
+                        if (state.isTextBehindSubject) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            StudioSlider(
+                                title = "حساسية العزل",
+                                value = state.subjectDepthSensitivity,
+                                onValueChange = onSubjectDepthSensitivityChange,
+                                onValueChangeFinished = onSliderChangeFinished,
+                                valueRange = 0.2f..0.8f,
+                                step = 0.05f,
+                                valueDisplay = String.format(Locale.US, "%.2f", state.subjectDepthSensitivity),
+                                icon = Icons.Default.Tune
+                            )
                         }
                     }
 

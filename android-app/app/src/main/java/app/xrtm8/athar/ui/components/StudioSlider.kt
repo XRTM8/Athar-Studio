@@ -32,8 +32,8 @@ fun StudioSlider(
     title: String,
     value: Float,
     onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    valueDisplay: String,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    valueDisplay: String = String.format(java.util.Locale.US, "%.2f", value),
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     step: Float = (valueRange.endInclusive - valueRange.start) / 20f,
@@ -150,3 +150,21 @@ fun StudioSlider(
         )
     }
 }
+
+@Composable
+fun StudioSlider(
+    title: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    step: Float = (range.endInclusive - range.start) / 20f,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)? = null
+) = StudioSlider(
+    title = title,
+    value = value,
+    valueRange = range,
+    valueDisplay = String.format(java.util.Locale.US, "%.2f", value),
+    step = step,
+    onValueChange = onValueChange,
+    onValueChangeFinished = onValueChangeFinished
+)

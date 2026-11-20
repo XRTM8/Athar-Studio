@@ -58,6 +58,23 @@ object AtharProjectSerializer {
                     put("glass_backdrop_border_color", layer.glassBackdropBorderColorLong)
                     put("glass_backdrop_corner_radius", layer.glassBackdropCornerRadius.toDouble())
                     put("glass_backdrop_padding", layer.glassBackdropPadding.toDouble())
+                    put("blend_mode", layer.blendMode.name)
+                    put("is_curved", layer.isCurved)
+                    put("curve_angle", layer.curveAngle.toDouble())
+                    put("is_behind_subject", layer.isBehindSubject)
+                    val tArr = JSONArray()
+                    layer.tashkeelItems.forEach { t ->
+                        val tObj = JSONObject().apply {
+                            put("id", t.id)
+                            put("symbol", t.symbol)
+                            put("norm_x", t.normX.toDouble())
+                            put("norm_y", t.normY.toDouble())
+                            put("scale", t.scale.toDouble())
+                            put("color", t.colorLong ?: 0L)
+                        }
+                        tArr.put(tObj)
+                    }
+                    put("tashkeel_items", tArr)
                 }
                 layersArray.put(lObj)
             }
@@ -128,6 +145,16 @@ object AtharProjectSerializer {
             put("bg_photo_offset_x", state.bgPhotoOffsetX.toDouble())
             put("bg_photo_offset_y", state.bgPhotoOffsetY.toDouble())
             put("bg_photo_scale", state.bgPhotoScale.toDouble())
+
+            // Depth & Optical FX
+            put("is_text_behind_subject", state.isTextBehindSubject)
+            put("subject_depth_sensitivity", state.subjectDepthSensitivity.toDouble())
+            put("film_grain_intensity", state.filmGrainIntensity.toDouble())
+            put("lens_flare_enabled", state.lensFlareEnabled)
+            put("lens_flare_x", state.lensFlareX.toDouble())
+            put("lens_flare_y", state.lensFlareY.toDouble())
+            put("lens_flare_intensity", state.lensFlareIntensity.toDouble())
+            put("lens_flare_color", state.lensFlareColorLong)
         }
     }
 
@@ -173,6 +200,30 @@ object AtharProjectSerializer {
                 val dispText = lObj.optString("display_text", "")
                 val finalDisp = if (dispText.isNotEmpty()) dispText else PureArabicKashidaEngine.stretchText(rawText, stretchLevel, kMode, targetIdx)
 
+                val blendModeStr = lObj.optString("blend_mode", LayerBlendMode.NORMAL.name)
+                val blendMode = try { LayerBlendMode.valueOf(blendModeStr) } catch (e: Exception) { LayerBlendMode.NORMAL }
+                val isCurved = lObj.optBoolean("is_curved", false)
+                val curveAngle = lObj.optDouble("curve_angle", 0.0).toFloat()
+                val isBehindSubject = lObj.optBoolean("is_behind_subject", false)
+                val tItems = ArrayList<TashkeelItem>()
+                if (lObj.has("tashkeel_items")) {
+                    val tArr = lObj.getJSONArray("tashkeel_items")
+                    for (ti in 0 until tArr.length()) {
+                        val to = tArr.getJSONObject(ti)
+                        val tColor = to.optLong("color", 0L)
+                        tItems.add(
+                            TashkeelItem(
+                                id = to.optString("id", java.util.UUID.randomUUID().toString()),
+                                symbol = to.optString("symbol", "َ"),
+                                normX = to.optDouble("norm_x", 0.0).toFloat(),
+                                normY = to.optDouble("norm_y", -0.35).toFloat(),
+                                scale = to.optDouble("scale", 1.0).toFloat(),
+                                colorLong = if (tColor != 0L) tColor else null
+                            )
+                        )
+                    }
+                }
+
                 layers.add(
                     TextLayer(
                         id = lObj.optString("id", "layer_$i"),
@@ -210,7 +261,12 @@ object AtharProjectSerializer {
                         glassBackdropColorLong = lObj.optLong("glass_backdrop_color", 0xFF0D0F14),
                         glassBackdropBorderColorLong = lObj.optLong("glass_backdrop_border_color", 0x55E5C07B),
                         glassBackdropCornerRadius = lObj.optDouble("glass_backdrop_corner_radius", 22.0).toFloat(),
-                        glassBackdropPadding = lObj.optDouble("glass_backdrop_padding", 22.0).toFloat()
+                        glassBackdropPadding = lObj.optDouble("glass_backdrop_padding", 22.0).toFloat(),
+                        blendMode = blendMode,
+                        isCurved = isCurved,
+                        curveAngle = curveAngle,
+                        isBehindSubject = isBehindSubject,
+                        tashkeelItems = tItems
                     )
                 )
             }
@@ -295,7 +351,15 @@ object AtharProjectSerializer {
             gradientScrim = scrim,
             bgPhotoOffsetX = c.optDouble("bg_photo_offset_x", 0.0).toFloat(),
             bgPhotoOffsetY = c.optDouble("bg_photo_offset_y", 0.0).toFloat(),
-            bgPhotoScale = c.optDouble("bg_photo_scale", 1.0).toFloat()
+            bgPhotoScale = c.optDouble("bg_photo_scale", 1.0).toFloat(),
+            isTextBehindSubject = c.optBoolean("is_text_behind_subject", false),
+            subjectDepthSensitivity = c.optDouble("subject_depth_sensitivity", 0.5).toFloat(),
+            filmGrainIntensity = c.optDouble("film_grain_intensity", 0.0).toFloat(),
+            lensFlareEnabled = c.optBoolean("lens_flare_enabled", false),
+            lensFlareX = c.optDouble("lens_flare_x", 0.5).toFloat(),
+            lensFlareY = c.optDouble("lens_flare_y", 0.2).toFloat(),
+            lensFlareIntensity = c.optDouble("lens_flare_intensity", 0.7).toFloat(),
+            lensFlareColorLong = c.optLong("lens_flare_color", 0xFFFFE082)
         )
     }
 }

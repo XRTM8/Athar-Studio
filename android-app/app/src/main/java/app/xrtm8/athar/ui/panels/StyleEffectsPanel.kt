@@ -58,6 +58,8 @@ fun StyleEffectsPanel(
     onGlassOpacityChange: (Float) -> Unit,
     onGlassCornerRadiusChange: (Float) -> Unit,
     onGlassPaddingChange: (Float) -> Unit,
+    onBlendModeChange: (LayerBlendMode) -> Unit = {},
+    onHarmonizeWithBackground: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -228,6 +230,58 @@ fun StyleEffectsPanel(
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Divider(color = GlassBorder, thickness = 0.5.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 1-Tap Auto Harmonize with background if photo exists
+                    if (onHarmonizeWithBackground != null && state.backgroundImageUri != null) {
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onHarmonizeWithBackground()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GlassCard),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(38.dp)
+                        ) {
+                            Icon(Icons.Default.Palette, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("استخراج ألوان الصورة وتنسيق النص والظل تلقائياً (1-Tap Harmonize)", color = PureWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    // Blend Mode Selector
+                    Text(text = "نمط الدمج للطبقة (Blend Mode):", color = MutedWhite, fontSize = 11.5.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        LayerBlendMode.entries.forEach { mode ->
+                            val isSelected = state.blendMode == mode
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onBlendModeChange(mode)
+                                },
+                                label = { Text(mode.labelAr, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = GoldAccent,
+                                    selectedLabelColor = AmoledBlack,
+                                    containerColor = GlassCard,
+                                    labelColor = MutedWhite
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            )
                         }
                     }
                 }

@@ -3,6 +3,7 @@ package app.xrtm8.athar.ui
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Paint
 import android.net.Uri
 import androidx.core.content.FileProvider
@@ -11,6 +12,9 @@ import androidx.lifecycle.viewModelScope
 import app.xrtm8.athar.core.AtharFilterRecipe
 import app.xrtm8.athar.core.AtharNativeEngine
 import app.xrtm8.athar.core.AtharPresetQRCodeManager
+import app.xrtm8.athar.core.FreeTashkeelEngine
+import app.xrtm8.athar.core.IslamicManuscriptEngine
+import app.xrtm8.athar.core.SmartColorHarmonizer
 import app.xrtm8.athar.export.AtharExportManager
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
@@ -21,6 +25,8 @@ import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.GlassBackdropPreset
 import app.xrtm8.athar.model.KashidaMode
+import app.xrtm8.athar.model.LayerBlendMode
+import app.xrtm8.athar.model.TashkeelItem
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
@@ -594,6 +600,119 @@ class AtharStudioViewModel : ViewModel() {
             )
         )
         return true
+    }
+
+    // ==========================================
+    // Blend Modes & Curved Path Operations
+    // ==========================================
+
+    fun setBlendMode(mode: LayerBlendMode) {
+        pushActiveLayerHistory { it.copy(blendMode = mode) }
+    }
+
+    fun toggleCurvedText(enabled: Boolean) {
+        pushActiveLayerHistory { it.copy(isCurved = enabled) }
+    }
+
+    fun setCurveAngle(angle: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(curveAngle = angle.coerceIn(-180f, 180f)) }
+    }
+
+    fun toggleActiveLayerBehindSubject() {
+        pushActiveLayerHistory { it.copy(isBehindSubject = !it.isBehindSubject) }
+    }
+
+    // ==========================================
+    // Free Tashkeel Operations
+    // ==========================================
+
+    fun addTashkeelMark(symbol: String) {
+        pushActiveLayerHistory { FreeTashkeelEngine.addMark(it, symbol) }
+    }
+
+    fun removeTashkeelMark(markId: String) {
+        pushActiveLayerHistory { FreeTashkeelEngine.removeMark(it, markId) }
+    }
+
+    fun updateTashkeelMark(updated: TashkeelItem) {
+        updateActiveLayer { FreeTashkeelEngine.updateMark(it, updated) }
+    }
+
+    fun nudgeTashkeelMark(markId: String, dx: Float, dy: Float) {
+        updateActiveLayer { FreeTashkeelEngine.nudgeMark(it, markId, dx, dy) }
+    }
+
+    // ==========================================
+    // Islamic Manuscripts Operations
+    // ==========================================
+
+    fun addManuscriptLayer(layer: TextLayer) {
+        val newLayers = _canvasState.value.layers + layer
+        pushHistory(_canvasState.value.copy(layers = newLayers, activeLayerId = layer.id))
+    }
+
+    // ==========================================
+    // Smart Color Harmonizer Operations
+    // ==========================================
+
+    fun harmonizeWithBackgroundImage(context: Context) {
+        val uri = _canvasState.value.backgroundImageUri ?: return
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
+                val bmp = context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, opts)
+                } ?: return@launch
+
+                val palette = SmartColorHarmonizer.extractPalette(bmp)
+                bmp.recycle()
+
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    pushActiveLayerHistory { active ->
+                        SmartColorHarmonizer.harmonizeActiveLayer(active, palette)
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore gracefully
+            }
+        }
+    }
+
+    // ==========================================
+    // Depth Saliency & Optical FX Operations
+    // ==========================================
+
+    fun setTextBehindSubject(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(isTextBehindSubject = enabled))
+    }
+
+    fun setSubjectDepthSensitivity(sensitivity: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(subjectDepthSensitivity = sensitivity.coerceIn(0.1f, 0.9f)) }
+    }
+
+    fun setFilmGrainIntensity(intensity: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(filmGrainIntensity = intensity.coerceIn(0f, 1f)) }
+    }
+
+    fun toggleLensFlare(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(lensFlareEnabled = enabled))
+    }
+
+    fun setLensFlareIntensity(intensity: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(lensFlareIntensity = intensity.coerceIn(0.1f, 1.0f)) }
+    }
+
+    fun setLensFlarePosition(x: Float, y: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(lensFlareX = x.coerceIn(0f, 1f), lensFlareY = y.coerceIn(0f, 1f)) }
+    }
+
+    fun setLensFlareColor(colorLong: Long) {
+        pushHistory(_canvasState.value.copy(lensFlareColorLong = colorLong))
     }
 
     // ==========================================

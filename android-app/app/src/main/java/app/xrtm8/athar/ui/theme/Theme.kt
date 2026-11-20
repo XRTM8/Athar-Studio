@@ -30,6 +30,7 @@ val GoldMuted = Color(0x26E5C07B)             // 15% gold tint for active chips/
 // Backward-compatible surface & glass tokens
 val GlassBackground = Color(0xD90A0B0E)
 val GlassSurface = StudioSurface
+val GlassCard = StudioSurface
 val GlassSurfaceHover = StudioSurfaceElevated
 val GlassBorder = StudioBorder
 val GlassBorderActive = StudioBorderActive

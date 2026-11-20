@@ -3,7 +3,9 @@ package app.xrtm8.athar.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -30,15 +32,17 @@ data class DockTabItem(
 
 val STUDIO_DOCK_TABS = listOf(
     DockTabItem(0, "الخط", Icons.Default.TextFields),
-    DockTabItem(1, "المدّ", Icons.Default.LinearScale),
-    DockTabItem(2, "الموضع", Icons.Default.OpenWith),
+    DockTabItem(1, "المخطوطات", Icons.Default.HistoryEdu),
+    DockTabItem(2, "المدّ", Icons.Default.LinearScale),
     DockTabItem(3, "المظهر", Icons.Default.AutoAwesome),
-    DockTabItem(4, "الفلاتر", Icons.Default.PhotoFilter),
-    DockTabItem(5, "الكانفاس", Icons.Default.AspectRatio)
+    DockTabItem(4, "المؤثرات", Icons.Default.Flare),
+    DockTabItem(5, "الفلاتر", Icons.Default.PhotoFilter),
+    DockTabItem(6, "الكانفاس", Icons.Default.AspectRatio),
+    DockTabItem(7, "الموضع", Icons.Default.OpenWith)
 )
 
 /**
- * 6-Tool Ergonomic Studio Dock with haptic micro-interactions and gold highlight indicators.
+ * 8-Tool Ergonomic Studio Dock with haptic micro-interactions and gold highlight indicators.
  */
 @Composable
 fun StudioDock(
@@ -55,8 +59,9 @@ fun StudioDock(
             .clip(RoundedCornerShape(20.dp))
             .background(GlassBackground)
             .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(20.dp))
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
+            .padding(horizontal = 6.dp, vertical = 5.dp)
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         STUDIO_DOCK_TABS.forEach { tab ->
@@ -64,14 +69,13 @@ fun StudioDock(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isSelected) GoldAccent.copy(alpha = 0.18f) else Color.Transparent)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(tab.index)
                     }
-                    .padding(vertical = 5.dp)
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {
                 Icon(
                     imageVector = tab.icon,

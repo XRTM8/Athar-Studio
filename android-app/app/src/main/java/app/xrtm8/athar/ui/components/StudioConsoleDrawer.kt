@@ -48,6 +48,8 @@ import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.panels.CanvasBackgroundPanel
 import app.xrtm8.athar.ui.panels.FilmFilterPanel
 import app.xrtm8.athar.ui.panels.KashidaPanel
+import app.xrtm8.athar.ui.panels.ManuscriptAndTashkeelPanel
+import app.xrtm8.athar.ui.panels.OpticalAndGrainPanel
 import app.xrtm8.athar.ui.panels.StyleEffectsPanel
 import app.xrtm8.athar.ui.panels.TransformPositionPanel
 import app.xrtm8.athar.ui.panels.TypographyPanel
@@ -165,24 +167,25 @@ fun StudioConsoleDrawer(
                             onLetterSpacingChange = { viewModel.setLetterSpacing(it) },
                             onLineSpacingChange = { viewModel.setLineSpacing(it) },
                             onTextAlignChange = { viewModel.setTextAlign(it) },
+                            onToggleCurvedText = { viewModel.toggleCurvedText(it) },
+                            onCurveAngleChange = { viewModel.setCurveAngle(it) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
-                        1 -> KashidaPanel(
+                        1 -> ManuscriptAndTashkeelPanel(
+                            state = canvasState,
+                            onAddManuscriptLayer = { viewModel.addManuscriptLayer(it) },
+                            onAddTashkeelMark = { viewModel.addTashkeelMark(it) },
+                            onRemoveTashkeelMark = { viewModel.removeTashkeelMark(it) },
+                            onUpdateTashkeelMark = { viewModel.updateTashkeelMark(it) },
+                            onNudgeTashkeelMark = { id, dx, dy -> viewModel.nudgeTashkeelMark(id, dx, dy) }
+                        )
+
+                        2 -> KashidaPanel(
                             state = canvasState,
                             onStretchLevelChange = { viewModel.setStretchLevel(it) },
                             onKashidaModeChange = { viewModel.setKashidaMode(it) },
                             onTargetIndexChange = { viewModel.setKashidaTargetIndex(it) },
-                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
-                        )
-
-                        2 -> TransformPositionPanel(
-                            state = canvasState,
-                            onSnapPosition = { x, y, a -> viewModel.snapToPosition(x, y, a) },
-                            onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) },
-                            onRotationChange = { viewModel.setRotationAngle(it) },
-                            onScaleChange = { viewModel.setScale(it) },
-                            onResetTransform = { viewModel.resetCanvasTransform() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
@@ -201,17 +204,30 @@ fun StudioConsoleDrawer(
                             onGlassOpacityChange = { viewModel.setGlassBackdropOpacity(it) },
                             onGlassCornerRadiusChange = { viewModel.setGlassBackdropCornerRadius(it) },
                             onGlassPaddingChange = { viewModel.setGlassBackdropPadding(it) },
+                            onBlendModeChange = { viewModel.setBlendMode(it) },
+                            onHarmonizeWithBackground = { viewModel.harmonizeWithBackgroundImage(context) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
-                        4 -> FilmFilterPanel(
+                        4 -> OpticalAndGrainPanel(
+                            state = canvasState,
+                            onFilmGrainIntensityChange = { viewModel.setFilmGrainIntensity(it) },
+                            onToggleLensFlare = { viewModel.toggleLensFlare(it) },
+                            onLensFlareIntensityChange = { viewModel.setLensFlareIntensity(it) },
+                            onLensFlareXChange = { viewModel.setLensFlarePosition(it, canvasState.lensFlareY) },
+                            onLensFlareYChange = { viewModel.setLensFlarePosition(canvasState.lensFlareX, it) },
+                            onLensFlareColorChange = { viewModel.setLensFlareColor(it) },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
+                        )
+
+                        5 -> FilmFilterPanel(
                             state = canvasState,
                             onSelectFilmPreset = { viewModel.setFilmPreset(it) },
                             onExportQrCard = onExportQrCard,
                             onImportQrRecipe = onImportQrRecipe
                         )
 
-                        else -> CanvasBackgroundPanel(
+                        6 -> CanvasBackgroundPanel(
                             state = canvasState,
                             onToggleTransparent = { viewModel.setTransparentBg(it) },
                             onSelectSolidBgColor = { viewModel.setSolidBgColor(it) },
@@ -242,6 +258,18 @@ fun StudioConsoleDrawer(
                             onGradientScrimColorChange = { viewModel.setGradientScrimColor(it) },
                             onGradientScrimOpacityChange = { viewModel.setGradientScrimOpacity(it) },
                             onGradientScrimMidpointChange = { viewModel.setGradientScrimMidpoint(it) },
+                            onToggleTextBehindSubject = { viewModel.setTextBehindSubject(it) },
+                            onSubjectDepthSensitivityChange = { viewModel.setSubjectDepthSensitivity(it) },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
+                        )
+
+                        else -> TransformPositionPanel(
+                            state = canvasState,
+                            onSnapPosition = { x, y, a -> viewModel.snapToPosition(x, y, a) },
+                            onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) },
+                            onRotationChange = { viewModel.setRotationAngle(it) },
+                            onScaleChange = { viewModel.setScale(it) },
+                            onResetTransform = { viewModel.resetCanvasTransform() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
                     }
