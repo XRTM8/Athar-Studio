@@ -127,8 +127,10 @@ fun CanvasView(
                         }
                     )
                 }
-                .pointerInput(Unit) {
+                .pointerInput(state.isLocked) {
                     detectTransformGestures { _, pan, zoom, rotate ->
+                        if (state.isLocked) return@detectTransformGestures
+
                         val cw = canvasW.coerceAtLeast(10f)
                         val ch = canvasH.coerceAtLeast(10f)
 
@@ -202,9 +204,25 @@ fun CanvasView(
                         val alpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
                         nativeCanvas.drawColor(android.graphics.Color.argb(alpha, 0, 0, 0))
                     }
+                } else if (state.solidBgColorLong != null) {
+                    nativeCanvas.drawColor(state.solidBgColorLong.toInt())
+                } else {
+                    nativeCanvas.drawColor(android.graphics.Color.BLACK)
                 }
 
-                // 2. Smart Snapping Guidelines
+                // 2. Smart Snapping & Golden Grid Guidelines
+                if (state.showGridGuides) {
+                    val gridPaint = Paint().apply {
+                        isAntiAlias = true
+                        color = android.graphics.Color.parseColor("#33E5C07B")
+                        strokeWidth = 1.5f
+                    }
+                    nativeCanvas.drawLine(canvasWidth / 3f, 0f, canvasWidth / 3f, canvasHeight, gridPaint)
+                    nativeCanvas.drawLine(canvasWidth * 2f / 3f, 0f, canvasWidth * 2f / 3f, canvasHeight, gridPaint)
+                    nativeCanvas.drawLine(0f, canvasHeight / 3f, canvasWidth, canvasHeight / 3f, gridPaint)
+                    nativeCanvas.drawLine(0f, canvasHeight * 2f / 3f, canvasWidth, canvasHeight * 2f / 3f, gridPaint)
+                }
+
                 if (abs(localNormX) < 0.005f) {
                     nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
                 }
@@ -243,15 +261,37 @@ fun CanvasView(
 
                 val textSizePx = state.fontSize * density
                 basePaint.textSize = textSizePx
+                basePaint.letterSpacing = state.letterSpacing
+                basePaint.isUnderlineText = state.isUnderline
+                basePaint.isFakeBoldText = state.isBold
+                basePaint.textSkewX = if (state.isItalic) -0.25f else 0f
+                basePaint.alpha = (state.textOpacity * 255).toInt().coerceIn(10, 255)
+
                 glowPaint.textSize = textSizePx
+                glowPaint.letterSpacing = state.letterSpacing
+                glowPaint.textSkewX = basePaint.textSkewX
+
                 shadowPaint.textSize = textSizePx
+                shadowPaint.letterSpacing = state.letterSpacing
+                shadowPaint.textSkewX = basePaint.textSkewX
+
                 strokePaint.textSize = textSizePx
+                strokePaint.strokeJoin = Paint.Join.ROUND
+                strokePaint.strokeCap = Paint.Cap.ROUND
+                strokePaint.letterSpacing = state.letterSpacing
+                strokePaint.isUnderlineText = state.isUnderline
+                strokePaint.isFakeBoldText = state.isBold
+                strokePaint.textSkewX = basePaint.textSkewX
+                strokePaint.alpha = basePaint.alpha
 
                 // Stroke Configuration
                 if (state.strokeWidth > 0f) {
                     strokePaint.strokeWidth = state.strokeWidth * density
                     strokePaint.color = state.strokeColorLong.toInt()
                 }
+
+                val shadowDxPx = state.shadowDx * density
+                val shadowDyPx = state.shadowDy * density
 
                 val lines = state.displayText.split("\n")
                 val lineHeight = textSizePx * state.lineSpacingMultiplier
@@ -283,9 +323,9 @@ fun CanvasView(
                         basePaint.color = state.customTextColorLong.toInt()
                         basePaint.shader = null
                         if (state.shadowRadius > 0f) {
-                            shadowPaint.color = android.graphics.Color.parseColor("#99000000")
+                            shadowPaint.color = state.shadowColorLong.toInt()
                             shadowPaint.maskFilter = BlurMaskFilter(state.shadowRadius * density, BlurMaskFilter.Blur.NORMAL)
-                            nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
+                            nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
                         }
                         nativeCanvas.drawText(line, lineX, lineY, basePaint)
                     } else {
@@ -295,9 +335,9 @@ fun CanvasView(
                                 glowPaint.maskFilter = BlurMaskFilter(22f * density, BlurMaskFilter.Blur.NORMAL)
                                 nativeCanvas.drawText(line, lineX, lineY, glowPaint)
 
-                                shadowPaint.color = android.graphics.Color.parseColor("#99301B05")
+                                shadowPaint.color = state.shadowColorLong.toInt()
                                 shadowPaint.maskFilter = null
-                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
+                                nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
 
                                 basePaint.shader = LinearGradient(
                                     0f, lineY - textSizePx * 0.8f,
@@ -316,9 +356,9 @@ fun CanvasView(
                             }
 
                             VisualEffect.LIQUID_CHROME -> {
-                                shadowPaint.color = android.graphics.Color.parseColor("#66000000")
+                                shadowPaint.color = state.shadowColorLong.toInt()
                                 shadowPaint.maskFilter = null
-                                nativeCanvas.drawText(line, lineX, lineY + (state.shadowDy * density), shadowPaint)
+                                nativeCanvas.drawText(line, lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
 
                                 basePaint.shader = LinearGradient(
                                     -textSizePx * 0.5f, lineY - textSizePx * 0.8f,

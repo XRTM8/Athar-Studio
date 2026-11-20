@@ -31,7 +31,8 @@ enum class ArabicFontFamily(
     CAIRO("كايرو عصري", "ستوري حديث", "fonts/cairo.ttf", "أَثَــر مُعَاصِر"),
     TAJAWAL("تجوال هادئ", "أنيق وبسيط", "fonts/tajawal.ttf", "أَثَــر خَفِيف"),
     MARHEY("مرحي فني", "تعبيري", "fonts/marhey.ttf", "أَثَــر جَرِيء"),
-    EL_MESSIRI("المسيري الملكي", "فخامة متزنة", "fonts/el_messiri.ttf", "أَثَــر مَلَكِي")
+    EL_MESSIRI("المسيري الملكي", "فخامة متزنة", "fonts/el_messiri.ttf", "أَثَــر مَلَكِي"),
+    ELGHARIB_HAFS_TAWEEL("حفص ممدود (الغريب)", "رسم عثماني", "fonts/elgharib_kfgqpc_hafs_taweel.ttf", "أَثَـــــرٌ قُـرْآنِـيّ")
 }
 
 enum class TextAlignOption(val label: String) {
@@ -58,7 +59,18 @@ val LUXURY_SWATCHES = listOf(
     ColorSwatch("أزرق ملكي", 0xFF448AFF),
     ColorSwatch("خزامي ناعم", 0xFFB388FF),
     ColorSwatch("برتقالي شمس", 0xFFFF9100),
-    ColorSwatch("فحم داكن", 0xFF212121)
+    ColorSwatch("فحم داكن", 0xFF212121),
+    ColorSwatch("ذهب وردي", 0xFFE0A996),
+    ColorSwatch("عقيق يماني", 0xFF800020)
+)
+
+val LUXURY_BG_PRESETS = listOf(
+    ColorSwatch("أسود AMOLED", 0xFF000000),
+    ColorSwatch("ورق عتيق", 0xFF1C1917),
+    ColorSwatch("كحلي ليلي", 0xFF0A1128),
+    ColorSwatch("زمردي داكن", 0xFF081C15),
+    ColorSwatch("عنابي فاخر", 0xFF1A080E),
+    ColorSwatch("فحم رمادي", 0xFF18191C)
 )
 
 data class CanvasState(
@@ -73,16 +85,25 @@ data class CanvasState(
     val strokeWidth: Float = 0f,
     val strokeColorLong: Long = 0xFF000000,
     val shadowRadius: Float = 16f,
+    val shadowDx: Float = 0f,
     val shadowDy: Float = 6f,
+    val shadowColorLong: Long = 0xAA000000,
     val textAlign: TextAlignOption = TextAlignOption.CENTER,
     val lineSpacingMultiplier: Float = 1.35f,
+    val letterSpacing: Float = 0f,
+    val textOpacity: Float = 1.0f,
+    val isBold: Boolean = false,
+    val isItalic: Boolean = false,
+    val isUnderline: Boolean = false,
+    val isLocked: Boolean = false,
+    val showGridGuides: Boolean = false,
     val isTextBehindSubject: Boolean = false,
     val aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
+    val solidBgColorLong: Long? = null,
     val backgroundImageUri: Uri? = null,
     val backgroundDim: Float = 0.25f,
     val backgroundBlur: Float = 0f,
     val backgroundGrayscale: Boolean = false,
-    val letterSpacing: Float = 0f,
     val rotationAngle: Float = 0f,
     val scaleFactor: Float = 1.0f,
     val normOffsetX: Float = 0f,

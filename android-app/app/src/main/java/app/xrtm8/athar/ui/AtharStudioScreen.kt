@@ -54,11 +54,18 @@ import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.FormatAlignRight
+import androidx.compose.material.icons.filled.FormatBold
+import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatLineSpacing
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.FormatUnderlined
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -103,6 +110,7 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.ExportResolution
+import app.xrtm8.athar.model.LUXURY_BG_PRESETS
 import app.xrtm8.athar.model.LUXURY_SWATCHES
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
@@ -281,9 +289,9 @@ fun AtharStudioScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 coroutineScope.launch {
                                     val currentVersion = try {
-                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.5.0"
+                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.5.1"
                                     } catch (e: Exception) {
-                                        "1.5.0"
+                                        "1.5.1"
                                     }
                                     val info = updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = false)
                                     if (info == null) {
@@ -371,27 +379,73 @@ fun AtharStudioScreen(
                     }
                 )
 
-                // Quick Edit Text Floating Button
-                Box(
+                // Floating Canvas Quick Actions (Edit, Lock, Grid)
+                Column(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(14.dp)
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(GlassBackground)
-                        .border(1.dp, GlassBorderActive, CircleShape)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            showTextDialog = true
-                        },
-                    contentAlignment = Alignment.Center
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "تعديل النص",
-                        tint = PureWhite,
-                        modifier = Modifier.size(19.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(GlassBackground)
+                            .border(1.dp, GlassBorderActive, CircleShape)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                showTextDialog = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "تعديل النص",
+                            tint = PureWhite,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(if (canvasState.isLocked) GoldAccent.copy(alpha = 0.25f) else GlassBackground)
+                            .border(1.dp, if (canvasState.isLocked) GoldAccent else GlassBorder, CircleShape)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.toggleLock()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (canvasState.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                            contentDescription = "قفل موضع النص",
+                            tint = if (canvasState.isLocked) GoldAccent else SubtleGray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(if (canvasState.showGridGuides) GoldAccent.copy(alpha = 0.25f) else GlassBackground)
+                            .border(1.dp, if (canvasState.showGridGuides) GoldAccent else GlassBorder, CircleShape)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.toggleGridGuides()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GridOn,
+                            contentDescription = "شبكة المحاذاة الذهبية",
+                            tint = if (canvasState.showGridGuides) GoldAccent else SubtleGray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 
@@ -525,7 +579,7 @@ fun AtharStudioScreen(
                                                     val isSelected = canvasState.selectedFont == font
                                                     Box(
                                                         modifier = Modifier
-                                                            .width(115.dp)
+                                                            .width(118.dp)
                                                             .clip(RoundedCornerShape(14.dp))
                                                             .background(if (isSelected) GoldAccent else GlassSurface)
                                                             .border(
@@ -544,14 +598,14 @@ fun AtharStudioScreen(
                                                                 text = font.specimen,
                                                                 color = if (isSelected) AmoledBlack else GoldAccent,
                                                                 fontWeight = FontWeight.Bold,
-                                                                fontSize = 14.sp,
+                                                                fontSize = 13.5.sp,
                                                                 maxLines = 1
                                                             )
                                                             Text(
                                                                 text = font.fontName,
                                                                 color = if (isSelected) AmoledBlack else PureWhite,
                                                                 fontWeight = FontWeight.SemiBold,
-                                                                fontSize = 11.sp
+                                                                fontSize = 10.5.sp
                                                             )
                                                         }
                                                     }
@@ -560,6 +614,7 @@ fun AtharStudioScreen(
 
                                             Spacer(modifier = Modifier.height(10.dp))
 
+                                            // Size Slider
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -571,7 +626,69 @@ fun AtharStudioScreen(
                                             Slider(
                                                 value = canvasState.fontSize,
                                                 onValueChange = { viewModel.setFontSize(it) },
-                                                valueRange = 24f..96f,
+                                                valueRange = 24f..100f,
+                                                colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
+                                            )
+
+                                            Spacer(modifier = Modifier.height(6.dp))
+
+                                            // Styling Chips: Bold, Italic, Underline & Opacity
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(if (canvasState.isBold) GoldAccent else GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.toggleBold()
+                                                            }
+                                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(Icons.Default.FormatBold, contentDescription = "عريض", tint = if (canvasState.isBold) AmoledBlack else PureWhite, modifier = Modifier.size(16.dp))
+                                                    }
+
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(if (canvasState.isItalic) GoldAccent else GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.toggleItalic()
+                                                            }
+                                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(Icons.Default.FormatItalic, contentDescription = "مائل", tint = if (canvasState.isItalic) AmoledBlack else PureWhite, modifier = Modifier.size(16.dp))
+                                                    }
+
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(if (canvasState.isUnderline) GoldAccent else GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.toggleUnderline()
+                                                            }
+                                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(Icons.Default.FormatUnderlined, contentDescription = "تسطير", tint = if (canvasState.isUnderline) AmoledBlack else PureWhite, modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+
+                                                Text(text = "الشفافية: ${(canvasState.textOpacity * 100).toInt()}%", color = GoldAccent, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+
+                                            Slider(
+                                                value = canvasState.textOpacity,
+                                                onValueChange = { viewModel.setTextOpacity(it) },
+                                                valueRange = 0.15f..1.0f,
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
                                         }
@@ -706,22 +823,61 @@ fun AtharStudioScreen(
 
                                             Spacer(modifier = Modifier.height(8.dp))
 
+                                            // Rotation slider + step buttons
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(Icons.Default.FormatLineSpacing, contentDescription = null, tint = MutedWhite, modifier = Modifier.size(15.dp))
+                                                    Icon(Icons.Default.RotateRight, contentDescription = null, tint = MutedWhite, modifier = Modifier.size(15.dp))
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text(text = "تباعد الأسطر", color = PureWhite, fontSize = 12.sp)
+                                                    Text(text = "التدوير الدقيق", color = PureWhite, fontSize = 12.sp)
                                                 }
-                                                Text(text = "${(canvasState.lineSpacingMultiplier * 10).toInt() / 10f}x", color = GoldAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.rotateStep(-90f)
+                                                            }
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text("-90°", color = PureWhite, fontSize = 10.sp)
+                                                    }
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.setRotationAngle(0f)
+                                                            }
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text("0°", color = GoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.rotateStep(90f)
+                                                            }
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text("+90°", color = PureWhite, fontSize = 10.sp)
+                                                    }
+                                                    Text(text = "${canvasState.rotationAngle.toInt()}°", color = GoldAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                                }
                                             }
                                             Slider(
-                                                value = canvasState.lineSpacingMultiplier,
-                                                onValueChange = { viewModel.setLineSpacing(it) },
-                                                valueRange = 1.0f..2.2f,
+                                                value = canvasState.rotationAngle,
+                                                onValueChange = { viewModel.setRotationAngle(it) },
+                                                valueRange = -180f..180f,
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
                                         }
@@ -811,11 +967,45 @@ fun AtharStudioScreen(
                                             Slider(
                                                 value = canvasState.strokeWidth,
                                                 onValueChange = { viewModel.setStrokeWidth(it) },
-                                                valueRange = 0f..14f,
+                                                valueRange = 0f..16f,
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
 
-                                            Spacer(modifier = Modifier.height(6.dp))
+                                            // Stroke color chips
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                listOf(
+                                                    0xFF000000 to "أسود داكن",
+                                                    0xFFFFFFFF to "أبيض ناصع",
+                                                    0xFFFFD700 to "ذهب ملكي",
+                                                    0xFFE0E0E0 to "فضي بلاتيني"
+                                                ).forEach { (colorLong, name) ->
+                                                    val isSelected = canvasState.strokeColorLong == colorLong
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(if (isSelected) GoldAccent else GlassSurface)
+                                                            .clickable {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                viewModel.setStrokeColor(colorLong)
+                                                            }
+                                                            .padding(vertical = 4.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = name,
+                                                            color = if (isSelected) AmoledBlack else PureWhite,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(8.dp))
 
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -832,20 +1022,36 @@ fun AtharStudioScreen(
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
 
-                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            // Directional 2D Shadow: Dy and Dx
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(text = "عمق الظل الرأسي (Dy)", color = PureWhite, fontSize = 11.5.sp)
+                                                Text(text = "${canvasState.shadowDy.toInt()} px", color = GoldAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            Slider(
+                                                value = canvasState.shadowDy,
+                                                onValueChange = { viewModel.setShadowDy(it) },
+                                                valueRange = -15f..30f,
+                                                colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
+                                            )
 
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Text(text = "عمق الظل العمودي (3D Depth)", color = PureWhite, fontSize = 12.sp)
-                                                Text(text = "${canvasState.shadowDy.toInt()} px", color = GoldAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Text(text = "انحراف الظل الأفقي (Dx)", color = PureWhite, fontSize = 11.5.sp)
+                                                Text(text = "${canvasState.shadowDx.toInt()} px", color = GoldAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                                             }
                                             Slider(
-                                                value = canvasState.shadowDy,
-                                                onValueChange = { viewModel.setShadowDy(it) },
-                                                valueRange = -10f..25f,
+                                                value = canvasState.shadowDx,
+                                                onValueChange = { viewModel.setShadowDx(it) },
+                                                valueRange = -20f..20f,
                                                 colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                             )
                                         }
@@ -861,7 +1067,7 @@ fun AtharStudioScreen(
                                             ) {
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Text(text = "خلفية شفافة (ملصق ستوري)", color = PureWhite, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                                                    Text(text = "تفريغ الخلفية لتصدير الخط كملصق شفاف نقي", color = SubtleGray, fontSize = 10.5.sp)
+                                                    Text(text = "تفريغ الخلفية لتصدير ملصق شفاف نقي بدون هوامش", color = SubtleGray, fontSize = 10.5.sp)
                                                 }
                                                 Switch(
                                                     checked = canvasState.isTransparentBg,
@@ -871,6 +1077,40 @@ fun AtharStudioScreen(
                                                     },
                                                     colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
                                                 )
+                                            }
+
+                                            // Solid Luxury Presets (when not transparent and no image)
+                                            if (!canvasState.isTransparentBg && canvasState.backgroundImageUri == null) {
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(text = "ألوان الكانفاس الفاخرة:", color = MutedWhite, fontSize = 11.5.sp)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .horizontalScroll(rememberScrollState()),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    LUXURY_BG_PRESETS.forEach { bg ->
+                                                        val isSelected = canvasState.solidBgColorLong == bg.argb || (bg.argb == 0xFF000000 && canvasState.solidBgColorLong == null)
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .background(if (isSelected) GoldAccent else GlassSurface)
+                                                                .clickable {
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                    viewModel.setSolidBgColor(if (bg.argb == 0xFF000000) null else bg.argb)
+                                                                }
+                                                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = bg.name,
+                                                                color = if (isSelected) AmoledBlack else PureWhite,
+                                                                fontSize = 11.sp,
+                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                             }
 
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -977,6 +1217,29 @@ fun AtharStudioScreen(
                                                         )
                                                     }
                                                 }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            // Golden Grid Guides Switch
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(Icons.Default.GridOn, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(text = "شبكة المحاذاة الذهبية (Rule of Thirds)", color = PureWhite, fontSize = 12.sp)
+                                                }
+                                                Switch(
+                                                    checked = canvasState.showGridGuides,
+                                                    onCheckedChange = {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        viewModel.toggleGridGuides()
+                                                    },
+                                                    colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
+                                                )
                                             }
                                         }
                                     }

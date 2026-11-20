@@ -137,8 +137,57 @@ class AtharStudioViewModel : ViewModel() {
         pushHistory(_canvasState.value.copy(shadowRadius = radius.coerceIn(0f, 60f)))
     }
 
+    fun setShadowDx(dx: Float) {
+        pushHistory(_canvasState.value.copy(shadowDx = dx.coerceIn(-30f, 30f)))
+    }
+
     fun setShadowDy(dy: Float) {
         pushHistory(_canvasState.value.copy(shadowDy = dy.coerceIn(-30f, 40f)))
+    }
+
+    fun setShadowColor(colorLong: Long) {
+        pushHistory(_canvasState.value.copy(shadowColorLong = colorLong))
+    }
+
+    fun setLetterSpacing(spacing: Float) {
+        pushHistory(_canvasState.value.copy(letterSpacing = spacing.coerceIn(-0.05f, 0.35f)))
+    }
+
+    fun setTextOpacity(opacity: Float) {
+        pushHistory(_canvasState.value.copy(textOpacity = opacity.coerceIn(0.1f, 1.0f)))
+    }
+
+    fun toggleBold() {
+        pushHistory(_canvasState.value.copy(isBold = !_canvasState.value.isBold))
+    }
+
+    fun toggleItalic() {
+        pushHistory(_canvasState.value.copy(isItalic = !_canvasState.value.isItalic))
+    }
+
+    fun toggleUnderline() {
+        pushHistory(_canvasState.value.copy(isUnderline = !_canvasState.value.isUnderline))
+    }
+
+    fun toggleLock() {
+        _canvasState.update { it.copy(isLocked = !it.isLocked) }
+    }
+
+    fun toggleGridGuides() {
+        _canvasState.update { it.copy(showGridGuides = !it.showGridGuides) }
+    }
+
+    fun setSolidBgColor(colorLong: Long?) {
+        pushHistory(_canvasState.value.copy(solidBgColorLong = colorLong, isTransparentBg = false))
+    }
+
+    fun setRotationAngle(angle: Float) {
+        _canvasState.update { it.copy(rotationAngle = angle) }
+    }
+
+    fun rotateStep(deltaAngle: Float) {
+        val newAngle = ((_canvasState.value.rotationAngle + deltaAngle) % 360f)
+        pushHistory(_canvasState.value.copy(rotationAngle = newAngle))
     }
 
     fun setTextAlign(alignment: TextAlignOption) {
@@ -419,7 +468,11 @@ class AtharStudioViewModel : ViewModel() {
                         }
 
                         if (!photoDrawn) {
-                            canvas.drawColor(android.graphics.Color.BLACK)
+                            if (currentState.solidBgColorLong != null) {
+                                canvas.drawColor(currentState.solidBgColorLong.toInt())
+                            } else {
+                                canvas.drawColor(android.graphics.Color.BLACK)
+                            }
                         } else if (currentState.backgroundDim > 0f) {
                             val dimAlpha = (currentState.backgroundDim * 255).toInt().coerceIn(0, 240)
                             canvas.drawColor(android.graphics.Color.argb(dimAlpha, 0, 0, 0))
@@ -433,6 +486,11 @@ class AtharStudioViewModel : ViewModel() {
                         isAntiAlias = true
                         isDither = true
                         textSize = scaledTextSize
+                        letterSpacing = currentState.letterSpacing
+                        isUnderlineText = currentState.isUnderline
+                        isFakeBoldText = currentState.isBold
+                        textSkewX = if (currentState.isItalic) -0.25f else 0f
+                        alpha = (currentState.textOpacity * 255).toInt().coerceIn(10, 255)
                         textAlign = when (currentState.textAlign) {
                             TextAlignOption.RIGHT -> Paint.Align.RIGHT
                             TextAlignOption.CENTER -> Paint.Align.CENTER
@@ -446,8 +504,15 @@ class AtharStudioViewModel : ViewModel() {
                             isAntiAlias = true
                             isDither = true
                             style = Paint.Style.STROKE
+                            strokeJoin = Paint.Join.ROUND
+                            strokeCap = Paint.Cap.ROUND
                             strokeWidth = (currentState.strokeWidth / 380f) * width
                             color = currentState.strokeColorLong.toInt()
+                            letterSpacing = currentState.letterSpacing
+                            isUnderlineText = currentState.isUnderline
+                            isFakeBoldText = currentState.isBold
+                            textSkewX = if (currentState.isItalic) -0.25f else 0f
+                            alpha = (currentState.textOpacity * 255).toInt().coerceIn(10, 255)
                             textSize = scaledTextSize
                             textAlign = paint.textAlign
                             typeface = realTypeface
@@ -457,8 +522,9 @@ class AtharStudioViewModel : ViewModel() {
                     // Shadow configuration
                     if (currentState.shadowRadius > 0f) {
                         val scaledShadowRadius = (currentState.shadowRadius / 380f) * width
+                        val scaledShadowDx = (currentState.shadowDx / 380f) * width
                         val scaledShadowDy = (currentState.shadowDy / 380f) * width
-                        paint.setShadowLayer(scaledShadowRadius, 0f, scaledShadowDy, android.graphics.Color.parseColor("#AA000000"))
+                        paint.setShadowLayer(scaledShadowRadius, scaledShadowDx, scaledShadowDy, currentState.shadowColorLong.toInt())
                     }
 
                     val centerX = width * 0.5f + (width * currentState.normOffsetX)
