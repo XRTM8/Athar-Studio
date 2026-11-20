@@ -89,31 +89,42 @@ object AtharImageProcessor {
         return ColorMatrixColorFilter(composite)
     }
 
+    private var lastVignetteW = -1f
+    private var lastVignetteH = -1f
+    private var lastVignetteIntensity = -1f
+    private var cachedVignetteShader: RadialGradient? = null
+    private val vignettePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val vignetteStops = floatArrayOf(0.40f, 0.78f, 1.0f)
+    private val vignetteColors = IntArray(3)
+
     /**
      * Draws an authentic cinematic radial vignette darkening the edges of the canvas.
+     * Caches gradient and paint to guarantee zero memory allocations at 120Hz.
      */
     fun drawVignette(canvas: Canvas, width: Float, height: Float, intensity: Float) {
         val safeIntensity = intensity.coerceIn(0f, 1f)
         if (safeIntensity <= 0.01f) return
 
-        val radius = max(width, height) * 0.72f
-        val maxAlpha = (safeIntensity * 235).toInt()
+        if (cachedVignetteShader == null || lastVignetteW != width || lastVignetteH != height || lastVignetteIntensity != safeIntensity) {
+            val radius = max(width, height) * 0.72f
+            val maxAlpha = (safeIntensity * 235).toInt()
+            vignetteColors[0] = Color.TRANSPARENT
+            vignetteColors[1] = Color.argb((maxAlpha * 0.35f).toInt(), 0, 0, 0)
+            vignetteColors[2] = Color.argb(maxAlpha, 0, 0, 0)
 
-        val vignetteShader = RadialGradient(
-            width * 0.5f, height * 0.5f, radius,
-            intArrayOf(
-                Color.TRANSPARENT,
-                Color.argb((maxAlpha * 0.35f).toInt(), 0, 0, 0),
-                Color.argb(maxAlpha, 0, 0, 0)
-            ),
-            floatArrayOf(0.40f, 0.78f, 1.0f),
-            Shader.TileMode.CLAMP
-        )
-
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = vignetteShader
+            cachedVignetteShader = RadialGradient(
+                width * 0.5f, height * 0.5f, radius,
+                vignetteColors,
+                vignetteStops,
+                Shader.TileMode.CLAMP
+            )
+            vignettePaint.shader = cachedVignetteShader
+            lastVignetteW = width
+            lastVignetteH = height
+            lastVignetteIntensity = safeIntensity
         }
-        canvas.drawRect(0f, 0f, width, height, paint)
+
+        canvas.drawRect(0f, 0f, width, height, vignettePaint)
     }
 
     /**

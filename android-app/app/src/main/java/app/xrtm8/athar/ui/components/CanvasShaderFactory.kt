@@ -1,14 +1,38 @@
 package app.xrtm8.athar.ui.components
 
-import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Shader
 import app.xrtm8.athar.model.VisualEffect
 
 /**
  * High-performance Skia shader generator for metallic and luxury visual effects.
+ * Pre-compiled ARGB integer color tables eliminate all string parsing and array allocation churn at 120Hz.
  */
 object CanvasShaderFactory {
+
+    private val GOLD_COLORS = intArrayOf(
+        0xFFFFF7DB.toInt(),
+        0xFFF5C369.toInt(),
+        0xFFD49438.toInt(),
+        0xFFFFE8A3.toInt(),
+        0xFFB0731E.toInt()
+    )
+    private val GOLD_STOPS = floatArrayOf(0.0f, 0.25f, 0.55f, 0.75f, 1.0f)
+
+    private val CHROME_COLORS = intArrayOf(
+        0xFFFFFFFF.toInt(),
+        0xFF9EA5B0.toInt(),
+        0xFF181C22.toInt(),
+        0xFFFFFFFF.toInt(),
+        0xFF505866.toInt(),
+        0xFFDDE2EA.toInt()
+    )
+    private val CHROME_STOPS = floatArrayOf(0.0f, 0.2f, 0.45f, 0.55f, 0.8f, 1.0f)
+
+    private val GLASS_COLORS = intArrayOf(
+        0xE6FFFFFF.toInt(),
+        0x33E2E8F0.toInt()
+    )
 
     fun createEffectShader(
         effect: VisualEffect,
@@ -20,14 +44,8 @@ object CanvasShaderFactory {
                 LinearGradient(
                     0f, lineY - textSizePx * 0.85f,
                     0f, lineY + textSizePx * 0.25f,
-                    intArrayOf(
-                        Color.parseColor("#FFF7DB"),
-                        Color.parseColor("#F5C369"),
-                        Color.parseColor("#D49438"),
-                        Color.parseColor("#FFE8A3"),
-                        Color.parseColor("#B0731E")
-                    ),
-                    floatArrayOf(0.0f, 0.25f, 0.55f, 0.75f, 1.0f),
+                    GOLD_COLORS,
+                    GOLD_STOPS,
                     Shader.TileMode.CLAMP
                 )
             }
@@ -36,15 +54,8 @@ object CanvasShaderFactory {
                 LinearGradient(
                     -textSizePx * 0.5f, lineY - textSizePx * 0.85f,
                     textSizePx * 0.5f, lineY + textSizePx * 0.25f,
-                    intArrayOf(
-                        Color.parseColor("#FFFFFF"),
-                        Color.parseColor("#9EA5B0"),
-                        Color.parseColor("#181C22"),
-                        Color.parseColor("#FFFFFF"),
-                        Color.parseColor("#505866"),
-                        Color.parseColor("#DDE2EA")
-                    ),
-                    floatArrayOf(0.0f, 0.2f, 0.45f, 0.55f, 0.8f, 1.0f),
+                    CHROME_COLORS,
+                    CHROME_STOPS,
                     Shader.TileMode.CLAMP
                 )
             }
@@ -53,10 +64,7 @@ object CanvasShaderFactory {
                 LinearGradient(
                     0f, lineY - textSizePx * 0.85f,
                     0f, lineY + textSizePx * 0.25f,
-                    intArrayOf(
-                        Color.parseColor("#E6FFFFFF"),
-                        Color.parseColor("#33E2E8F0")
-                    ),
+                    GLASS_COLORS,
                     null,
                     Shader.TileMode.CLAMP
                 )

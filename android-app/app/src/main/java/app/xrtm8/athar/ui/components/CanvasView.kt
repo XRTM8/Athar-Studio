@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -33,8 +34,8 @@ import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
-import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.GlassBorder
 import kotlinx.coroutines.Dispatchers
@@ -67,13 +68,28 @@ fun CanvasView(
         localRotation = state.rotationAngle
     }
 
-    // Load background image bitmap safely with memory limits
+    // Load background image bitmap safely with memory limits and zero leaks
     var rawBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var processedBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
+    // Safely recycle bitmaps on unmount
+    DisposableEffect(Unit) {
+        onDispose {
+            val p = processedBgBitmap
+            val r = rawBgBitmap
+            if (p != null && p != r && !p.isRecycled) {
+                p.recycle()
+            }
+            if (r != null && !r.isRecycled) {
+                r.recycle()
+            }
+        }
+    }
+
     LaunchedEffect(state.backgroundImageUri) {
         val uri = state.backgroundImageUri
-        rawBgBitmap = if (uri != null) {
+        val oldRaw = rawBgBitmap
+        val loaded = if (uri != null) {
             try {
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 context.contentResolver.openInputStream(uri)?.use {
@@ -96,12 +112,17 @@ fun CanvasView(
         } else {
             null
         }
+        rawBgBitmap = loaded
+        if (oldRaw != null && oldRaw != loaded && !oldRaw.isRecycled) {
+            oldRaw.recycle()
+        }
     }
 
-    // Process blur off-thread when blur value or raw image changes (accelerated preview)
+    // Process blur off-thread when blur value or raw image changes (accelerated preview with immediate recycle)
     LaunchedEffect(rawBgBitmap, state.backgroundBlur) {
         val base = rawBgBitmap
-        processedBgBitmap = if (base != null) {
+        val oldProcessed = processedBgBitmap
+        val next = if (base != null) {
             if (state.backgroundBlur > 0.5f) {
                 withContext(Dispatchers.Default) {
                     AtharImageProcessor.fastPreviewBlur(base, state.backgroundBlur.toInt().coerceIn(1, 35))
@@ -112,19 +133,69 @@ fun CanvasView(
         } else {
             null
         }
+        processedBgBitmap = next
+        if (oldProcessed != null && oldProcessed != base && oldProcessed != next && !oldProcessed.isRecycled) {
+            oldProcessed.recycle()
+        }
     }
 
-    // Pre-allocated paint objects to guarantee 120Hz zero GC drops
+    // Pre-allocated paint and filter objects to guarantee 120Hz zero GC drops
     var isInteracting by remember { mutableStateOf(false) }
     val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE } }
-    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = Color.parseColor("#99FFD700"); strokeWidth = 2.0f } }
-    val selectBoxPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = Color.parseColor("#77FFD700"); strokeWidth = 1.2f * density } }
-    val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = Color.parseColor("#FFFFD700"); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
-    val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = Color.parseColor("#FFFFD700") } }
+    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = 0x99FFD700.toInt(); strokeWidth = 2.0f } }
+    val gridPaint = remember { Paint().apply { isAntiAlias = true; color = 0x33E5C07B.toInt(); strokeWidth = 1.5f } }
+    val selectBoxPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0x77FFD700.toInt(); strokeWidth = 1.2f * density } }
+    val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0xFFFFD700.toInt(); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
+    val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = 0xFFFFD700.toInt() } }
     val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
+
+    val neonGlowColor = remember { 0x6600FF9D.toInt() }
+    val cinematicShadowColor = remember { 0xFFF5F6F8.toInt() }
+    val neonBlurFilter = remember(density) {
+        BlurMaskFilter((28f * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+    }
+
+    val alphaFloat = state.textOpacity.coerceIn(0.15f, 1.0f)
+    val alphaInt = (alphaFloat * 255).toInt()
+    val alphaColorFilter = remember(alphaFloat) {
+        val m = ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) }
+        ColorMatrixColorFilter(m)
+    }
+
+    val shadowBlurFilter = remember(state.shadowRadius, density) {
+        if (state.shadowRadius > 0f) {
+            BlurMaskFilter((state.shadowRadius * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+        } else null
+    }
+
+    // Cached Layout Metrics - only recomputes when typographical properties change, NEVER during pan/pinch/rotate gestures!
+    val layout = remember(
+        state.displayText,
+        state.fontSize,
+        state.lineSpacingMultiplier,
+        state.textAlign,
+        state.selectedFont,
+        state.isBold,
+        state.letterSpacing,
+        density
+    ) {
+        val tempPaint = Paint().apply {
+            isAntiAlias = true
+            typeface = AtharFontManager.getTypeface(context, state.selectedFont)
+            textSize = state.fontSize * density
+            letterSpacing = state.letterSpacing
+            isFakeBoldText = state.isBold
+        }
+        AtharTextLayout.computeLayout(
+            text = state.displayText,
+            paint = tempPaint,
+            lineSpacingMultiplier = state.lineSpacingMultiplier,
+            textAlign = state.textAlign
+        )
+    }
 
     val ratio = state.aspectRatio.ratio
     val canvasModifier = if (ratio != null) {
@@ -192,13 +263,8 @@ fun CanvasView(
                     bgPaint = bgPaint
                 )
 
-                // 2. Smart Snapping & Golden Grid Guidelines
+                // 2. Smart Snapping & Golden Grid Guidelines (zero-allocation)
                 if (state.showGridGuides) {
-                    val gridPaint = Paint().apply {
-                        isAntiAlias = true
-                        color = Color.parseColor("#33E5C07B")
-                        strokeWidth = 1.5f
-                    }
                     nativeCanvas.drawLine(canvasWidth / 3f, 0f, canvasWidth / 3f, canvasHeight, gridPaint)
                     nativeCanvas.drawLine(canvasWidth * 2f / 3f, 0f, canvasWidth * 2f / 3f, canvasHeight, gridPaint)
                     nativeCanvas.drawLine(0f, canvasHeight / 3f, canvasWidth, canvasHeight / 3f, gridPaint)
@@ -245,8 +311,6 @@ fun CanvasView(
                 strokePaint.textAlign = align
 
                 val textSizePx = state.fontSize * density
-                val alphaFloat = state.textOpacity.coerceIn(0.15f, 1.0f)
-                val alphaInt = (alphaFloat * 255).toInt()
 
                 basePaint.textSize = textSizePx
                 basePaint.letterSpacing = state.letterSpacing
@@ -254,12 +318,7 @@ fun CanvasView(
                 basePaint.isFakeBoldText = state.isBold
                 basePaint.textSkewX = if (state.isItalic) -0.25f else 0f
                 basePaint.alpha = alphaInt
-
-                // Color Filter for Opacity across Shaders and Colors
-                val alphaMatrix = ColorMatrix().apply {
-                    setScale(1f, 1f, 1f, alphaFloat)
-                }
-                basePaint.colorFilter = ColorMatrixColorFilter(alphaMatrix)
+                basePaint.colorFilter = alphaColorFilter
 
                 glowPaint.textSize = textSizePx
                 glowPaint.letterSpacing = state.letterSpacing
@@ -278,7 +337,7 @@ fun CanvasView(
                 strokePaint.isFakeBoldText = state.isBold
                 strokePaint.textSkewX = basePaint.textSkewX
                 strokePaint.alpha = alphaInt
-                strokePaint.colorFilter = basePaint.colorFilter
+                strokePaint.colorFilter = alphaColorFilter
 
                 // Stroke Configuration
                 if (state.strokeWidth > 0f) {
@@ -288,13 +347,6 @@ fun CanvasView(
 
                 val shadowDxPx = state.shadowDx * density
                 val shadowDyPx = state.shadowDy * density
-
-                val layout = AtharTextLayout.computeLayout(
-                    text = state.displayText,
-                    paint = basePaint,
-                    lineSpacingMultiplier = state.lineSpacingMultiplier,
-                    textAlign = state.textAlign
-                )
 
                 // Draw Frosted Glass Plaque / Card behind text if enabled
                 TextGlassBackdropRenderer.drawGlassBackdrop(
@@ -313,7 +365,7 @@ fun CanvasView(
                         val sColor = state.shadowColorLong.toInt()
                         val shadowAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
                         shadowPaint.color = (sColor and 0x00FFFFFF) or (shadowAlpha shl 24)
-                        shadowPaint.maskFilter = BlurMaskFilter((state.shadowRadius * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+                        shadowPaint.maskFilter = shadowBlurFilter
                         nativeCanvas.drawText(line, layout.lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
                     }
 
@@ -337,14 +389,14 @@ fun CanvasView(
                             basePaint.shader = null
                             when (state.selectedEffect) {
                                 VisualEffect.CYBER_NEON -> {
-                                    glowPaint.color = Color.parseColor("#6600FF9D")
-                                    glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
+                                    glowPaint.color = neonGlowColor
+                                    glowPaint.maskFilter = neonBlurFilter
                                     nativeCanvas.drawText(line, layout.lineX, lineY, glowPaint)
                                     basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
                                     nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
                                 }
                                 VisualEffect.CINEMATIC_SHADOW -> {
-                                    basePaint.color = (Color.parseColor("#F5F6F8") and 0x00FFFFFF) or (alphaInt shl 24)
+                                    basePaint.color = (cinematicShadowColor and 0x00FFFFFF) or (alphaInt shl 24)
                                     nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
                                 }
                                 else -> {

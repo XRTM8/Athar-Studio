@@ -50,32 +50,44 @@ object AtharProjectThumbnailRenderer {
         var photoDrawn = false
         if (state.backgroundImageUri != null) {
             try {
-                context.contentResolver.openInputStream(state.backgroundImageUri)?.use { stream ->
-                    val srcBm = BitmapFactory.decodeStream(stream)
-                    if (srcBm != null) {
-                        val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
-                        if (state.backgroundGrayscale) {
-                            val cm = ColorMatrix().apply { setSaturation(0f) }
-                            bgPaint.colorFilter = ColorMatrixColorFilter(cm)
-                        }
-                        val srcW = srcBm.width.toFloat()
-                        val srcH = srcBm.height.toFloat()
-                        val srcRatio = srcW / srcH
-                        val dstRatio = width.toFloat() / height.toFloat()
-
-                        val srcRect = if (srcRatio > dstRatio) {
-                            val newW = (srcH * dstRatio).toInt()
-                            val xOffset = ((srcW - newW) / 2).toInt()
-                            Rect(xOffset, 0, xOffset + newW, srcH.toInt())
-                        } else {
-                            val newH = (srcW / dstRatio).toInt()
-                            val yOffset = ((srcH - newH) / 2).toInt()
-                            Rect(0, yOffset, srcW.toInt(), yOffset + newH)
-                        }
-                        canvas.drawBitmap(srcBm, srcRect, Rect(0, 0, width, height), bgPaint)
-                        photoDrawn = true
-                        srcBm.recycle()
+                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(state.backgroundImageUri)?.use {
+                    BitmapFactory.decodeStream(it, null, opts)
+                }
+                var sample = 1
+                while ((opts.outWidth / sample) > width * 2 || (opts.outHeight / sample) > height * 2) {
+                    sample *= 2
+                }
+                val finalOpts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+                val srcBm = context.contentResolver.openInputStream(state.backgroundImageUri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, finalOpts)
+                }
+                if (srcBm != null) {
+                    val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+                    if (state.backgroundGrayscale) {
+                        val cm = ColorMatrix().apply { setSaturation(0f) }
+                        bgPaint.colorFilter = ColorMatrixColorFilter(cm)
                     }
+                    val srcW = srcBm.width.toFloat()
+                    val srcH = srcBm.height.toFloat()
+                    val srcRatio = srcW / srcH
+                    val dstRatio = width.toFloat() / height.toFloat()
+
+                    val srcRect = if (srcRatio > dstRatio) {
+                        val newW = (srcH * dstRatio).toInt()
+                        val xOffset = ((srcW - newW) / 2).toInt()
+                        Rect(xOffset, 0, xOffset + newW, srcH.toInt())
+                    } else {
+                        val newH = (srcW / dstRatio).toInt()
+                        val yOffset = ((srcH - newH) / 2).toInt()
+                        Rect(0, yOffset, srcW.toInt(), yOffset + newH)
+                    }
+                    canvas.drawBitmap(srcBm, srcRect, Rect(0, 0, width, height), bgPaint)
+                    photoDrawn = true
+                    srcBm.recycle()
                 }
             } catch (e: Exception) {
                 // Ignore fallback to color
