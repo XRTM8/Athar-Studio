@@ -1,5 +1,6 @@
 package app.xrtm8.athar.ui.components
 
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.panels.CanvasBackgroundPanel
+import app.xrtm8.athar.ui.panels.FilmFilterPanel
 import app.xrtm8.athar.ui.panels.KashidaPanel
 import app.xrtm8.athar.ui.panels.StyleEffectsPanel
 import app.xrtm8.athar.ui.panels.TransformPositionPanel
@@ -62,10 +65,14 @@ fun StudioConsoleDrawer(
     viewModel: AtharStudioViewModel,
     onClosePanel: () -> Unit,
     onOpenTextEditor: () -> Unit,
+    onOpenFontBrowser: () -> Unit,
+    onExportQrCard: () -> Unit,
+    onImportQrRecipe: (Bitmap) -> Unit,
     onPickImage: () -> Unit,
     onRemoveImage: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
     AnimatedVisibility(
@@ -85,7 +92,7 @@ fun StudioConsoleDrawer(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 285.dp)
+                    .heightIn(max = 295.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 // Panel Header with close button
@@ -104,19 +111,13 @@ fun StudioConsoleDrawer(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = currentTabItem.title,
+                                color = PureWhite,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Text(
-                            text = when (selectedTab) {
-                                0 -> "الخط والنص العربي"
-                                1 -> "المدّ والكشيدة الأصيلة"
-                                2 -> "الموضع والتحريك الدقيق"
-                                3 -> "المظهر والظلال الفاخرة"
-                                else -> "الكانفاس وصورة الخلفية"
-                            },
-                            color = PureWhite,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
 
                     IconButton(
@@ -128,16 +129,14 @@ fun StudioConsoleDrawer(
                     ) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "تصغير اللوحة",
-                            tint = SubtleGray,
-                            modifier = Modifier.size(20.dp)
+                            contentDescription = "إغلاق",
+                            tint = SubtleGray
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Animated Switcher between Panels
                 AnimatedContent(
                     targetState = selectedTab,
                     transitionSpec = {
@@ -155,8 +154,10 @@ fun StudioConsoleDrawer(
                         0 -> TypographyPanel(
                             state = canvasState,
                             onOpenTextEditor = onOpenTextEditor,
+                            onOpenFontBrowser = onOpenFontBrowser,
                             onSelectFont = { viewModel.setFont(it) },
                             onFontSizeChange = { viewModel.setFontSize(it) },
+                            onJustifyLines = { viewModel.justifyActiveLayerLines(context) },
                             onToggleBold = { viewModel.toggleBold() },
                             onToggleItalic = { viewModel.toggleItalic() },
                             onToggleUnderline = { viewModel.toggleUnderline() },
@@ -203,6 +204,13 @@ fun StudioConsoleDrawer(
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
+                        4 -> FilmFilterPanel(
+                            state = canvasState,
+                            onSelectFilmPreset = { viewModel.setFilmPreset(it) },
+                            onExportQrCard = onExportQrCard,
+                            onImportQrRecipe = onImportQrRecipe
+                        )
+
                         else -> CanvasBackgroundPanel(
                             state = canvasState,
                             onToggleTransparent = { viewModel.setTransparentBg(it) },
@@ -225,6 +233,15 @@ fun StudioConsoleDrawer(
                             },
                             onAspectRatioChange = { viewModel.setAspectRatio(it) },
                             onToggleGridGuides = { viewModel.toggleGridGuides() },
+                            onToggleFramingMode = { viewModel.toggleFramingMode(it) },
+                            onBgPhotoOffsetXChange = { viewModel.setBgPhotoOffset(it, canvasState.bgPhotoOffsetY) },
+                            onBgPhotoOffsetYChange = { viewModel.setBgPhotoOffset(canvasState.bgPhotoOffsetX, it) },
+                            onBgPhotoScaleChange = { viewModel.setBgPhotoScale(it) },
+                            onToggleGradientScrim = { viewModel.setGradientScrimEnabled(it) },
+                            onGradientScrimDirectionChange = { viewModel.setGradientScrimDirection(it) },
+                            onGradientScrimColorChange = { viewModel.setGradientScrimColor(it) },
+                            onGradientScrimOpacityChange = { viewModel.setGradientScrimOpacity(it) },
+                            onGradientScrimMidpointChange = { viewModel.setGradientScrimMidpoint(it) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
                     }

@@ -2,6 +2,7 @@ package app.xrtm8.athar.model
 
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
+import java.util.UUID
 
 enum class VisualEffect(val arabicName: String, val description: String) {
     ROYAL_GOLD("ذهب ملكي 24K", "تذهيب عربي فاخر مع لمعان دافئ وتدرجات شمسية"),
@@ -25,14 +26,33 @@ enum class ArabicFontFamily(
     val assetPath: String,
     val specimen: String
 ) {
+    // كلاسيكي ورقعة
     AREF_RUQAA("رقعة أصيل", "رقعة", "fonts/aref_ruqaa.ttf", "أَثَــرٌ يَبْقَى"),
     AMIRI("نسخ قرآني", "كلاسيكي", "fonts/amiri.ttf", "أَثَــرٌ جَمِيل"),
-    REEM_KUFI("كوفي هندسي", "كوفي فاخر", "fonts/reem_kufi.ttf", "أَثَــر مِعْمَارِي"),
-    CAIRO("كايرو عصري", "ستوري حديث", "fonts/cairo.ttf", "أَثَــر مُعَاصِر"),
-    TAJAWAL("تجوال هادئ", "أنيق وبسيط", "fonts/tajawal.ttf", "أَثَــر خَفِيف"),
+    SCHEHERAZADE_NEW("شهرازاد نسخ ملكي", "كلاسيكي", "fonts/scheherazade_new.ttf", "أَثَـرٌ شَهْرَازَاد"),
+    EL_MESSIRI("المسيري الملكي", "كلاسيكي", "fonts/el_messiri.ttf", "أَثَــر مَلَكِي"),
+    ELGHARIB_HAFS_TAWEEL("حفص ممدود (الغريب)", "قرآني", "fonts/elgharib_kfgqpc_hafs_taweel.ttf", "أَثَـــــرٌ قُـرْآنِـيَّ"),
+
+    // نستعليق فارسي
+    GULZAR("نستعليق أصيل", "نستعليق", "fonts/gulzar.ttf", "أَثَـرٌ نَسْتَعْلِيقِي"),
+
+    // كوفي وهندسي
+    REEM_KUFI("كوفي هندسي", "كوفي", "fonts/reem_kufi.ttf", "أَثَــر مُعْمَارِي"),
+    QAHIRI("قاهري كوفي", "كوفي", "fonts/qahiri.ttf", "أَثَـرٌ قَاهِرِي"),
+    KUFAM("كوفام معاصر", "كوفي", "fonts/kufam.ttf", "أَثَـرٌ كُوفَام"),
+
+    // عناوين وملصقات عريضة
+    LALEZAR("لاليزار عريض", "عناوين", "fonts/lalezar.ttf", "أَثَـرٌ لَالِيزَار"),
+    RAKKAS("رقاص عريض", "عناوين", "fonts/rakkas.ttf", "أَثَـرٌ رَقَّاص"),
+
+    // حديث وعصري
+    CAIRO("كايرو عصري", "حديث", "fonts/cairo.ttf", "أَثَــر مُعَاصِر"),
+    ALMARAI("المراعي أنيق", "حديث", "fonts/almarai.ttf", "أَثَـرٌ مَرَاعِي"),
+    TAJAWAL("تجوال هادئ", "حديث", "fonts/tajawal.ttf", "أَثَــر خَفِيف"),
+
+    // تعبيري وحر
     MARHEY("مرحي فني", "تعبيري", "fonts/marhey.ttf", "أَثَــر جَرِيء"),
-    EL_MESSIRI("المسيري الملكي", "فخامة متزنة", "fonts/el_messiri.ttf", "أَثَــر مَلَكِي"),
-    ELGHARIB_HAFS_TAWEEL("حفص ممدود (الغريب)", "رسم عثماني", "fonts/elgharib_kfgqpc_hafs_taweel.ttf", "أَثَـــــرٌ قُـرْآنِـيّ")
+    LEMONADA("ليمونادا حر", "تعبيري", "fonts/lemonada.ttf", "أَثَـرٌ لَيْمُونَادَا")
 }
 
 enum class TextAlignOption(val label: String) {
@@ -100,7 +120,42 @@ val GLASS_BACKDROP_PRESETS = listOf(
     GlassBackdropPreset("عقيق قرمزي", 0xFF240A12, 0x66FF3366, 0.65f)
 )
 
-data class CanvasState(
+enum class CanvasGradientDirection(val label: String) {
+    BOTTOM_TO_TOP("من الأسفل للأعلى"),
+    TOP_TO_BOTTOM("من الأعلى للأسفل"),
+    LEFT_TO_RIGHT("من اليسار لليمين"),
+    RIGHT_TO_LEFT("من اليمين لليسار"),
+    RADIAL("شعاعي دائري")
+}
+
+data class CanvasGradientScrim(
+    val isEnabled: Boolean = false,
+    val direction: CanvasGradientDirection = CanvasGradientDirection.BOTTOM_TO_TOP,
+    val colorLong: Long = 0xFF000000,
+    val opacity: Float = 0.65f,
+    val midpoint: Float = 0.5f
+)
+
+enum class FilmPreset(
+    val id: String,
+    val titleAr: String,
+    val brand: String,
+    val description: String
+) {
+    NONE("none", "بدون فلتر", "أصلي", "الصورة الطبيعية بدون تعديل لوني"),
+    FUJI_CLASSIC_CHROME("fuji_classic_chrome", "فوجي كروم كلاسيك", "Fujifilm", "ألوان هادئة وسينمائية مع تباين ناعم للظلال"),
+    FUJI_VELVIA("fuji_velvia", "فوجي فيلفيا 50", "Fujifilm", "تشبع فائق وألوان حية حارة للطبيعة والسماء"),
+    FUJI_PROVIA("fuji_provia", "فوجي بروفيا 100F", "Fujifilm", "تدرج متزن وألوان حقيقية فائقة الواقعية"),
+    KODAK_PORTRA_400("kodak_portra_400", "كوداك بورترا 400", "Kodak", "دفء ناعم وألوان بشرة ذهبية ساحرة"),
+    KODAK_TRI_X("kodak_tri_x", "كوداك تري-إكس 400", "Kodak", "أبيض وأسود عالي التباين بطابع وثائقي عتيق"),
+    LEICA_MONOCHROME("leica_mono", "لايكا مونوكروم", "Leica", "أبيض وأسود نقي بتدرجات رمادية ناعمة وعميقة"),
+    CINEMATIC_TEAL_ORANGE("teal_orange", "سينمائي تيل & أورانج", "Cinema", "التدرج الهوليوودي العصري بين الأزرق والبرتقالي"),
+    VINTAGE_WARMTH("vintage_warmth", "دفء السبعينات", "Vintage", "ألوان باهتة دافئة مع لمسة ذهبية نوستالجية")
+}
+
+data class TextLayer(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String = "نص",
     val rawText: String = "أَثَــر",
     val displayText: String = "أَثَـــر",
     val stretchLevel: Int = 3,
@@ -125,6 +180,22 @@ data class CanvasState(
     val isItalic: Boolean = false,
     val isUnderline: Boolean = false,
     val isLocked: Boolean = false,
+    val isVisible: Boolean = true,
+    val rotationAngle: Float = 0f,
+    val scaleFactor: Float = 1.0f,
+    val normOffsetX: Float = 0f,
+    val normOffsetY: Float = 0f,
+    val enableGlassBackdrop: Boolean = false,
+    val glassBackdropOpacity: Float = 0.65f,
+    val glassBackdropColorLong: Long = 0xFF0D0F14,
+    val glassBackdropBorderColorLong: Long = 0x55E5C07B,
+    val glassBackdropCornerRadius: Float = 22f,
+    val glassBackdropPadding: Float = 22f
+)
+
+data class CanvasState(
+    val layers: List<TextLayer> = listOf(TextLayer(id = "layer_primary")),
+    val activeLayerId: String = "layer_primary",
     val showGridGuides: Boolean = false,
     val isTextBehindSubject: Boolean = false,
     val aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
@@ -137,18 +208,171 @@ data class CanvasState(
     val backgroundSaturation: Float = 1.0f,
     val backgroundVignette: Float = 0f,
     val backgroundGrayscale: Boolean = false,
-    val enableGlassBackdrop: Boolean = false,
-    val glassBackdropOpacity: Float = 0.65f,
-    val glassBackdropColorLong: Long = 0xFF0D0F14,
-    val glassBackdropBorderColorLong: Long = 0x55E5C07B,
-    val glassBackdropCornerRadius: Float = 22f,
-    val glassBackdropPadding: Float = 22f,
-    val rotationAngle: Float = 0f,
-    val scaleFactor: Float = 1.0f,
-    val normOffsetX: Float = 0f,
-    val normOffsetY: Float = 0f,
-    val isTransparentBg: Boolean = false
-)
+    val isTransparentBg: Boolean = false,
+    val gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
+    val filmPreset: FilmPreset = FilmPreset.NONE,
+    val bgPhotoOffsetX: Float = 0f,
+    val bgPhotoOffsetY: Float = 0f,
+    val bgPhotoScale: Float = 1.0f,
+    val isFramingMode: Boolean = false
+) {
+    val activeLayer: TextLayer
+        get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()
+
+    // 100% Backward compatibility delegates for existing components
+    val rawText: String get() = activeLayer.rawText
+    val displayText: String get() = activeLayer.displayText
+    val stretchLevel: Int get() = activeLayer.stretchLevel
+    val kashidaMode: KashidaMode get() = activeLayer.kashidaMode
+    val kashidaTargetIndex: Int get() = activeLayer.kashidaTargetIndex
+    val selectedEffect: VisualEffect get() = activeLayer.selectedEffect
+    val selectedFont: ArabicFontFamily get() = activeLayer.selectedFont
+    val fontSize: Float get() = activeLayer.fontSize
+    val textColor: Color get() = activeLayer.textColor
+    val customTextColorLong: Long? get() = activeLayer.customTextColorLong
+    val strokeWidth: Float get() = activeLayer.strokeWidth
+    val strokeColorLong: Long get() = activeLayer.strokeColorLong
+    val shadowRadius: Float get() = activeLayer.shadowRadius
+    val shadowDx: Float get() = activeLayer.shadowDx
+    val shadowDy: Float get() = activeLayer.shadowDy
+    val shadowColorLong: Long get() = activeLayer.shadowColorLong
+    val textAlign: TextAlignOption get() = activeLayer.textAlign
+    val lineSpacingMultiplier: Float get() = activeLayer.lineSpacingMultiplier
+    val letterSpacing: Float get() = activeLayer.letterSpacing
+    val textOpacity: Float get() = activeLayer.textOpacity
+    val isBold: Boolean get() = activeLayer.isBold
+    val isItalic: Boolean get() = activeLayer.isItalic
+    val isUnderline: Boolean get() = activeLayer.isUnderline
+    val isLocked: Boolean get() = activeLayer.isLocked
+    val rotationAngle: Float get() = activeLayer.rotationAngle
+    val scaleFactor: Float get() = activeLayer.scaleFactor
+    val normOffsetX: Float get() = activeLayer.normOffsetX
+    val normOffsetY: Float get() = activeLayer.normOffsetY
+    val enableGlassBackdrop: Boolean get() = activeLayer.enableGlassBackdrop
+    val glassBackdropOpacity: Float get() = activeLayer.glassBackdropOpacity
+    val glassBackdropColorLong: Long get() = activeLayer.glassBackdropColorLong
+    val glassBackdropBorderColorLong: Long get() = activeLayer.glassBackdropBorderColorLong
+    val glassBackdropCornerRadius: Float get() = activeLayer.glassBackdropCornerRadius
+    val glassBackdropPadding: Float get() = activeLayer.glassBackdropPadding
+
+    // Convenience constructor for legacy / single-layer callers
+    constructor(
+        rawText: String = "أَثَــر",
+        displayText: String = "أَثَـــر",
+        stretchLevel: Int = 3,
+        kashidaMode: KashidaMode = KashidaMode.SMART,
+        kashidaTargetIndex: Int = -1,
+        selectedEffect: VisualEffect = VisualEffect.ROYAL_GOLD,
+        selectedFont: ArabicFontFamily = ArabicFontFamily.AREF_RUQAA,
+        fontSize: Float = 52f,
+        textColor: Color = Color.White,
+        customTextColorLong: Long? = null,
+        strokeWidth: Float = 0f,
+        strokeColorLong: Long = 0xFF000000,
+        shadowRadius: Float = 16f,
+        shadowDx: Float = 0f,
+        shadowDy: Float = 6f,
+        shadowColorLong: Long = 0xAA000000,
+        textAlign: TextAlignOption = TextAlignOption.CENTER,
+        lineSpacingMultiplier: Float = 1.35f,
+        letterSpacing: Float = 0f,
+        textOpacity: Float = 1.0f,
+        isBold: Boolean = false,
+        isItalic: Boolean = false,
+        isUnderline: Boolean = false,
+        isLocked: Boolean = false,
+        showGridGuides: Boolean = false,
+        isTextBehindSubject: Boolean = false,
+        aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
+        solidBgColorLong: Long? = null,
+        backgroundImageUri: Uri? = null,
+        backgroundDim: Float = 0.25f,
+        backgroundBlur: Float = 0f,
+        backgroundBrightness: Float = 0f,
+        backgroundContrast: Float = 1.0f,
+        backgroundSaturation: Float = 1.0f,
+        backgroundVignette: Float = 0f,
+        backgroundGrayscale: Boolean = false,
+        enableGlassBackdrop: Boolean = false,
+        glassBackdropOpacity: Float = 0.65f,
+        glassBackdropColorLong: Long = 0xFF0D0F14,
+        glassBackdropBorderColorLong: Long = 0x55E5C07B,
+        glassBackdropCornerRadius: Float = 22f,
+        glassBackdropPadding: Float = 22f,
+        rotationAngle: Float = 0f,
+        scaleFactor: Float = 1.0f,
+        normOffsetX: Float = 0f,
+        normOffsetY: Float = 0f,
+        isTransparentBg: Boolean = false,
+        gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
+        filmPreset: FilmPreset = FilmPreset.NONE,
+        bgPhotoOffsetX: Float = 0f,
+        bgPhotoOffsetY: Float = 0f,
+        bgPhotoScale: Float = 1.0f,
+        isFramingMode: Boolean = false
+    ) : this(
+        layers = listOf(
+            TextLayer(
+                id = "layer_primary",
+                name = "نص رئيسي",
+                rawText = rawText,
+                displayText = displayText,
+                stretchLevel = stretchLevel,
+                kashidaMode = kashidaMode,
+                kashidaTargetIndex = kashidaTargetIndex,
+                selectedEffect = selectedEffect,
+                selectedFont = selectedFont,
+                fontSize = fontSize,
+                textColor = textColor,
+                customTextColorLong = customTextColorLong,
+                strokeWidth = strokeWidth,
+                strokeColorLong = strokeColorLong,
+                shadowRadius = shadowRadius,
+                shadowDx = shadowDx,
+                shadowDy = shadowDy,
+                shadowColorLong = shadowColorLong,
+                textAlign = textAlign,
+                lineSpacingMultiplier = lineSpacingMultiplier,
+                letterSpacing = letterSpacing,
+                textOpacity = textOpacity,
+                isBold = isBold,
+                isItalic = isItalic,
+                isUnderline = isUnderline,
+                isLocked = isLocked,
+                rotationAngle = rotationAngle,
+                scaleFactor = scaleFactor,
+                normOffsetX = normOffsetX,
+                normOffsetY = normOffsetY,
+                enableGlassBackdrop = enableGlassBackdrop,
+                glassBackdropOpacity = glassBackdropOpacity,
+                glassBackdropColorLong = glassBackdropColorLong,
+                glassBackdropBorderColorLong = glassBackdropBorderColorLong,
+                glassBackdropCornerRadius = glassBackdropCornerRadius,
+                glassBackdropPadding = glassBackdropPadding
+            )
+        ),
+        activeLayerId = "layer_primary",
+        showGridGuides = showGridGuides,
+        isTextBehindSubject = isTextBehindSubject,
+        aspectRatio = aspectRatio,
+        solidBgColorLong = solidBgColorLong,
+        backgroundImageUri = backgroundImageUri,
+        backgroundDim = backgroundDim,
+        backgroundBlur = backgroundBlur,
+        backgroundBrightness = backgroundBrightness,
+        backgroundContrast = backgroundContrast,
+        backgroundSaturation = backgroundSaturation,
+        backgroundVignette = backgroundVignette,
+        backgroundGrayscale = backgroundGrayscale,
+        isTransparentBg = isTransparentBg,
+        gradientScrim = gradientScrim,
+        filmPreset = filmPreset,
+        bgPhotoOffsetX = bgPhotoOffsetX,
+        bgPhotoOffsetY = bgPhotoOffsetY,
+        bgPhotoScale = bgPhotoScale,
+        isFramingMode = isFramingMode
+    )
+}
 
 data class UpdateInfo(
     val hasUpdate: Boolean = false,

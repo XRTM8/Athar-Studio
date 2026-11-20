@@ -6,6 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
+import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -14,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,14 +32,17 @@ import java.util.Locale
 
 /**
  * Pure Arabic Typography & Font Styling Panel.
- * Focused on: Font selection, Font size, Calligraphic styles, Alignment, and Typographic Spacing.
+ * Focused on: Font selection, 6sp-100sp Font size, Line balancing / Justification,
+ * Calligraphic styles, Alignment, and Typographic Spacing.
  */
 @Composable
 fun TypographyPanel(
     state: CanvasState,
     onOpenTextEditor: () -> Unit,
+    onOpenFontBrowser: () -> Unit,
     onSelectFont: (ArabicFontFamily) -> Unit,
     onFontSizeChange: (Float) -> Unit,
+    onJustifyLines: () -> Unit,
     onToggleBold: () -> Unit,
     onToggleItalic: () -> Unit,
     onToggleUnderline: () -> Unit,
@@ -92,14 +99,49 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 2. Arabic Font Families Carousel with authentic specimen previews
-        Text(
-            text = "الخط العربي:",
-            color = MutedWhite,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.Medium
-        )
+        // 2. Arabic Font Header with "مكتبة الخطوط والمفضلة" Browser Button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "الخط العربي:",
+                color = MutedWhite,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(GlassSurface)
+                    .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onOpenFontBrowser()
+                    }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.LibraryBooks,
+                    contentDescription = null,
+                    tint = GoldAccent,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "كافة الخطوط والمفضلة",
+                    color = GoldAccent,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(4.dp))
+
         FontPickerCarousel(
             selectedFont = state.selectedFont,
             onSelectFont = onSelectFont
@@ -107,21 +149,51 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 3. Font Size Slider
+        // 3. Font Size Slider (Range from 6sp to 100sp)
         StudioSlider(
             title = "حجم الخط",
             value = state.fontSize,
             onValueChange = onFontSizeChange,
             onValueChangeFinished = onSliderChangeFinished,
-            valueRange = 24f..110f,
-            step = 2f,
+            valueRange = 6f..100f,
+            step = 1f,
             valueDisplay = "${state.fontSize.toInt()} sp",
             icon = Icons.Default.FormatSize
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 4. Styling Chips: Bold, Italic, Underline + Paragraph Flow (Right/Center/Left)
+        // 4. Equal-Width Arabic Paragraph Justification Button (if multiline)
+        if (state.rawText.contains("\n")) {
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onJustifyLines()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                shape = RoundedCornerShape(10.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().height(38.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FormatAlignJustify,
+                    contentDescription = null,
+                    tint = GoldAccent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "موازنة أطوال الأسطر بالتساوي (كشيدة متزنة)",
+                    color = PureWhite,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // 5. Styling Chips: Bold, Italic, Underline + Paragraph Flow (Right/Center/Left)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -199,7 +271,11 @@ fun TypographyPanel(
                     .padding(2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                TextAlignOption.entries.forEach { align ->
+                listOf(
+                    TextAlignOption.RIGHT to Icons.AutoMirrored.Filled.FormatAlignRight,
+                    TextAlignOption.CENTER to Icons.Default.FormatAlignCenter,
+                    TextAlignOption.LEFT to Icons.AutoMirrored.Filled.FormatAlignLeft
+                ).forEach { (align, icon) ->
                     val isSelected = state.textAlign == align
                     Box(
                         modifier = Modifier
@@ -209,13 +285,14 @@ fun TypographyPanel(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onTextAlignChange(align)
                             }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = align.label,
-                            color = if (isSelected) AmoledBlack else PureWhite,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        Icon(
+                            icon,
+                            contentDescription = align.label,
+                            tint = if (isSelected) AmoledBlack else SubtleGray,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -224,40 +301,42 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 5. Advanced Spacing & Opacity
+        // 6. Typographic Spacing Sliders
         StudioSlider(
-            title = "شفافية النص",
-            value = state.textOpacity,
-            onValueChange = onOpacityChange,
+            title = "تباعد الأسطر",
+            value = state.lineSpacingMultiplier,
+            onValueChange = onLineSpacingChange,
             onValueChangeFinished = onSliderChangeFinished,
-            valueRange = 0.15f..1.0f,
+            valueRange = 1.0f..2.5f,
             step = 0.05f,
-            valueDisplay = "${(state.textOpacity * 100).toInt()}%",
-            icon = Icons.Default.Opacity
+            valueDisplay = String.format(Locale.US, "%.2fx", state.lineSpacingMultiplier),
+            icon = Icons.Default.FormatLineSpacing
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         StudioSlider(
             title = "تباعد الحروف",
             value = state.letterSpacing,
             onValueChange = onLetterSpacingChange,
             onValueChangeFinished = onSliderChangeFinished,
-            valueRange = -0.05f..0.25f,
+            valueRange = -0.05f..0.35f,
             step = 0.01f,
-            valueDisplay = String.format(Locale.ENGLISH, "%.2f", state.letterSpacing)
+            valueDisplay = String.format(Locale.US, "%.2f", state.letterSpacing),
+            icon = Icons.Default.SpaceBar
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         StudioSlider(
-            title = "تباعد الأسطر",
-            value = state.lineSpacingMultiplier,
-            onValueChange = onLineSpacingChange,
+            title = "شفافية النص",
+            value = state.textOpacity,
+            onValueChange = onOpacityChange,
             onValueChangeFinished = onSliderChangeFinished,
-            valueRange = 1.0f..2.2f,
-            step = 0.05f,
-            valueDisplay = "${String.format(Locale.ENGLISH, "%.2f", state.lineSpacingMultiplier)}x"
+            valueRange = 0.1f..1.0f,
+            step = 0.02f,
+            valueDisplay = "${(state.textOpacity * 100).toInt()}%",
+            icon = Icons.Default.Opacity
         )
     }
 }

@@ -1,5 +1,7 @@
 package app.xrtm8.athar.ui
 
+import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,17 +29,22 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import app.xrtm8.athar.ui.components.CanvasView
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
 import app.xrtm8.athar.ui.components.StudioConsoleDrawer
 import app.xrtm8.athar.ui.components.StudioDock
+import app.xrtm8.athar.ui.components.TextLayerStrip
 import app.xrtm8.athar.ui.components.TopStudioBar
 import app.xrtm8.athar.ui.dialogs.ArabicTextEditorDialog
 import app.xrtm8.athar.ui.dialogs.ExportBottomSheet
+import app.xrtm8.athar.ui.dialogs.FontBrowserDialog
 import app.xrtm8.athar.ui.dialogs.ProjectsBottomSheet
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 
 @Composable
 fun AtharStudioScreen(
@@ -63,6 +70,7 @@ fun AtharStudioScreen(
     var isPanelExpanded by remember { mutableStateOf(false) }
 
     var showTextDialog by remember { mutableStateOf(false) }
+    var showFontBrowser by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
     var showProjectsSheet by remember { mutableStateOf(false) }
 
@@ -90,6 +98,25 @@ fun AtharStudioScreen(
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             viewModel.openProjectFromUri(context, uri)
             showProjectsSheet = false
+        }
+    }
+
+    fun sharePresetQrCard(bitmap: Bitmap) {
+        try {
+            val cacheDir = File(context.cacheDir, "presets").apply { mkdirs() }
+            val shareFile = File(cacheDir, "Athar_Preset_${System.currentTimeMillis()}.png")
+            FileOutputStream(shareFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", shareFile)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            context.startActivity(Intent.createChooser(intent, "مشاركة باركود الفلتر من أثر"))
+        } catch (e: Exception) {
+            Toast.makeText(context, "فشل تصدير كود الباركود: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -136,7 +163,22 @@ fun AtharStudioScreen(
                 onExportClick = { showExportSheet = true }
             )
 
-            // 2. Interactive Typography Canvas Viewport
+            // 2. Floating Multi-Text Layer Selector Strip
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 2.dp)
+            ) {
+                TextLayerStrip(
+                    state = canvasState,
+                    onAddLayer = { viewModel.addTextLayer() },
+                    onDuplicateLayer = { viewModel.duplicateActiveLayer() },
+                    onDeleteLayer = { viewModel.removeActiveLayer() },
+                    onSelectLayer = { viewModel.selectLayer(it) }
+                )
+            }
+
+            // 3. Interactive Typography Canvas Viewport
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -149,13 +191,16 @@ fun AtharStudioScreen(
                     onTransformFinished = { x, y, scale, rot ->
                         viewModel.commitTransform(x, y, scale, rot)
                     },
+                    onPhotoFramingFinished = { px, py, pScale ->
+                        viewModel.commitPhotoFraming(px, py, pScale)
+                    },
                     onDoubleTap = {
                         showTextDialog = true
                     }
                 )
             }
 
-            // 3. Ergonomic Bottom Control Console
+            // 4. Ergonomic Bottom Control Console
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -169,6 +214,19 @@ fun AtharStudioScreen(
                     viewModel = viewModel,
                     onClosePanel = { isPanelExpanded = false },
                     onOpenTextEditor = { showTextDialog = true },
+                    onOpenFontBrowser = { showFontBrowser = true },
+                    onExportQrCard = {
+                        val card = viewModel.exportFilterRecipeQrCard(canvasState.filmPreset.titleAr)
+                        sharePresetQrCard(card)
+                    },
+                    onImportQrRecipe = { bmp ->
+                        val success = viewModel.importFilterRecipeFromQr(bmp)
+                        if (success) {
+                            Toast.makeText(context, "تم تطبيق الفلتر بنجاح من الباركود!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "تعذر قراءة باركود فلتر صالح", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     onPickImage = {
                         photoPickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -182,7 +240,7 @@ fun AtharStudioScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // 4. 5-Tool Ergonomic Studio Dock
+                // 5. 6-Tool Ergonomic Studio Dock
                 StudioDock(
                     selectedTab = selectedTab,
                     isPanelExpanded = isPanelExpanded,
@@ -204,6 +262,15 @@ fun AtharStudioScreen(
                 initialText = canvasState.rawText,
                 onDismiss = { showTextDialog = false },
                 onApplyText = { viewModel.setText(it) }
+            )
+        }
+
+        if (showFontBrowser) {
+            FontBrowserDialog(
+                selectedFont = canvasState.selectedFont,
+                sampleText = canvasState.rawText,
+                onSelectFont = { viewModel.setFont(it) },
+                onDismiss = { showFontBrowser = false }
             )
         }
 
@@ -249,20 +316,14 @@ fun AtharStudioScreen(
                 onSaveCurrent = { viewModel.saveCurrentProject(context) },
                 onNewProject = {
                     viewModel.setText("أَثَــر")
-                    viewModel.resetCanvasTransform()
-                    viewModel.setBackgroundImageUri(null)
                     showProjectsSheet = false
                 },
                 onOpenProject = { id ->
                     viewModel.openProjectById(context, id)
                     showProjectsSheet = false
                 },
-                onDeleteProject = { id ->
-                    viewModel.deleteProject(context, id)
-                },
-                onShareProject = { id ->
-                    viewModel.shareProjectById(context, id)
-                }
+                onShareProject = { id -> viewModel.shareProjectById(context, id) },
+                onDeleteProject = { id -> viewModel.deleteProject(context, id) }
             )
         }
     }

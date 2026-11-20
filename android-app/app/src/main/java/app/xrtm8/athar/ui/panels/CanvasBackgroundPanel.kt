@@ -19,10 +19,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.PhotoFilter
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,16 +38,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasAspectRatio
+import app.xrtm8.athar.model.CanvasGradientDirection
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.LUXURY_BG_PRESETS
 import app.xrtm8.athar.ui.components.PhotoAdjustmentsPanel
+import app.xrtm8.athar.ui.components.StudioSlider
 import app.xrtm8.athar.ui.theme.*
+import java.util.Locale
 
 /**
  * Streamlined Canvas & Background Panel.
  * Sub-segments:
- * 0 -> الكانفاس والأبعاد (Ratios, Transparent, Luxury Solid, Photo Picker)
- * 1 -> تعديل الصورة الفوتوغرافية (Blur, Dim, Light, Contrast, Saturation, Vignette)
+ * 0 -> الكانفاس والتأطير (Ratios, Transparent, Solid, Photo Picker, Photo Framing & Crop Pan/Zoom)
+ * 1 -> تعديل الصورة (Blur, Dim, Light, Contrast, Saturation, Vignette)
+ * 2 -> الظل المتدرج (Multi-Directional Scrim, Custom Colors, Opacity, Midpoint)
  */
 @Composable
 fun CanvasBackgroundPanel(
@@ -62,6 +69,15 @@ fun CanvasBackgroundPanel(
     onResetPhotoAdjustments: () -> Unit,
     onAspectRatioChange: (CanvasAspectRatio) -> Unit,
     onToggleGridGuides: () -> Unit,
+    onToggleFramingMode: (Boolean) -> Unit,
+    onBgPhotoOffsetXChange: (Float) -> Unit,
+    onBgPhotoOffsetYChange: (Float) -> Unit,
+    onBgPhotoScaleChange: (Float) -> Unit,
+    onToggleGradientScrim: (Boolean) -> Unit,
+    onGradientScrimDirectionChange: (CanvasGradientDirection) -> Unit,
+    onGradientScrimColorChange: (Long) -> Unit,
+    onGradientScrimOpacityChange: (Float) -> Unit,
+    onGradientScrimMidpointChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -81,7 +97,8 @@ fun CanvasBackgroundPanel(
         ) {
             listOf(
                 0 to ("الكانفاس" to Icons.Default.AspectRatio),
-                1 to ("تعديل الصورة" to Icons.Default.Tune)
+                1 to ("تعديل الصورة" to Icons.Default.Tune),
+                2 to ("الظل المتدرج" to Icons.Default.Gradient)
             ).forEach { (idx, item) ->
                 val (title, icon) = item
                 val isSelected = subSection == idx
@@ -104,11 +121,11 @@ fun CanvasBackgroundPanel(
                             tint = if (isSelected) AmoledBlack else MutedWhite,
                             modifier = Modifier.size(14.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = title,
                             color = if (isSelected) AmoledBlack else PureWhite,
-                            fontSize = 11.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
@@ -166,6 +183,143 @@ fun CanvasBackgroundPanel(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    // Photo from Gallery Action Card
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onPickImage()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorderActive)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddPhotoAlternate,
+                                contentDescription = null,
+                                tint = GoldAccent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (state.backgroundImageUri != null) "تغيير صورة الخلفية" else "اختيار صورة من المعرض",
+                                color = PureWhite,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        if (state.backgroundImageUri != null) {
+                            IconButton(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onRemoveImage()
+                                }
+                            ) {
+                                Icon(Icons.Default.DeleteSweep, contentDescription = "حذف الصورة", tint = Color(0xFFFF5252))
+                            }
+                        }
+                    }
+
+                    // Background Framing & Crop Part (Active if Image is present)
+                    if (state.backgroundImageUri != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(GlassSurface)
+                                .border(0.5.dp, if (state.isFramingMode) GoldAccent else GlassBorder, RoundedCornerShape(14.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.Crop,
+                                            contentDescription = null,
+                                            tint = if (state.isFramingMode) GoldAccent else PureWhite,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Column {
+                                            Text(
+                                                text = "تأطير واختيار جزء الصورة للقص",
+                                                color = if (state.isFramingMode) GoldAccent else PureWhite,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "تحريك وتكبير الصورة بالأصابع داخل الإطار",
+                                                color = SubtleGray,
+                                                fontSize = 9.5.sp
+                                            )
+                                        }
+                                    }
+
+                                    Switch(
+                                        checked = state.isFramingMode,
+                                        onCheckedChange = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onToggleFramingMode(it)
+                                        },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
+                                    )
+                                }
+
+                                if (state.isFramingMode) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    StudioSlider(
+                                        title = "إزاحة أفقية للصورة",
+                                        value = state.bgPhotoOffsetX,
+                                        onValueChange = onBgPhotoOffsetXChange,
+                                        onValueChangeFinished = onSliderChangeFinished,
+                                        valueRange = -1.0f..1.0f,
+                                        step = 0.02f,
+                                        valueDisplay = String.format(Locale.US, "%.0f%%", state.bgPhotoOffsetX * 100)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    StudioSlider(
+                                        title = "إزاحة رأسية للصورة",
+                                        value = state.bgPhotoOffsetY,
+                                        onValueChange = onBgPhotoOffsetYChange,
+                                        onValueChangeFinished = onSliderChangeFinished,
+                                        valueRange = -1.0f..1.0f,
+                                        step = 0.02f,
+                                        valueDisplay = String.format(Locale.US, "%.0f%%", state.bgPhotoOffsetY * 100)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    StudioSlider(
+                                        title = "تقريب / زووم الصورة",
+                                        value = state.bgPhotoScale,
+                                        onValueChange = onBgPhotoScaleChange,
+                                        onValueChangeFinished = onSliderChangeFinished,
+                                        valueRange = 0.5f..3.0f,
+                                        step = 0.05f,
+                                        valueDisplay = String.format(Locale.US, "%.1fx", state.bgPhotoScale),
+                                        icon = Icons.Default.ZoomIn
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Transparent Background Switch (Sticker Mode)
                     Row(
@@ -231,129 +385,163 @@ fun CanvasBackgroundPanel(
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                1 -> PhotoAdjustmentsPanel(
+                    state = state,
+                    onBlurChange = onBlurChange,
+                    onDimChange = onDimChange,
+                    onBrightnessChange = onBrightnessChange,
+                    onContrastChange = onContrastChange,
+                    onSaturationChange = onSaturationChange,
+                    onVignetteChange = onVignetteChange,
+                    onResetAdjustments = onResetPhotoAdjustments,
+                    onSliderChangeFinished = onSliderChangeFinished
+                )
 
-                    // Photo from Gallery Action Card
+                2 -> Column(modifier = Modifier.fillMaxWidth()) {
+                    // Gradient Scrim Switch
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onPickImage()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorderActive)
-                        ) {
-                            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (state.backgroundImageUri != null) "تغيير صورة الخلفية" else "اختيار صورة من المعرض",
+                                text = "تفعيل الظل المتدرج",
                                 color = PureWhite,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "إسدال تدرج سينمائي يبرز النصوص فوق الصورة أو الخلفية",
+                                color = SubtleGray,
+                                fontSize = 10.sp
                             )
                         }
 
-                        if (state.backgroundImageUri != null) {
-                            TextButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onRemoveImage()
-                                }
-                            ) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color(0xFFFF6B6B), modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("إزالة الصورة", color = Color(0xFFFF6B6B), fontSize = 11.5.sp)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Golden Grid Guides Switch
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.GridOn, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "شبكة المحاذاة (أثلاث)", color = PureWhite, fontSize = 12.sp)
-                        }
                         Switch(
-                            checked = state.showGridGuides,
+                            checked = state.gradientScrim.isEnabled,
                             onCheckedChange = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onToggleGridGuides()
+                                onToggleGradientScrim(it)
                             },
                             colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
                         )
                     }
-                }
 
-                else -> Column(modifier = Modifier.fillMaxWidth()) {
-                    if (state.backgroundImageUri != null) {
-                        PhotoAdjustmentsPanel(
-                            state = state,
-                            onDimChange = onDimChange,
-                            onBlurChange = onBlurChange,
-                            onBrightnessChange = onBrightnessChange,
-                            onContrastChange = onContrastChange,
-                            onSaturationChange = onSaturationChange,
-                            onVignetteChange = onVignetteChange,
-                            onResetAdjustments = onResetPhotoAdjustments,
-                            onSliderChangeFinished = onSliderChangeFinished
-                        )
-                    } else {
-                        // Empty State when no photo loaded
-                        Box(
+                    if (state.gradientScrim.isEnabled) {
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Gradient Direction Selector
+                        Text(text = "اتجاه التدرج الظلي:", color = MutedWhite, fontSize = 11.5.sp)
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(GlassSurface)
-                                .border(0.5.dp, GlassBorder, RoundedCornerShape(14.dp))
-                                .padding(vertical = 24.dp, horizontal = 16.dp),
-                            contentAlignment = Alignment.Center
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoFilter,
-                                    contentDescription = null,
-                                    tint = GoldAccent,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "لم يتم اختيار صورة خلفية بعد",
-                                    color = PureWhite,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "اختر صورة لتفعيل مؤثرات الضبابية والسطوع والتباين وتدرج الحواف",
-                                    color = SubtleGray,
-                                    fontSize = 11.sp
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Button(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onPickImage()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
-                                    shape = RoundedCornerShape(10.dp)
+                            CanvasGradientDirection.entries.forEach { dir ->
+                                val isSelected = state.gradientScrim.direction == dir
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(if (isSelected) GoldAccent else GlassSurface)
+                                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(9.dp))
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onGradientScrimDirectionChange(dir)
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
-                                    Text("اختيار صورة من المعرض", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                                    Text(
+                                        text = dir.label,
+                                        color = if (isSelected) AmoledBlack else PureWhite,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Gradient Scrim Colors
+                        Text(text = "لون الظل:", color = MutedWhite, fontSize = 11.5.sp)
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                0xFF000000L to "أسود داكن",
+                                0xFF0A1128L to "كحلي ليلي",
+                                0xFF1C1917L to "بني دافئ",
+                                0xFF1A080EL to "عنابي فاخر",
+                                0xFF081C15L to "زمردي داكن",
+                                0xFF121418L to "رمادي فحمي"
+                            ).forEach { (colorLong, name) ->
+                                val isSelected = state.gradientScrim.colorLong == colorLong
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) GoldAccent else GlassSurface)
+                                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onGradientScrimColorChange(colorLong)
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(colorLong.toInt()))
+                                            .border(0.5.dp, if (isSelected) AmoledBlack else PureWhite, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = name,
+                                        color = if (isSelected) AmoledBlack else PureWhite,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Opacity Slider
+                        StudioSlider(
+                            title = "كثافة الظل",
+                            value = state.gradientScrim.opacity,
+                            onValueChange = onGradientScrimOpacityChange,
+                            onValueChangeFinished = onSliderChangeFinished,
+                            valueRange = 0.05f..1.0f,
+                            step = 0.05f,
+                            valueDisplay = "${(state.gradientScrim.opacity * 100).toInt()}%"
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Midpoint Falloff Slider
+                        StudioSlider(
+                            title = "نطاق امتداد الظل (المنتصف)",
+                            value = state.gradientScrim.midpoint,
+                            onValueChange = onGradientScrimMidpointChange,
+                            onValueChangeFinished = onSliderChangeFinished,
+                            valueRange = 0.1f..0.9f,
+                            step = 0.05f,
+                            valueDisplay = "${(state.gradientScrim.midpoint * 100).toInt()}%"
+                        )
                     }
                 }
             }

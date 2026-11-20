@@ -47,32 +47,44 @@ fun CanvasView(
     state: CanvasState,
     modifier: Modifier = Modifier,
     onTransformFinished: ((normX: Float, normY: Float, scale: Float, rotation: Float) -> Unit)? = null,
+    onPhotoFramingFinished: ((normX: Float, normY: Float, scale: Float) -> Unit)? = null,
     onDoubleTap: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
 
-    var localNormX by remember { mutableFloatStateOf(state.normOffsetX) }
-    var localNormY by remember { mutableFloatStateOf(state.normOffsetY) }
-    var localScale by remember { mutableFloatStateOf(state.scaleFactor) }
-    var localRotation by remember { mutableFloatStateOf(state.rotationAngle) }
+    val active = state.activeLayer
+
+    var localNormX by remember(active.id) { mutableFloatStateOf(active.normOffsetX) }
+    var localNormY by remember(active.id) { mutableFloatStateOf(active.normOffsetY) }
+    var localScale by remember(active.id) { mutableFloatStateOf(active.scaleFactor) }
+    var localRotation by remember(active.id) { mutableFloatStateOf(active.rotationAngle) }
+
+    var localPhotoX by remember { mutableFloatStateOf(state.bgPhotoOffsetX) }
+    var localPhotoY by remember { mutableFloatStateOf(state.bgPhotoOffsetY) }
+    var localPhotoScale by remember { mutableFloatStateOf(state.bgPhotoScale) }
 
     var canvasW by remember { mutableFloatStateOf(1080f) }
     var canvasH by remember { mutableFloatStateOf(1920f) }
 
     // Sync when external alignment or reset is triggered
-    LaunchedEffect(state.normOffsetX, state.normOffsetY, state.scaleFactor, state.rotationAngle) {
-        localNormX = state.normOffsetX
-        localNormY = state.normOffsetY
-        localScale = state.scaleFactor
-        localRotation = state.rotationAngle
+    LaunchedEffect(active.id, active.normOffsetX, active.normOffsetY, active.scaleFactor, active.rotationAngle) {
+        localNormX = active.normOffsetX
+        localNormY = active.normOffsetY
+        localScale = active.scaleFactor
+        localRotation = active.rotationAngle
+    }
+
+    LaunchedEffect(state.bgPhotoOffsetX, state.bgPhotoOffsetY, state.bgPhotoScale) {
+        localPhotoX = state.bgPhotoOffsetX
+        localPhotoY = state.bgPhotoOffsetY
+        localPhotoScale = state.bgPhotoScale
     }
 
     // Load background image bitmap safely with memory limits and zero leaks
     var rawBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var processedBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    // Safely recycle bitmaps on unmount
     DisposableEffect(Unit) {
         onDispose {
             val p = processedBgBitmap
@@ -118,7 +130,6 @@ fun CanvasView(
         }
     }
 
-    // Process blur off-thread when blur value or raw image changes (accelerated preview with immediate recycle)
     LaunchedEffect(rawBgBitmap, state.backgroundBlur) {
         val base = rawBgBitmap
         val oldProcessed = processedBgBitmap
@@ -139,7 +150,6 @@ fun CanvasView(
         }
     }
 
-    // Pre-allocated paint and filter objects to guarantee 120Hz zero GC drops
     var isInteracting by remember { mutableStateOf(false) }
     val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
@@ -158,45 +168,6 @@ fun CanvasView(
         BlurMaskFilter((28f * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
     }
 
-    val alphaFloat = state.textOpacity.coerceIn(0.15f, 1.0f)
-    val alphaInt = (alphaFloat * 255).toInt()
-    val alphaColorFilter = remember(alphaFloat) {
-        val m = ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) }
-        ColorMatrixColorFilter(m)
-    }
-
-    val shadowBlurFilter = remember(state.shadowRadius, density) {
-        if (state.shadowRadius > 0f) {
-            BlurMaskFilter((state.shadowRadius * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
-        } else null
-    }
-
-    // Cached Layout Metrics - only recomputes when typographical properties change, NEVER during pan/pinch/rotate gestures!
-    val layout = remember(
-        state.displayText,
-        state.fontSize,
-        state.lineSpacingMultiplier,
-        state.textAlign,
-        state.selectedFont,
-        state.isBold,
-        state.letterSpacing,
-        density
-    ) {
-        val tempPaint = Paint().apply {
-            isAntiAlias = true
-            typeface = AtharFontManager.getTypeface(context, state.selectedFont)
-            textSize = state.fontSize * density
-            letterSpacing = state.letterSpacing
-            isFakeBoldText = state.isBold
-        }
-        AtharTextLayout.computeLayout(
-            text = state.displayText,
-            paint = tempPaint,
-            lineSpacingMultiplier = state.lineSpacingMultiplier,
-            textAlign = state.textAlign
-        )
-    }
-
     val ratio = state.aspectRatio.ratio
     val canvasModifier = if (ratio != null) {
         Modifier
@@ -208,6 +179,16 @@ fun CanvasView(
         Modifier.fillMaxSize()
     }
 
+    val stateForBg = if (state.isFramingMode) {
+        state.copy(
+            bgPhotoOffsetX = localPhotoX,
+            bgPhotoOffsetY = localPhotoY,
+            bgPhotoScale = localPhotoScale
+        )
+    } else {
+        state
+    }
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -217,7 +198,7 @@ fun CanvasView(
         Canvas(
             modifier = canvasModifier
                 .background(if (state.isTransparentBg) androidx.compose.ui.graphics.Color.Transparent else AmoledBlack)
-                .pointerInput(state.isLocked) {
+                .pointerInput(state.isLocked, state.isFramingMode, active.id) {
                     detectCanvasGestures(
                         isLocked = state.isLocked,
                         onTransform = { pan, zoom, rotate ->
@@ -225,18 +206,27 @@ fun CanvasView(
                             val cw = canvasW.coerceAtLeast(10f)
                             val ch = canvasH.coerceAtLeast(10f)
 
-                            localNormX += pan.x / cw
-                            localNormY += pan.y / ch
-                            localScale = (localScale * zoom).coerceIn(0.25f, 6.0f)
-                            localRotation = (localRotation + rotate) % 360f
+                            if (state.isFramingMode) {
+                                localPhotoX = (localPhotoX - pan.x / (cw * 0.5f)).coerceIn(-1f, 1f)
+                                localPhotoY = (localPhotoY - pan.y / (ch * 0.5f)).coerceIn(-1f, 1f)
+                                localPhotoScale = (localPhotoScale * zoom).coerceIn(0.5f, 4.0f)
+                            } else {
+                                localNormX += pan.x / cw
+                                localNormY += pan.y / ch
+                                localScale = (localScale * zoom).coerceIn(0.25f, 6.0f)
+                                localRotation = (localRotation + rotate) % 360f
 
-                            // Magnetic Snap to Center
-                            if (abs(localNormX) < 0.015f) localNormX = 0f
-                            if (abs(localNormY) < 0.015f) localNormY = 0f
+                                if (abs(localNormX) < 0.015f) localNormX = 0f
+                                if (abs(localNormY) < 0.015f) localNormY = 0f
+                            }
                         },
                         onGestureEnd = {
                             isInteracting = false
-                            onTransformFinished?.invoke(localNormX, localNormY, localScale, localRotation)
+                            if (state.isFramingMode) {
+                                onPhotoFramingFinished?.invoke(localPhotoX, localPhotoY, localPhotoScale)
+                            } else {
+                                onTransformFinished?.invoke(localNormX, localNormY, localScale, localRotation)
+                            }
                         },
                         onDoubleTap = {
                             onDoubleTap?.invoke()
@@ -252,10 +242,10 @@ fun CanvasView(
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
 
-                // 1. Draw Background Viewport with photo adjustments, blur and vignette
+                // 1. Draw Background Viewport with photo adjustments, framing, blur, and gradient scrim
                 CanvasBackgroundRenderer.drawBackground(
                     nativeCanvas = nativeCanvas,
-                    state = state,
+                    state = stateForBg,
                     canvasWidth = canvasWidth,
                     canvasHeight = canvasHeight,
                     density = density,
@@ -263,16 +253,15 @@ fun CanvasView(
                     bgPaint = bgPaint
                 )
 
-                // 2. Smart Snapping & Golden Grid Guidelines (zero-allocation)
-                if (state.showGridGuides) {
+                // 2. Smart Snapping & Golden Grid Guidelines
+                if (state.showGridGuides || state.isFramingMode) {
                     nativeCanvas.drawLine(canvasWidth / 3f, 0f, canvasWidth / 3f, canvasHeight, gridPaint)
                     nativeCanvas.drawLine(canvasWidth * 2f / 3f, 0f, canvasWidth * 2f / 3f, canvasHeight, gridPaint)
                     nativeCanvas.drawLine(0f, canvasHeight / 3f, canvasWidth, canvasHeight / 3f, gridPaint)
                     nativeCanvas.drawLine(0f, canvasHeight * 2f / 3f, canvasWidth, canvasHeight * 2f / 3f, gridPaint)
                 }
 
-                // Draw center magnetic guidelines ONLY when actively dragging and snapped
-                if (isInteracting) {
+                if (isInteracting && !state.isFramingMode) {
                     if (abs(localNormX) < 0.005f) {
                         nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
                     }
@@ -281,148 +270,168 @@ fun CanvasView(
                     }
                 }
 
-                if (state.displayText.isEmpty()) return@drawIntoCanvas
+                // 3. Render all Text Layers back-to-front
+                state.layers.forEach { layer ->
+                    if (!layer.isVisible || layer.displayText.isEmpty()) return@forEach
+                    val isCurrentActive = (layer.id == active.id)
 
-                nativeCanvas.save()
+                    val layerNormX = if (isCurrentActive) localNormX else layer.normOffsetX
+                    val layerNormY = if (isCurrentActive) localNormY else layer.normOffsetY
+                    val layerScale = if (isCurrentActive) localScale else layer.scaleFactor
+                    val layerRotation = if (isCurrentActive) localRotation else layer.rotationAngle
 
-                val centerX = canvasWidth / 2f + (canvasWidth * localNormX)
-                val centerY = canvasHeight / 2f + (canvasHeight * localNormY)
+                    val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
+                    val textSizePx = layer.fontSize * density
+                    val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
+                    val alphaInt = (alphaFloat * 255).toInt()
+                    val alphaColorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })
 
-                nativeCanvas.translate(centerX, centerY)
-                nativeCanvas.rotate(localRotation)
-                nativeCanvas.scale(localScale, localScale)
+                    basePaint.typeface = realTypeface
+                    glowPaint.typeface = realTypeface
+                    shadowPaint.typeface = realTypeface
+                    strokePaint.typeface = realTypeface
 
-                // Load Authentic Arabic Typeface from assets cache
-                val realTypeface = AtharFontManager.getTypeface(context, state.selectedFont)
-                basePaint.typeface = realTypeface
-                glowPaint.typeface = realTypeface
-                shadowPaint.typeface = realTypeface
-                strokePaint.typeface = realTypeface
+                    val align = when (layer.textAlign) {
+                        TextAlignOption.RIGHT -> Paint.Align.RIGHT
+                        TextAlignOption.CENTER -> Paint.Align.CENTER
+                        TextAlignOption.LEFT -> Paint.Align.LEFT
+                    }
+                    basePaint.textAlign = align
+                    glowPaint.textAlign = align
+                    shadowPaint.textAlign = align
+                    strokePaint.textAlign = align
 
-                // Alignment
-                val align = when (state.textAlign) {
-                    TextAlignOption.RIGHT -> Paint.Align.RIGHT
-                    TextAlignOption.CENTER -> Paint.Align.CENTER
-                    TextAlignOption.LEFT -> Paint.Align.LEFT
-                }
-                basePaint.textAlign = align
-                glowPaint.textAlign = align
-                shadowPaint.textAlign = align
-                strokePaint.textAlign = align
+                    basePaint.textSize = textSizePx
+                    basePaint.letterSpacing = layer.letterSpacing
+                    basePaint.isUnderlineText = layer.isUnderline
+                    basePaint.isFakeBoldText = layer.isBold
+                    basePaint.textSkewX = if (layer.isItalic) -0.25f else 0f
+                    basePaint.alpha = alphaInt
+                    basePaint.colorFilter = alphaColorFilter
 
-                val textSizePx = state.fontSize * density
+                    glowPaint.textSize = textSizePx
+                    glowPaint.letterSpacing = layer.letterSpacing
+                    glowPaint.textSkewX = basePaint.textSkewX
 
-                basePaint.textSize = textSizePx
-                basePaint.letterSpacing = state.letterSpacing
-                basePaint.isUnderlineText = state.isUnderline
-                basePaint.isFakeBoldText = state.isBold
-                basePaint.textSkewX = if (state.isItalic) -0.25f else 0f
-                basePaint.alpha = alphaInt
-                basePaint.colorFilter = alphaColorFilter
+                    shadowPaint.textSize = textSizePx
+                    shadowPaint.letterSpacing = layer.letterSpacing
+                    shadowPaint.textSkewX = basePaint.textSkewX
+                    shadowPaint.isFakeBoldText = layer.isBold
 
-                glowPaint.textSize = textSizePx
-                glowPaint.letterSpacing = state.letterSpacing
-                glowPaint.textSkewX = basePaint.textSkewX
+                    strokePaint.textSize = textSizePx
+                    strokePaint.strokeJoin = Paint.Join.ROUND
+                    strokePaint.strokeCap = Paint.Cap.ROUND
+                    strokePaint.letterSpacing = layer.letterSpacing
+                    strokePaint.isUnderlineText = layer.isUnderline
+                    strokePaint.isFakeBoldText = layer.isBold
+                    strokePaint.textSkewX = basePaint.textSkewX
+                    strokePaint.alpha = alphaInt
+                    strokePaint.colorFilter = alphaColorFilter
 
-                shadowPaint.textSize = textSizePx
-                shadowPaint.letterSpacing = state.letterSpacing
-                shadowPaint.textSkewX = basePaint.textSkewX
-                shadowPaint.isFakeBoldText = state.isBold
-
-                strokePaint.textSize = textSizePx
-                strokePaint.strokeJoin = Paint.Join.ROUND
-                strokePaint.strokeCap = Paint.Cap.ROUND
-                strokePaint.letterSpacing = state.letterSpacing
-                strokePaint.isUnderlineText = state.isUnderline
-                strokePaint.isFakeBoldText = state.isBold
-                strokePaint.textSkewX = basePaint.textSkewX
-                strokePaint.alpha = alphaInt
-                strokePaint.colorFilter = alphaColorFilter
-
-                // Stroke Configuration
-                if (state.strokeWidth > 0f) {
-                    strokePaint.strokeWidth = state.strokeWidth * density
-                    strokePaint.color = state.strokeColorLong.toInt()
-                }
-
-                val shadowDxPx = state.shadowDx * density
-                val shadowDyPx = state.shadowDy * density
-
-                // Draw Frosted Glass Plaque / Card behind text if enabled
-                TextGlassBackdropRenderer.drawGlassBackdrop(
-                    canvas = nativeCanvas,
-                    state = state,
-                    layout = layout,
-                    textSizePx = textSizePx,
-                    density = density
-                )
-
-                layout.lines.forEachIndexed { index, line ->
-                    val lineY = layout.startY + (index * layout.lineHeight)
-
-                    // 1. Draw 2D Directional Shadow with Blur for ALL modes
-                    if (state.shadowRadius > 0f) {
-                        val sColor = state.shadowColorLong.toInt()
-                        val shadowAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
-                        shadowPaint.color = (sColor and 0x00FFFFFF) or (shadowAlpha shl 24)
-                        shadowPaint.maskFilter = shadowBlurFilter
-                        nativeCanvas.drawText(line, layout.lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
+                    if (layer.strokeWidth > 0f) {
+                        strokePaint.strokeWidth = layer.strokeWidth * density
+                        strokePaint.color = layer.strokeColorLong.toInt()
                     }
 
-                    // 2. Draw Smooth Stroke
-                    if (state.strokeWidth > 0f) {
-                        nativeCanvas.drawText(line, layout.lineX, lineY, strokePaint)
-                    }
+                    val layerLayout = AtharTextLayout.computeLayout(
+                        text = layer.displayText,
+                        paint = basePaint,
+                        lineSpacingMultiplier = layer.lineSpacingMultiplier,
+                        textAlign = layer.textAlign
+                    )
 
-                    // 3. Custom Color or Effect Shaders Fill
-                    if (state.customTextColorLong != null && state.customTextColorLong != 0L) {
-                        val baseColor = state.customTextColorLong.toInt()
-                        basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
-                        basePaint.shader = null
-                        nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
-                    } else {
-                        val effectShader = CanvasShaderFactory.createEffectShader(state.selectedEffect, lineY, textSizePx)
-                        if (effectShader != null) {
-                            basePaint.shader = effectShader
-                            nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
-                        } else {
+                    nativeCanvas.save()
+
+                    val centerX = canvasWidth / 2f + (canvasWidth * layerNormX)
+                    val centerY = canvasHeight / 2f + (canvasHeight * layerNormY)
+
+                    nativeCanvas.translate(centerX, centerY)
+                    nativeCanvas.rotate(layerRotation)
+                    nativeCanvas.scale(layerScale, layerScale)
+
+                    // Draw Frosted Glass Plaque
+                    TextGlassBackdropRenderer.drawGlassBackdrop(
+                        canvas = nativeCanvas,
+                        layer = layer,
+                        layout = layerLayout,
+                        textSizePx = textSizePx,
+                        density = density
+                    )
+
+                    val shadowDxPx = layer.shadowDx * density
+                    val shadowDyPx = layer.shadowDy * density
+                    val shadowBlurFilter = if (layer.shadowRadius > 0f) {
+                        BlurMaskFilter((layer.shadowRadius * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+                    } else null
+
+                    layerLayout.lines.forEachIndexed { index, line ->
+                        val lineY = layerLayout.startY + (index * layerLayout.lineHeight)
+
+                        // 1. Draw 2D Directional Shadow with Blur & Custom Color
+                        if (layer.shadowRadius > 0f) {
+                            val sColor = layer.shadowColorLong.toInt()
+                            val shadowAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
+                            shadowPaint.color = (sColor and 0x00FFFFFF) or (shadowAlpha shl 24)
+                            shadowPaint.maskFilter = shadowBlurFilter
+                            nativeCanvas.drawText(line, layerLayout.lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
+                        }
+
+                        // 2. Draw Stroke
+                        if (layer.strokeWidth > 0f) {
+                            nativeCanvas.drawText(line, layerLayout.lineX, lineY, strokePaint)
+                        }
+
+                        // 3. Custom Color or Effect Shaders Fill
+                        val customColor = layer.customTextColorLong
+                        if (customColor != null && customColor != 0L) {
+                            val baseColor = customColor.toInt()
+                            basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
                             basePaint.shader = null
-                            when (state.selectedEffect) {
-                                VisualEffect.CYBER_NEON -> {
-                                    glowPaint.color = neonGlowColor
-                                    glowPaint.maskFilter = neonBlurFilter
-                                    nativeCanvas.drawText(line, layout.lineX, lineY, glowPaint)
-                                    basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                    nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
-                                }
-                                VisualEffect.CINEMATIC_SHADOW -> {
-                                    basePaint.color = (cinematicShadowColor and 0x00FFFFFF) or (alphaInt shl 24)
-                                    nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
-                                }
-                                else -> {
-                                    basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                    nativeCanvas.drawText(line, layout.lineX, lineY, basePaint)
+                            nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
+                        } else {
+                            val effectShader = CanvasShaderFactory.createEffectShader(layer.selectedEffect, lineY, textSizePx)
+                            if (effectShader != null) {
+                                basePaint.shader = effectShader
+                                nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
+                            } else {
+                                basePaint.shader = null
+                                when (layer.selectedEffect) {
+                                    VisualEffect.CYBER_NEON -> {
+                                        glowPaint.color = neonGlowColor
+                                        glowPaint.maskFilter = neonBlurFilter
+                                        nativeCanvas.drawText(line, layerLayout.lineX, lineY, glowPaint)
+                                        basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
+                                        nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
+                                    }
+                                    VisualEffect.CINEMATIC_SHADOW -> {
+                                        basePaint.color = (cinematicShadowColor and 0x00FFFFFF) or (alphaInt shl 24)
+                                        nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
+                                    }
+                                    else -> {
+                                        basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
+                                        nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // 4. Draw Studio Bounding Box & Precision Corner Handles during interaction
-                if (isInteracting) {
-                    CanvasBoundingBoxRenderer.drawBoundingBox(
-                        nativeCanvas = nativeCanvas,
-                        textAlign = state.textAlign,
-                        layout = layout,
-                        textSizePx = textSizePx,
-                        density = density,
-                        selectBoxPaint = selectBoxPaint,
-                        handlePaint = handlePaint,
-                        handleFillPaint = handleFillPaint
-                    )
-                }
+                    // 4. Draw Selection Handles on the active layer when interacting
+                    if (isCurrentActive && isInteracting && !state.isFramingMode) {
+                        CanvasBoundingBoxRenderer.drawBoundingBox(
+                            nativeCanvas = nativeCanvas,
+                            textAlign = layer.textAlign,
+                            layout = layerLayout,
+                            textSizePx = textSizePx,
+                            density = density,
+                            selectBoxPaint = selectBoxPaint,
+                            handlePaint = handlePaint,
+                            handleFillPaint = handleFillPaint
+                        )
+                    }
 
-                nativeCanvas.restore()
+                    nativeCanvas.restore()
+                }
             }
         }
     }

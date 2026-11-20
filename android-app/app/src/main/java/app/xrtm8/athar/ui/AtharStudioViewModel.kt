@@ -2,22 +2,32 @@ package app.xrtm8.athar.ui
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Paint
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.xrtm8.athar.core.AtharFilterRecipe
 import app.xrtm8.athar.core.AtharNativeEngine
+import app.xrtm8.athar.core.AtharPresetQRCodeManager
 import app.xrtm8.athar.export.AtharExportManager
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
+import app.xrtm8.athar.model.CanvasGradientDirection
+import app.xrtm8.athar.model.CanvasGradientScrim
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
+import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.GlassBackdropPreset
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
+import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.project.AtharProjectManager
 import app.xrtm8.athar.project.AtharProjectMeta
+import app.xrtm8.athar.typography.ArabicParagraphJustifier
+import app.xrtm8.athar.typography.AtharFontManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +36,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.ArrayDeque
+import java.util.UUID
 
 class AtharStudioViewModel : ViewModel() {
 
@@ -69,10 +80,6 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Commits a single undo checkpoint when slider touch drag ends.
-     * Prevents flooding the undo stack while maintaining 120Hz smooth interactivity.
-     */
     fun commitHistoryCheckpoint() {
         val initial = sliderDragInitialState
         val current = _canvasState.value
@@ -97,6 +104,24 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    private fun updateActiveLayer(transform: (TextLayer) -> TextLayer) {
+        val current = _canvasState.value
+        val activeId = current.activeLayer.id
+        val updatedLayers = current.layers.map { layer ->
+            if (layer.id == activeId) transform(layer) else layer
+        }
+        _canvasState.update { it.copy(layers = updatedLayers) }
+    }
+
+    private fun pushActiveLayerHistory(transform: (TextLayer) -> TextLayer) {
+        val current = _canvasState.value
+        val activeId = current.activeLayer.id
+        val updatedLayers = current.layers.map { layer ->
+            if (layer.id == activeId) transform(layer) else layer
+        }
+        pushHistory(current.copy(layers = updatedLayers))
+    }
+
     fun undo() {
         if (undoStack.isNotEmpty()) {
             val previous = undoStack.removeLast()
@@ -117,132 +142,298 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    // ==========================================
+    // Multi-Layer Architecture Operations
+    // ==========================================
+
+    fun addTextLayer(initialText: String = "نص جديد") {
+        val current = _canvasState.value
+        val newLayer = TextLayer(
+            id = UUID.randomUUID().toString(),
+            name = "نص ${current.layers.size + 1}",
+            rawText = initialText,
+            displayText = initialText,
+            fontSize = 44f,
+            normOffsetX = 0f,
+            normOffsetY = (current.layers.size * 0.08f).coerceAtMost(0.35f)
+        )
+        val newLayers = current.layers + newLayer
+        pushHistory(current.copy(layers = newLayers, activeLayerId = newLayer.id))
+    }
+
+    fun duplicateActiveLayer() {
+        val current = _canvasState.value
+        val active = current.activeLayer
+        val dup = active.copy(
+            id = UUID.randomUUID().toString(),
+            name = "${active.name} (نسخة)",
+            normOffsetX = (active.normOffsetX + 0.04f).coerceAtMost(0.4f),
+            normOffsetY = (active.normOffsetY + 0.04f).coerceAtMost(0.4f)
+        )
+        val newLayers = current.layers + dup
+        pushHistory(current.copy(layers = newLayers, activeLayerId = dup.id))
+    }
+
+    fun removeActiveLayer() {
+        val current = _canvasState.value
+        if (current.layers.size <= 1) return
+        val activeId = current.activeLayer.id
+        val remaining = current.layers.filter { it.id != activeId }
+        val nextActive = remaining.lastOrNull()?.id ?: ""
+        pushHistory(current.copy(layers = remaining, activeLayerId = nextActive))
+    }
+
+    fun selectLayer(layerId: String) {
+        if (_canvasState.value.activeLayerId != layerId) {
+            _canvasState.update { it.copy(activeLayerId = layerId) }
+        }
+    }
+
+    // ==========================================
+    // Active Text Layer Operations
+    // ==========================================
+
     fun setText(newText: String) {
-        pushHistory(_canvasState.value.copy(rawText = newText))
-        scheduleKashidaUpdate(newText, _canvasState.value.stretchLevel, _canvasState.value.kashidaMode, _canvasState.value.kashidaTargetIndex)
+        pushActiveLayerHistory { it.copy(rawText = newText) }
+        val active = _canvasState.value.activeLayer
+        scheduleKashidaUpdate(newText, active.stretchLevel, active.kashidaMode, active.kashidaTargetIndex)
     }
 
     fun setStretchLevel(newLevel: Int) {
         if (newLevel == _canvasState.value.stretchLevel) return
-        pushHistory(_canvasState.value.copy(stretchLevel = newLevel))
-        scheduleKashidaUpdate(_canvasState.value.rawText, newLevel, _canvasState.value.kashidaMode, _canvasState.value.kashidaTargetIndex)
+        pushActiveLayerHistory { it.copy(stretchLevel = newLevel) }
+        val active = _canvasState.value.activeLayer
+        scheduleKashidaUpdate(active.rawText, newLevel, active.kashidaMode, active.kashidaTargetIndex)
     }
 
     fun setKashidaMode(mode: KashidaMode) {
         if (mode == _canvasState.value.kashidaMode) return
-        pushHistory(_canvasState.value.copy(kashidaMode = mode))
-        scheduleKashidaUpdate(_canvasState.value.rawText, _canvasState.value.stretchLevel, mode, _canvasState.value.kashidaTargetIndex)
+        pushActiveLayerHistory { it.copy(kashidaMode = mode) }
+        val active = _canvasState.value.activeLayer
+        scheduleKashidaUpdate(active.rawText, active.stretchLevel, mode, active.kashidaTargetIndex)
     }
 
     fun setKashidaTargetIndex(targetIndex: Int) {
-        pushHistory(_canvasState.value.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM))
-        scheduleKashidaUpdate(_canvasState.value.rawText, _canvasState.value.stretchLevel, KashidaMode.CUSTOM, targetIndex)
+        pushActiveLayerHistory { it.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM) }
+        val active = _canvasState.value.activeLayer
+        scheduleKashidaUpdate(active.rawText, active.stretchLevel, KashidaMode.CUSTOM, targetIndex)
+    }
+
+    fun justifyActiveLayerLines(context: Context) {
+        val active = _canvasState.value.activeLayer
+        val paint = Paint().apply {
+            isAntiAlias = true
+            typeface = AtharFontManager.getTypeface(context, active.selectedFont)
+            textSize = active.fontSize * 3f
+            letterSpacing = active.letterSpacing
+        }
+        val justified = ArabicParagraphJustifier.justifyLines(active.rawText, paint)
+        if (justified != active.displayText) {
+            pushActiveLayerHistory { it.copy(displayText = justified) }
+        }
     }
 
     fun setEffect(effect: VisualEffect) {
-        pushHistory(_canvasState.value.copy(selectedEffect = effect, customTextColorLong = null))
+        pushActiveLayerHistory { it.copy(selectedEffect = effect, customTextColorLong = null) }
     }
 
     fun setFont(font: ArabicFontFamily) {
-        pushHistory(_canvasState.value.copy(selectedFont = font))
+        pushActiveLayerHistory { it.copy(selectedFont = font) }
     }
 
     fun setCustomColor(colorLong: Long?) {
-        pushHistory(_canvasState.value.copy(customTextColorLong = colorLong))
+        pushActiveLayerHistory { it.copy(customTextColorLong = colorLong) }
     }
 
     fun setStrokeWidth(width: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(strokeWidth = width.coerceIn(0f, 16f)) }
+        updateActiveLayer { it.copy(strokeWidth = width.coerceIn(0f, 20f)) }
     }
 
     fun setStrokeColor(colorLong: Long) {
-        pushHistory(_canvasState.value.copy(strokeColorLong = colorLong))
+        pushActiveLayerHistory { it.copy(strokeColorLong = colorLong) }
     }
 
     fun setShadowRadius(radius: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(shadowRadius = radius.coerceIn(0f, 60f)) }
+        updateActiveLayer { it.copy(shadowRadius = radius.coerceIn(0f, 60f)) }
     }
 
     fun setShadowDx(dx: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(shadowDx = dx.coerceIn(-30f, 30f)) }
+        updateActiveLayer { it.copy(shadowDx = dx.coerceIn(-30f, 30f)) }
     }
 
     fun setShadowDy(dy: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(shadowDy = dy.coerceIn(-30f, 40f)) }
+        updateActiveLayer { it.copy(shadowDy = dy.coerceIn(-30f, 40f)) }
     }
 
     fun setShadowColor(colorLong: Long) {
-        pushHistory(_canvasState.value.copy(shadowColorLong = colorLong))
+        pushActiveLayerHistory { it.copy(shadowColorLong = colorLong) }
     }
 
     fun setLetterSpacing(spacing: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(letterSpacing = spacing.coerceIn(-0.05f, 0.35f)) }
+        updateActiveLayer { it.copy(letterSpacing = spacing.coerceIn(-0.05f, 0.35f)) }
     }
 
     fun setTextOpacity(opacity: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(textOpacity = opacity.coerceIn(0.1f, 1.0f)) }
+        updateActiveLayer { it.copy(textOpacity = opacity.coerceIn(0.1f, 1.0f)) }
     }
 
     fun toggleBold() {
-        pushHistory(_canvasState.value.copy(isBold = !_canvasState.value.isBold))
+        pushActiveLayerHistory { it.copy(isBold = !it.isBold) }
     }
 
     fun toggleItalic() {
-        pushHistory(_canvasState.value.copy(isItalic = !_canvasState.value.isItalic))
+        pushActiveLayerHistory { it.copy(isItalic = !it.isItalic) }
     }
 
     fun toggleUnderline() {
-        pushHistory(_canvasState.value.copy(isUnderline = !_canvasState.value.isUnderline))
+        pushActiveLayerHistory { it.copy(isUnderline = !it.isUnderline) }
     }
 
     fun toggleLock() {
-        _canvasState.update { it.copy(isLocked = !it.isLocked) }
+        updateActiveLayer { it.copy(isLocked = !it.isLocked) }
     }
 
     fun toggleGridGuides() {
         _canvasState.update { it.copy(showGridGuides = !it.showGridGuides) }
     }
 
-    fun setSolidBgColor(colorLong: Long?) {
-        pushHistory(_canvasState.value.copy(solidBgColorLong = colorLong, isTransparentBg = false))
-    }
-
     fun setRotationAngle(angle: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(rotationAngle = (angle % 360f + 360f) % 360f) }
+        updateActiveLayer { it.copy(rotationAngle = (angle % 360f + 360f) % 360f) }
     }
 
     fun setScale(scale: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(scaleFactor = scale.coerceIn(0.3f, 4.0f)) }
-    }
-
-    fun rotateStep(deltaAngle: Float) {
-        val newAngle = ((_canvasState.value.rotationAngle + deltaAngle) % 360f)
-        pushHistory(_canvasState.value.copy(rotationAngle = newAngle))
+        updateActiveLayer { it.copy(scaleFactor = scale.coerceIn(0.3f, 4.0f)) }
     }
 
     fun setTextAlign(alignment: TextAlignOption) {
-        pushHistory(_canvasState.value.copy(textAlign = alignment))
+        pushActiveLayerHistory { it.copy(textAlign = alignment) }
     }
 
     fun setLineSpacing(multiplier: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)) }
+        updateActiveLayer { it.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)) }
     }
+
+    fun toggleGlassBackdrop(enabled: Boolean) {
+        pushActiveLayerHistory { it.copy(enableGlassBackdrop = enabled) }
+    }
+
+    fun setGlassBackdropOpacity(opacity: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(glassBackdropOpacity = opacity.coerceIn(0.1f, 0.98f)) }
+    }
+
+    fun setGlassBackdropCornerRadius(radius: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(glassBackdropCornerRadius = radius.coerceIn(4f, 48f)) }
+    }
+
+    fun setGlassBackdropPadding(padding: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(glassBackdropPadding = padding.coerceIn(8f, 56f)) }
+    }
+
+    fun setGlassBackdropPreset(preset: GlassBackdropPreset) {
+        pushActiveLayerHistory {
+            it.copy(
+                enableGlassBackdrop = true,
+                glassBackdropColorLong = preset.bgArgb,
+                glassBackdropBorderColorLong = preset.strokeArgb,
+                glassBackdropOpacity = preset.opacity
+            )
+        }
+    }
+
+    fun setFontSize(size: Float) {
+        updateActiveLayer { it.copy(fontSize = size.coerceIn(6f, 100f)) }
+    }
+
+    fun updateTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
+        updateActiveLayer {
+            it.copy(
+                normOffsetX = normX,
+                normOffsetY = normY,
+                scaleFactor = scale,
+                rotationAngle = rotation
+            )
+        }
+    }
+
+    fun commitTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
+        pushActiveLayerHistory {
+            it.copy(
+                normOffsetX = normX,
+                normOffsetY = normY,
+                scaleFactor = scale,
+                rotationAngle = rotation
+            )
+        }
+    }
+
+    fun alignCenter() {
+        pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f) }
+    }
+
+    fun alignTop() {
+        pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = -0.28f, rotationAngle = 0f) }
+    }
+
+    fun alignBottom() {
+        pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0.28f, rotationAngle = 0f) }
+    }
+
+    fun snapToPosition(normX: Float, normY: Float, textAlign: TextAlignOption? = null) {
+        pushActiveLayerHistory {
+            it.copy(
+                normOffsetX = normX,
+                normOffsetY = normY,
+                textAlign = textAlign ?: it.textAlign
+            )
+        }
+    }
+
+    fun nudgeOffset(deltaNormX: Float, deltaNormY: Float) {
+        pushActiveLayerHistory {
+            it.copy(
+                normOffsetX = (it.normOffsetX + deltaNormX).coerceIn(-0.45f, 0.45f),
+                normOffsetY = (it.normOffsetY + deltaNormY).coerceIn(-0.45f, 0.45f)
+            )
+        }
+    }
+
+    fun resetCanvasTransform() {
+        pushActiveLayerHistory {
+            it.copy(
+                normOffsetX = 0f,
+                normOffsetY = 0f,
+                scaleFactor = 1.0f,
+                rotationAngle = 0f
+            )
+        }
+    }
+
+    // ==========================================
+    // Global Canvas & Photo Background Operations
+    // ==========================================
 
     fun setAspectRatio(ratio: CanvasAspectRatio) {
         pushHistory(_canvasState.value.copy(aspectRatio = ratio))
     }
 
+    fun setSolidBgColor(colorLong: Long?) {
+        pushHistory(_canvasState.value.copy(solidBgColorLong = colorLong, isTransparentBg = false))
+    }
+
     fun setBackgroundImageUri(uri: Uri?) {
-        pushHistory(_canvasState.value.copy(backgroundImageUri = uri))
+        pushHistory(_canvasState.value.copy(backgroundImageUri = uri, bgPhotoOffsetX = 0f, bgPhotoOffsetY = 0f, bgPhotoScale = 1.0f))
     }
 
     fun setBackgroundDim(dim: Float) {
@@ -283,103 +474,131 @@ class AtharStudioViewModel : ViewModel() {
         pushHistory(_canvasState.value.copy(isTransparentBg = enabled))
     }
 
-    fun toggleGlassBackdrop(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(enableGlassBackdrop = enabled))
+    // ==========================================
+    // Directional Gradient Scrim Operations
+    // ==========================================
+
+    fun setGradientScrimEnabled(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(
+            gradientScrim = _canvasState.value.gradientScrim.copy(isEnabled = enabled)
+        ))
     }
 
-    fun setGlassBackdropOpacity(opacity: Float) {
+    fun setGradientScrimDirection(direction: CanvasGradientDirection) {
+        pushHistory(_canvasState.value.copy(
+            gradientScrim = _canvasState.value.gradientScrim.copy(direction = direction)
+        ))
+    }
+
+    fun setGradientScrimColor(colorLong: Long) {
+        pushHistory(_canvasState.value.copy(
+            gradientScrim = _canvasState.value.gradientScrim.copy(colorLong = colorLong)
+        ))
+    }
+
+    fun setGradientScrimOpacity(opacity: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(glassBackdropOpacity = opacity.coerceIn(0.1f, 0.98f)) }
+        _canvasState.update {
+            it.copy(gradientScrim = it.gradientScrim.copy(opacity = opacity.coerceIn(0f, 1f)))
+        }
     }
 
-    fun setGlassBackdropCornerRadius(radius: Float) {
+    fun setGradientScrimMidpoint(midpoint: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(glassBackdropCornerRadius = radius.coerceIn(4f, 48f)) }
+        _canvasState.update {
+            it.copy(gradientScrim = it.gradientScrim.copy(midpoint = midpoint.coerceIn(0.1f, 0.9f)))
+        }
     }
 
-    fun setGlassBackdropPadding(padding: Float) {
+    // ==========================================
+    // Photo Framing Pan & Zoom Operations
+    // ==========================================
+
+    fun toggleFramingMode(enabled: Boolean) {
+        _canvasState.update { it.copy(isFramingMode = enabled) }
+    }
+
+    fun commitPhotoFraming(normX: Float, normY: Float, scale: Float) {
+        pushHistory(_canvasState.value.copy(
+            bgPhotoOffsetX = normX.coerceIn(-1f, 1f),
+            bgPhotoOffsetY = normY.coerceIn(-1f, 1f),
+            bgPhotoScale = scale.coerceIn(0.5f, 4.0f)
+        ))
+    }
+
+    fun setBgPhotoOffset(normX: Float, normY: Float) {
         markSliderChange()
-        _canvasState.update { it.copy(glassBackdropPadding = padding.coerceIn(8f, 56f)) }
-    }
-
-    fun setGlassBackdropPreset(preset: GlassBackdropPreset) {
-        pushHistory(
-            _canvasState.value.copy(
-                enableGlassBackdrop = true,
-                glassBackdropColorLong = preset.bgArgb,
-                glassBackdropBorderColorLong = preset.strokeArgb,
-                glassBackdropOpacity = preset.opacity
-            )
-        )
-    }
-
-    fun setFontSize(size: Float) {
-        _canvasState.update { it.copy(fontSize = size) }
-    }
-
-    fun setTextBehindSubject(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(isTextBehindSubject = enabled))
-    }
-
-    fun updateTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
         _canvasState.update {
             it.copy(
-                normOffsetX = normX,
-                normOffsetY = normY,
-                scaleFactor = scale,
-                rotationAngle = rotation
+                bgPhotoOffsetX = normX.coerceIn(-1f, 1f),
+                bgPhotoOffsetY = normY.coerceIn(-1f, 1f)
             )
         }
     }
 
-    fun commitTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
+    fun setBgPhotoScale(scale: Float) {
+        markSliderChange()
+        _canvasState.update {
+            it.copy(bgPhotoScale = scale.coerceIn(0.5f, 4.0f))
+        }
+    }
+
+    // ==========================================
+    // Film Camera Presets & QR Code Operations
+    // ==========================================
+
+    fun setFilmPreset(preset: FilmPreset) {
+        pushHistory(_canvasState.value.copy(filmPreset = preset))
+    }
+
+    fun exportFilterRecipeQrCard(name: String): Bitmap {
+        val state = _canvasState.value
+        val recipe = AtharFilterRecipe(
+            name = name,
+            filmPresetId = state.filmPreset.id,
+            brightness = state.backgroundBrightness,
+            contrast = state.backgroundContrast,
+            saturation = state.backgroundSaturation,
+            vignette = state.backgroundVignette,
+            blur = state.backgroundBlur,
+            scrimEnabled = state.gradientScrim.isEnabled,
+            scrimDirection = state.gradientScrim.direction.name,
+            scrimColorLong = state.gradientScrim.colorLong,
+            scrimOpacity = state.gradientScrim.opacity
+        )
+        return AtharPresetQRCodeManager.generatePresetCardBitmap(recipe)
+    }
+
+    fun importFilterRecipeFromQr(bitmap: Bitmap): Boolean {
+        val recipe = AtharPresetQRCodeManager.decodeRecipeFromBitmap(bitmap) ?: return false
+        val matchedFilm = FilmPreset.entries.find { it.id == recipe.filmPresetId } ?: FilmPreset.NONE
+        val matchedDirection = try {
+            CanvasGradientDirection.valueOf(recipe.scrimDirection)
+        } catch (e: Exception) {
+            CanvasGradientDirection.BOTTOM_TO_TOP
+        }
         pushHistory(
             _canvasState.value.copy(
-                normOffsetX = normX,
-                normOffsetY = normY,
-                scaleFactor = scale,
-                rotationAngle = rotation
+                filmPreset = matchedFilm,
+                backgroundBrightness = recipe.brightness,
+                backgroundContrast = recipe.contrast,
+                backgroundSaturation = recipe.saturation,
+                backgroundVignette = recipe.vignette,
+                backgroundBlur = recipe.blur,
+                gradientScrim = CanvasGradientScrim(
+                    isEnabled = recipe.scrimEnabled,
+                    direction = matchedDirection,
+                    colorLong = recipe.scrimColorLong,
+                    opacity = recipe.scrimOpacity
+                )
             )
         )
+        return true
     }
 
-    fun alignCenter() {
-        pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f))
-    }
-
-    fun alignTop() {
-        pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = -0.28f, rotationAngle = 0f))
-    }
-
-    fun alignBottom() {
-        pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = 0.28f, rotationAngle = 0f))
-    }
-
-    fun snapToPosition(normX: Float, normY: Float, textAlign: TextAlignOption? = null) {
-        val updated = _canvasState.value.copy(
-            normOffsetX = normX,
-            normOffsetY = normY,
-            textAlign = textAlign ?: _canvasState.value.textAlign
-        )
-        pushHistory(updated)
-    }
-
-    fun nudgeOffset(deltaNormX: Float, deltaNormY: Float) {
-        val newX = (_canvasState.value.normOffsetX + deltaNormX).coerceIn(-0.45f, 0.45f)
-        val newY = (_canvasState.value.normOffsetY + deltaNormY).coerceIn(-0.45f, 0.45f)
-        pushHistory(_canvasState.value.copy(normOffsetX = newX, normOffsetY = newY))
-    }
-
-    fun resetCanvasTransform() {
-        pushHistory(
-            _canvasState.value.copy(
-                normOffsetX = 0f,
-                normOffsetY = 0f,
-                scaleFactor = 1.0f,
-                rotationAngle = 0f
-            )
-        )
-    }
+    // ==========================================
+    // Project & Export Management
+    // ==========================================
 
     fun clearExportMessage() {
         _exportMessage.value = null
@@ -477,8 +696,8 @@ class AtharStudioViewModel : ViewModel() {
     private fun scheduleKashidaUpdate(
         text: String,
         level: Int,
-        mode: KashidaMode = _canvasState.value.kashidaMode,
-        targetIndex: Int = _canvasState.value.kashidaTargetIndex
+        mode: KashidaMode,
+        targetIndex: Int
     ) {
         kashidaDebounceJob?.cancel()
         kashidaDebounceJob = viewModelScope.launch(Dispatchers.Default) {
@@ -489,11 +708,11 @@ class AtharStudioViewModel : ViewModel() {
     private fun updateKashidaInternal(
         text: String,
         level: Int,
-        mode: KashidaMode = _canvasState.value.kashidaMode,
-        targetIndex: Int = _canvasState.value.kashidaTargetIndex
+        mode: KashidaMode,
+        targetIndex: Int
     ) {
         val stretched = AtharNativeEngine.applyKashida(text, level, mode, targetIndex)
-        _canvasState.update { it.copy(displayText = stretched) }
+        updateActiveLayer { it.copy(displayText = stretched) }
     }
 
     fun exportDesign(

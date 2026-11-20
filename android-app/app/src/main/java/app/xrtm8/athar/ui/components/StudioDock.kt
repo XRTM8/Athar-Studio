@@ -33,11 +33,12 @@ val STUDIO_DOCK_TABS = listOf(
     DockTabItem(1, "المدّ", Icons.Default.LinearScale),
     DockTabItem(2, "الموضع", Icons.Default.OpenWith),
     DockTabItem(3, "المظهر", Icons.Default.AutoAwesome),
-    DockTabItem(4, "الكانفاس", Icons.Default.AspectRatio)
+    DockTabItem(4, "الفلاتر", Icons.Default.PhotoFilter),
+    DockTabItem(5, "الكانفاس", Icons.Default.AspectRatio)
 )
 
 /**
- * 5-Tool Ergonomic Studio Dock with haptic micro-interactions and gold highlight indicators.
+ * 6-Tool Ergonomic Studio Dock with haptic micro-interactions and gold highlight indicators.
  */
 @Composable
 fun StudioDock(
@@ -54,7 +55,7 @@ fun StudioDock(
             .clip(RoundedCornerShape(20.dp))
             .background(GlassBackground)
             .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(20.dp))
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -70,19 +71,19 @@ fun StudioDock(
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(tab.index)
                     }
-                    .padding(vertical = 6.dp)
+                    .padding(vertical = 5.dp)
             ) {
                 Icon(
                     imageVector = tab.icon,
                     contentDescription = tab.title,
                     tint = if (isSelected) GoldAccent else SubtleGray,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(19.dp)
                 )
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = tab.title,
                     color = if (isSelected) GoldAccent else MutedWhite,
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )
             }

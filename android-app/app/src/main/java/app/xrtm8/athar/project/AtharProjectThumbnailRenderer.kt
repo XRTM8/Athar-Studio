@@ -127,8 +127,9 @@ object AtharProjectThumbnailRenderer {
             typeface = realTypeface
         }
 
-        if (state.customTextColorLong != null && state.customTextColorLong != 0L) {
-            paint.color = state.customTextColorLong.toInt()
+        val customColor = state.customTextColorLong
+        if (customColor != null && customColor != 0L) {
+            paint.color = customColor.toInt()
         } else {
             when (state.selectedEffect) {
                 VisualEffect.ROYAL_GOLD -> {

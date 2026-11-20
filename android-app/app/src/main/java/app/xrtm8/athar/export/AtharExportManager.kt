@@ -10,16 +10,15 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Rect
-import android.graphics.Shader
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import app.xrtm8.athar.core.AtharImageProcessor
+import app.xrtm8.athar.core.FilmPresetEngine
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
@@ -27,6 +26,8 @@ import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.typography.AtharTextLayout
+import app.xrtm8.athar.ui.components.CanvasGradientScrimRenderer
+import app.xrtm8.athar.ui.components.CanvasShaderFactory
 import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,8 +37,9 @@ import java.io.FileOutputStream
 /**
  * High-performance export engine for Athar Studio.
  * Renders vector Skia typography at 1080p, 2K, and 4K resolutions with exact
- * shader gradients, multi-line alignments, 2D blur shadows, photo backgrounds,
- * frosted glass backdrop card, and transparent sticker cropping.
+ * shader gradients, multi-layer compositions, 2D blur shadows, photo backgrounds with framing,
+ * film simulation ColorMatrix, directional gradient scrim, frosted glass backdrop cards,
+ * and transparent sticker cropping.
  */
 object AtharExportManager {
 
@@ -107,7 +109,6 @@ object AtharExportManager {
         if (bgUri != null) {
             var srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
             if (srcBitmap != null) {
-                // Apply background blur if requested
                 if (state.backgroundBlur > 0.5f) {
                     val blurR = (state.backgroundBlur * (width / 1080f)).toInt().coerceIn(1, 40)
                     val blurred = AtharImageProcessor.fastStackBlur(srcBitmap, blurR)
@@ -118,7 +119,8 @@ object AtharExportManager {
                 }
 
                 val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
-                    colorFilter = AtharImageProcessor.createCompositeColorFilter(
+                    colorFilter = FilmPresetEngine.createCompositeFilter(
+                        preset = state.filmPreset,
                         dim = state.backgroundDim,
                         brightness = state.backgroundBrightness,
                         contrast = state.backgroundContrast,
@@ -132,14 +134,25 @@ object AtharExportManager {
                 val srcRatio = srcW / srcH
                 val dstRatio = width.toFloat() / height.toFloat()
 
-                val srcRect = if (srcRatio > dstRatio) {
-                    val newW = (srcH * dstRatio).toInt()
-                    val xOffset = ((srcW - newW) / 2).toInt()
-                    Rect(xOffset, 0, xOffset + newW, srcH.toInt())
+                val scale = state.bgPhotoScale.coerceIn(0.5f, 4.0f)
+                val srcRect: Rect
+
+                if (srcRatio > dstRatio) {
+                    val newW = ((srcH * dstRatio) / scale).toInt().coerceIn(10, srcW.toInt())
+                    val newH = (srcH / scale).toInt().coerceIn(10, srcH.toInt())
+                    val maxShiftX = (srcW - newW) / 2f
+                    val maxShiftY = (srcH - newH) / 2f
+                    val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
+                    val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
+                    srcRect = Rect(xOffset, yOffset, xOffset + newW, yOffset + newH)
                 } else {
-                    val newH = (srcW / dstRatio).toInt()
-                    val yOffset = ((srcH - newH) / 2).toInt()
-                    Rect(0, yOffset, srcW.toInt(), yOffset + newH)
+                    val newW = (srcW / scale).toInt().coerceIn(10, srcW.toInt())
+                    val newH = ((srcW / dstRatio) / scale).toInt().coerceIn(10, srcH.toInt())
+                    val maxShiftX = (srcW - newW) / 2f
+                    val maxShiftY = (srcH - newH) / 2f
+                    val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
+                    val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
+                    srcRect = Rect(xOffset, yOffset, xOffset + newW, yOffset + newH)
                 }
                 val dstRect = Rect(0, 0, width, height)
                 canvas.drawBitmap(srcBitmap, srcRect, dstRect, bgPaint)
@@ -156,252 +169,213 @@ object AtharExportManager {
             }
         }
 
-        // Apply cinematic vignette overlay if requested
         if (state.backgroundVignette > 0f) {
             AtharImageProcessor.drawVignette(canvas, width.toFloat(), height.toFloat(), state.backgroundVignette)
+        }
+
+        if (!state.isTransparentBg && state.gradientScrim.isEnabled) {
+            CanvasGradientScrimRenderer.drawGradientScrim(
+                canvas = canvas,
+                width = width.toFloat(),
+                height = height.toFloat(),
+                scrim = state.gradientScrim
+            )
         }
     }
 
     private fun drawTypography(context: Context, canvas: Canvas, state: CanvasState, width: Int, height: Int) {
         val densityFactor = width / 380f
-        val scaledTextSize = (state.fontSize / 380f) * width
-        val realTypeface = AtharFontManager.getTypeface(context, state.selectedFont)
-        val alphaFloat = state.textOpacity.coerceIn(0.15f, 1.0f)
-        val alphaInt = (alphaFloat * 255).toInt()
 
-        val alphaMatrix = ColorMatrix().apply {
-            setScale(1f, 1f, 1f, alphaFloat)
-        }
-        val opacityFilter = ColorMatrixColorFilter(alphaMatrix)
+        state.layers.forEach { layer ->
+            if (!layer.isVisible || layer.displayText.isEmpty()) return@forEach
 
-        val paint = Paint().apply {
-            isAntiAlias = true
-            isDither = true
-            textSize = scaledTextSize
-            letterSpacing = state.letterSpacing
-            isUnderlineText = state.isUnderline
-            isFakeBoldText = state.isBold
-            textSkewX = if (state.isItalic) -0.25f else 0f
-            alpha = alphaInt
-            colorFilter = opacityFilter
-            textAlign = when (state.textAlign) {
-                TextAlignOption.RIGHT -> Paint.Align.RIGHT
-                TextAlignOption.CENTER -> Paint.Align.CENTER
-                TextAlignOption.LEFT -> Paint.Align.LEFT
-            }
-            typeface = realTypeface
-        }
+            val scaledTextSize = (layer.fontSize / 380f) * width
+            val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
+            val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
+            val alphaInt = (alphaFloat * 255).toInt()
+            val opacityFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })
 
-        val strokePaint = if (state.strokeWidth > 0f) {
-            Paint().apply {
+            val paint = Paint().apply {
                 isAntiAlias = true
                 isDither = true
-                style = Paint.Style.STROKE
-                strokeJoin = Paint.Join.ROUND
-                strokeCap = Paint.Cap.ROUND
-                strokeWidth = (state.strokeWidth / 380f) * width
-                color = state.strokeColorLong.toInt()
-                letterSpacing = state.letterSpacing
-                isUnderlineText = state.isUnderline
-                isFakeBoldText = state.isBold
-                textSkewX = if (state.isItalic) -0.25f else 0f
+                textSize = scaledTextSize
+                letterSpacing = layer.letterSpacing
+                isUnderlineText = layer.isUnderline
+                isFakeBoldText = layer.isBold
+                textSkewX = if (layer.isItalic) -0.25f else 0f
                 alpha = alphaInt
                 colorFilter = opacityFilter
-                textSize = scaledTextSize
-                textAlign = paint.textAlign
+                textAlign = when (layer.textAlign) {
+                    TextAlignOption.RIGHT -> Paint.Align.RIGHT
+                    TextAlignOption.CENTER -> Paint.Align.CENTER
+                    TextAlignOption.LEFT -> Paint.Align.LEFT
+                }
                 typeface = realTypeface
             }
-        } else null
 
-        val shadowPaint = if (state.shadowRadius > 0f) {
-            Paint().apply {
-                isAntiAlias = true
-                isDither = true
-                textSize = scaledTextSize
-                letterSpacing = state.letterSpacing
-                isFakeBoldText = state.isBold
-                textSkewX = if (state.isItalic) -0.25f else 0f
-                textAlign = paint.textAlign
-                typeface = realTypeface
-                val sColor = state.shadowColorLong.toInt()
-                val sAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
-                color = (sColor and 0x00FFFFFF) or (sAlpha shl 24)
-                val scaledBlur = ((state.shadowRadius / 380f) * width).coerceAtLeast(1f)
-                maskFilter = BlurMaskFilter(scaledBlur, BlurMaskFilter.Blur.NORMAL)
-            }
-        } else null
+            val strokePaint = if (layer.strokeWidth > 0f) {
+                Paint().apply {
+                    isAntiAlias = true
+                    isDither = true
+                    style = Paint.Style.STROKE
+                    strokeJoin = Paint.Join.ROUND
+                    strokeCap = Paint.Cap.ROUND
+                    strokeWidth = (layer.strokeWidth / 380f) * width
+                    color = layer.strokeColorLong.toInt()
+                    letterSpacing = layer.letterSpacing
+                    isUnderlineText = layer.isUnderline
+                    isFakeBoldText = layer.isBold
+                    textSkewX = if (layer.isItalic) -0.25f else 0f
+                    alpha = alphaInt
+                    colorFilter = opacityFilter
+                    textSize = scaledTextSize
+                    textAlign = paint.textAlign
+                    typeface = realTypeface
+                }
+            } else null
 
-        val scaledShadowDx = (state.shadowDx / 380f) * width
-        val scaledShadowDy = (state.shadowDy / 380f) * width
+            val shadowPaint = if (layer.shadowRadius > 0f) {
+                Paint().apply {
+                    isAntiAlias = true
+                    isDither = true
+                    textSize = scaledTextSize
+                    letterSpacing = layer.letterSpacing
+                    isFakeBoldText = layer.isBold
+                    textSkewX = if (layer.isItalic) -0.25f else 0f
+                    textAlign = paint.textAlign
+                    typeface = realTypeface
+                    val sColor = layer.shadowColorLong.toInt()
+                    val sAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
+                    color = (sColor and 0x00FFFFFF) or (sAlpha shl 24)
+                    val scaledBlur = ((layer.shadowRadius / 380f) * width).coerceAtLeast(1f)
+                    maskFilter = BlurMaskFilter(scaledBlur, BlurMaskFilter.Blur.NORMAL)
+                }
+            } else null
 
-        val centerX = width * 0.5f + (width * state.normOffsetX)
-        val centerY = height * 0.5f + (height * state.normOffsetY)
+            val scaledShadowDx = (layer.shadowDx / 380f) * width
+            val scaledShadowDy = (layer.shadowDy / 380f) * width
 
-        val layout = AtharTextLayout.computeLayout(
-            text = state.displayText,
-            paint = paint,
-            lineSpacingMultiplier = state.lineSpacingMultiplier,
-            textAlign = state.textAlign
-        )
+            val centerX = width * 0.5f + (width * layer.normOffsetX)
+            val centerY = height * 0.5f + (height * layer.normOffsetY)
 
-        canvas.save()
-        canvas.translate(centerX, centerY)
-        canvas.rotate(state.rotationAngle)
-        canvas.scale(state.scaleFactor, state.scaleFactor)
+            val layout = AtharTextLayout.computeLayout(
+                text = layer.displayText,
+                paint = paint,
+                lineSpacingMultiplier = layer.lineSpacingMultiplier,
+                textAlign = layer.textAlign
+            )
 
-        // Draw Frosted Glass Plaque / Card behind text if enabled
-        TextGlassBackdropRenderer.drawGlassBackdrop(
-            canvas = canvas,
-            state = state,
-            layout = layout,
-            textSizePx = paint.textSize,
-            density = densityFactor
-        )
+            canvas.save()
+            canvas.translate(centerX, centerY)
+            canvas.rotate(layer.rotationAngle)
+            canvas.scale(layer.scaleFactor, layer.scaleFactor)
 
-        layout.lines.forEachIndexed { index, line ->
-            val lineY = layout.startY + (index * layout.lineHeight)
+            // Draw Frosted Glass Plaque / Card behind text if enabled
+            TextGlassBackdropRenderer.drawGlassBackdrop(
+                canvas = canvas,
+                layer = layer,
+                layout = layout,
+                textSizePx = paint.textSize,
+                density = densityFactor
+            )
 
-            // 1. Draw 2D Directional Shadow
-            shadowPaint?.let { shp ->
-                canvas.drawText(line, layout.lineX + scaledShadowDx, lineY + scaledShadowDy, shp)
-            }
+            layout.lines.forEachIndexed { index, line ->
+                val lineY = layout.startY + (index * layout.lineHeight)
 
-            // 2. Draw Stroke
-            strokePaint?.let { sp ->
-                canvas.drawText(line, layout.lineX, lineY, sp)
-            }
+                if (shadowPaint != null) {
+                    canvas.drawText(line, layout.lineX + scaledShadowDx, lineY + scaledShadowDy, shadowPaint)
+                }
 
-            // 3. Exact Shader and Color calculation per line matching CanvasView
-            if (state.customTextColorLong != null && state.customTextColorLong != 0L) {
-                val baseColor = state.customTextColorLong.toInt()
-                paint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
-                paint.shader = null
-            } else {
-                when (state.selectedEffect) {
-                    VisualEffect.ROYAL_GOLD -> {
-                        paint.shader = LinearGradient(
-                            0f, lineY - paint.textSize * 0.85f,
-                            0f, lineY + paint.textSize * 0.25f,
-                            intArrayOf(
-                                Color.parseColor("#FFF7DB"),
-                                Color.parseColor("#F5C369"),
-                                Color.parseColor("#D49438"),
-                                Color.parseColor("#FFE8A3"),
-                                Color.parseColor("#B0731E")
-                            ),
-                            floatArrayOf(0.0f, 0.25f, 0.55f, 0.75f, 1.0f),
-                            Shader.TileMode.CLAMP
-                        )
-                    }
-                    VisualEffect.LIQUID_CHROME -> {
-                        paint.shader = LinearGradient(
-                            -paint.textSize * 0.5f, lineY - paint.textSize * 0.85f,
-                            paint.textSize * 0.5f, lineY + paint.textSize * 0.25f,
-                            intArrayOf(
-                                Color.parseColor("#FFFFFF"),
-                                Color.parseColor("#9EA5B0"),
-                                Color.parseColor("#181C22"),
-                                Color.parseColor("#FFFFFF"),
-                                Color.parseColor("#505866"),
-                                Color.parseColor("#DDE2EA")
-                            ),
-                            floatArrayOf(0.0f, 0.2f, 0.45f, 0.55f, 0.8f, 1.0f),
-                            Shader.TileMode.CLAMP
-                        )
-                    }
-                    VisualEffect.CYBER_NEON -> {
-                        paint.color = (Color.parseColor("#00FF9D") and 0x00FFFFFF) or (alphaInt shl 24)
+                if (strokePaint != null) {
+                    canvas.drawText(line, layout.lineX, lineY, strokePaint)
+                }
+
+                val customColor = layer.customTextColorLong
+                if (customColor != null && customColor != 0L) {
+                    val baseColor = customColor.toInt()
+                    paint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
+                    paint.shader = null
+                    canvas.drawText(line, layout.lineX, lineY, paint)
+                } else {
+                    val effectShader = CanvasShaderFactory.createEffectShader(layer.selectedEffect, lineY, paint.textSize)
+                    if (effectShader != null) {
+                        paint.shader = effectShader
+                        canvas.drawText(line, layout.lineX, lineY, paint)
+                    } else {
                         paint.shader = null
-                    }
-                    VisualEffect.CINEMATIC_SHADOW -> {
-                        paint.color = (Color.parseColor("#F2F2F2") and 0x00FFFFFF) or (alphaInt shl 24)
-                        paint.shader = null
-                    }
-                    VisualEffect.FROSTED_GLASS -> {
-                        paint.shader = LinearGradient(
-                            0f, lineY - paint.textSize * 0.85f,
-                            0f, lineY + paint.textSize * 0.25f,
-                            intArrayOf(
-                                Color.parseColor("#E6FFFFFF"),
-                                Color.parseColor("#33E2E8F0")
-                            ),
-                            null,
-                            Shader.TileMode.CLAMP
-                        )
-                    }
-                    VisualEffect.MINIMAL_LUXURY -> {
-                        paint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                        paint.shader = null
+                        when (layer.selectedEffect) {
+                            VisualEffect.CYBER_NEON -> {
+                                val neonGlowPaint = Paint(paint).apply {
+                                    color = 0x6600FF9D.toInt()
+                                    maskFilter = BlurMaskFilter((28f / 380f) * width, BlurMaskFilter.Blur.NORMAL)
+                                }
+                                canvas.drawText(line, layout.lineX, lineY, neonGlowPaint)
+                                paint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
+                                canvas.drawText(line, layout.lineX, lineY, paint)
+                            }
+                            VisualEffect.CINEMATIC_SHADOW -> {
+                                paint.color = (0xFFF5F6F8.toInt() and 0x00FFFFFF) or (alphaInt shl 24)
+                                canvas.drawText(line, layout.lineX, lineY, paint)
+                            }
+                            else -> {
+                                paint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
+                                canvas.drawText(line, layout.lineX, lineY, paint)
+                            }
+                        }
                     }
                 }
             }
 
-            canvas.drawText(line, layout.lineX, lineY, paint)
-        }
-        canvas.restore()
-    }
-
-    private fun saveToMediaStore(context: Context, bitmap: Bitmap, filename: String, isTransparent: Boolean) {
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, filename)
-            put(MediaStore.Images.Media.MIME_TYPE, if (isTransparent) "image/png" else "image/jpeg")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Athar")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-        }
-
-        val resolver = context.contentResolver
-        val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-
-        if (imageUri != null) {
-            resolver.openOutputStream(imageUri)?.use { out ->
-                bitmap.compress(
-                    if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
-                    100,
-                    out
-                )
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                contentValues.clear()
-                contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(imageUri, contentValues, null, null)
-            }
+            canvas.restore()
         }
     }
 
-    private fun shareExportedBitmap(context: Context, bitmap: Bitmap, filename: String, isTransparent: Boolean) {
-        val exportDir = File(context.getExternalFilesDir(null), "exports")
-        if (!exportDir.exists()) exportDir.mkdirs()
-        val cacheFile = File(exportDir, filename)
-        FileOutputStream(cacheFile).use { out ->
-            bitmap.compress(
-                if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
-                100,
-                out
-            )
+    private fun cropTransparentBitmap(src: Bitmap, paddingPx: Int): Bitmap {
+        val width = src.width
+        val height = src.height
+        var minX = width
+        var minY = height
+        var maxX = 0
+        var maxY = 0
+
+        val rowPixels = IntArray(width)
+        for (y in 0 until height) {
+            src.getPixels(rowPixels, 0, width, 0, y, width, 1)
+            for (x in 0 until width) {
+                if ((rowPixels[x] ushr 24) > 0) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
         }
 
-        val shareUri: Uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", cacheFile)
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = if (isTransparent) "image/png" else "image/jpeg"
-            putExtra(Intent.EXTRA_STREAM, shareUri)
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        if (minX > maxX || minY > maxY) {
+            return src
         }
-        context.startActivity(Intent.createChooser(shareIntent, "مشاركة تصميم أَثَــر"))
+
+        minX = (minX - paddingPx).coerceAtLeast(0)
+        minY = (minY - paddingPx).coerceAtLeast(0)
+        maxX = (maxX + paddingPx).coerceAtMost(width - 1)
+        maxY = (maxY + paddingPx).coerceAtMost(height - 1)
+
+        val cropW = maxX - minX + 1
+        val cropH = maxY - minY + 1
+
+        return Bitmap.createBitmap(src, minX, minY, cropW, cropH)
     }
 
-    fun decodeSampledBitmap(context: Context, uri: Uri, targetW: Int, targetH: Int): Bitmap? {
+    private fun decodeSampledBitmap(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
         return try {
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             context.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, options)
             }
             var inSampleSize = 1
-            val halfH = options.outHeight / 2
-            val halfW = options.outWidth / 2
-            while ((halfH / inSampleSize) >= targetH && (halfW / inSampleSize) >= targetW) {
+            while ((options.outHeight / inSampleSize) > reqHeight * 1.5 ||
+                (options.outWidth / inSampleSize) > reqWidth * 1.5
+            ) {
                 inSampleSize *= 2
             }
             val finalOptions = BitmapFactory.Options().apply {
@@ -416,54 +390,52 @@ object AtharExportManager {
         }
     }
 
-    fun cropTransparentBitmap(src: Bitmap, paddingPx: Int = 48): Bitmap {
-        val width = src.width
-        val height = src.height
-        var minX = width
-        var minY = height
-        var maxX = -1
-        var maxY = -1
+    private fun saveToMediaStore(context: Context, bitmap: Bitmap, filename: String, isTransparent: Boolean) {
+        val format = if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+        val mime = if (isTransparent) "image/png" else "image/jpeg"
+        val quality = if (isTransparent) 100 else 98
 
-        val batchRows = 64.coerceAtMost(height)
-        val batchPixels = IntArray(width * batchRows)
-
-        var y = 0
-        while (y < height) {
-            val currentH = batchRows.coerceAtMost(height - y)
-            src.getPixels(batchPixels, 0, width, 0, y, width, currentH)
-
-            var offset = 0
-            for (localY in 0 until currentH) {
-                val actualY = y + localY
-                var rowHasVisible = false
-                for (x in 0 until width) {
-                    val alpha = (batchPixels[offset + x] ushr 24) and 0xFF
-                    if (alpha > 12) {
-                        if (x < minX) minX = x
-                        if (x > maxX) maxX = x
-                        rowHasVisible = true
-                    }
-                }
-                if (rowHasVisible) {
-                    if (actualY < minY) minY = actualY
-                    if (actualY > maxY) maxY = actualY
-                }
-                offset += width
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, filename)
+            put(MediaStore.Images.Media.MIME_TYPE, mime)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Athar")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
             }
-            y += currentH
         }
 
-        if (maxX < minX || maxY < minY) {
-            return src
+        val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: throw IllegalStateException("Failed to create MediaStore entry")
+
+        context.contentResolver.openOutputStream(uri)?.use { out ->
+            bitmap.compress(format, quality, out)
         }
 
-        val cropLeft = (minX - paddingPx).coerceAtLeast(0)
-        val cropTop = (minY - paddingPx).coerceAtLeast(0)
-        val cropRight = (maxX + paddingPx).coerceAtMost(width - 1)
-        val cropBottom = (maxY + paddingPx).coerceAtMost(height - 1)
-        val cropW = (cropRight - cropLeft + 1).coerceAtLeast(1)
-        val cropH = (cropBottom - cropTop + 1).coerceAtLeast(1)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            context.contentResolver.update(uri, values, null, null)
+        }
+    }
 
-        return Bitmap.createBitmap(src, cropLeft, cropTop, cropW, cropH)
+    private fun shareExportedBitmap(context: Context, bitmap: Bitmap, filename: String, isTransparent: Boolean) {
+        val cacheDir = File(context.cacheDir, "exports").apply { mkdirs() }
+        val shareFile = File(cacheDir, filename)
+        val format = if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+        val quality = if (isTransparent) 100 else 98
+
+        FileOutputStream(shareFile).use { out ->
+            bitmap.compress(format, quality, out)
+        }
+
+        val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", shareFile)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = if (isTransparent) "image/png" else "image/jpeg"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        }
+        val chooser = Intent.createChooser(intent, "مشاركة التصميم من أثر")
+        chooser.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        context.startActivity(chooser)
     }
 }
