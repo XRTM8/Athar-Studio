@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -118,7 +119,7 @@ fun CanvasView(
         Canvas(
             modifier = canvasModifier
                 .fillMaxSize()
-                .background(AmoledBlack)
+                .background(if (state.isTransparentBg) Color.Transparent else AmoledBlack)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = {
@@ -152,8 +153,27 @@ fun CanvasView(
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
 
-                // 1. Draw Background Image with Proportional Aspect-Fill (Center-Crop)
-                if (bgBitmap != null && !state.isTransparentBg) {
+                // 1. Draw Background: Transparency Checkerboard or Image or Solid Color
+                if (state.isTransparentBg) {
+                    val tileSize = 24f * density
+                    val darkTile = android.graphics.Color.parseColor("#0E0E0E")
+                    val lightTile = android.graphics.Color.parseColor("#181818")
+                    val tilePaint = Paint()
+                    val cols = (canvasWidth / tileSize).toInt() + 1
+                    val rows = (canvasHeight / tileSize).toInt() + 1
+                    for (r in 0 until rows) {
+                        for (c in 0 until cols) {
+                            tilePaint.color = if ((r + c) % 2 == 0) darkTile else lightTile
+                            nativeCanvas.drawRect(
+                                c * tileSize,
+                                r * tileSize,
+                                (c + 1) * tileSize,
+                                (r + 1) * tileSize,
+                                tilePaint
+                            )
+                        }
+                    }
+                } else if (bgBitmap != null) {
                     if (state.backgroundGrayscale) {
                         bgPaint.colorFilter = ColorMatrixColorFilter(grayMatrix)
                     } else {

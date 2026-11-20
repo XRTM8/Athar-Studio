@@ -165,6 +165,10 @@ class AtharStudioViewModel : ViewModel() {
         pushHistory(_canvasState.value.copy(backgroundGrayscale = enabled))
     }
 
+    fun setTransparentBg(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(isTransparentBg = enabled))
+    }
+
     fun setFontSize(size: Float) {
         _canvasState.update { it.copy(fontSize = size) }
     }
@@ -317,10 +321,51 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    private fun cropTransparentBitmap(src: Bitmap, paddingPx: Int = 48): Bitmap {
+        val width = src.width
+        val height = src.height
+        var minX = width
+        var minY = height
+        var maxX = -1
+        var maxY = -1
+
+        val rowPixels = IntArray(width)
+        for (y in 0 until height) {
+            src.getPixels(rowPixels, 0, width, 0, y, width, 1)
+            var rowHasVisible = false
+            for (x in 0 until width) {
+                val alpha = (rowPixels[x] ushr 24) and 0xFF
+                if (alpha > 12) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    rowHasVisible = true
+                }
+            }
+            if (rowHasVisible) {
+                if (y < minY) minY = y
+                if (y > maxY) maxY = y
+            }
+        }
+
+        if (maxX < minX || maxY < minY) {
+            return src
+        }
+
+        val cropLeft = (minX - paddingPx).coerceAtLeast(0)
+        val cropTop = (minY - paddingPx).coerceAtLeast(0)
+        val cropRight = (maxX + paddingPx).coerceAtMost(width - 1)
+        val cropBottom = (maxY + paddingPx).coerceAtMost(height - 1)
+        val cropW = (cropRight - cropLeft + 1).coerceAtLeast(1)
+        val cropH = (cropBottom - cropTop + 1).coerceAtLeast(1)
+
+        return Bitmap.createBitmap(src, cropLeft, cropTop, cropW, cropH)
+    }
+
     fun exportDesign(
         context: Context,
         resolution: ExportResolution = ExportResolution.HD_1080P,
         isTransparent: Boolean = false,
+        isStickerTrimmed: Boolean = true,
         onShareRequested: Boolean = true
     ) {
         if (_isExporting.value) return
@@ -409,55 +454,6 @@ class AtharStudioViewModel : ViewModel() {
                         }
                     } else null
 
-                    // Color & Shader configuration
-                    if (currentState.customTextColorLong != null && currentState.customTextColorLong != 0L) {
-                        paint.color = currentState.customTextColorLong.toInt()
-                        paint.shader = null
-                    } else {
-                        when (currentState.selectedEffect) {
-                            VisualEffect.ROYAL_GOLD -> {
-                                paint.shader = LinearGradient(
-                                    0f, -paint.textSize * 0.8f,
-                                    0f, paint.textSize * 0.2f,
-                                    intArrayOf(
-                                        android.graphics.Color.parseColor("#FFF7DB"),
-                                        android.graphics.Color.parseColor("#F5C369"),
-                                        android.graphics.Color.parseColor("#D49438"),
-                                        android.graphics.Color.parseColor("#FFE8A3")
-                                    ),
-                                    null,
-                                    Shader.TileMode.CLAMP
-                                )
-                            }
-                            VisualEffect.LIQUID_CHROME -> {
-                                paint.shader = LinearGradient(
-                                    0f, -paint.textSize * 0.8f,
-                                    0f, paint.textSize * 0.2f,
-                                    intArrayOf(
-                                        android.graphics.Color.parseColor("#FFFFFF"),
-                                        android.graphics.Color.parseColor("#D8D8E0"),
-                                        android.graphics.Color.parseColor("#8E919D"),
-                                        android.graphics.Color.parseColor("#F2F4F8")
-                                    ),
-                                    null,
-                                    Shader.TileMode.CLAMP
-                                )
-                            }
-                            VisualEffect.CYBER_NEON -> {
-                                paint.color = android.graphics.Color.parseColor("#00FF9D")
-                            }
-                            VisualEffect.CINEMATIC_SHADOW -> {
-                                paint.color = android.graphics.Color.parseColor("#F2F2F2")
-                            }
-                            VisualEffect.FROSTED_GLASS -> {
-                                paint.color = android.graphics.Color.parseColor("#DDFFFFFF")
-                            }
-                            VisualEffect.MINIMAL_LUXURY -> {
-                                paint.color = android.graphics.Color.WHITE
-                            }
-                        }
-                    }
-
                     // Shadow configuration
                     if (currentState.shadowRadius > 0f) {
                         val scaledShadowRadius = (currentState.shadowRadius / 380f) * width
@@ -492,12 +488,81 @@ class AtharStudioViewModel : ViewModel() {
 
                     lines.forEachIndexed { index, line ->
                         val lineY = startY + (index * lineHeight)
+
+                        // Exact Shader and Color calculation per line matching CanvasView
+                        if (currentState.customTextColorLong != null && currentState.customTextColorLong != 0L) {
+                            paint.color = currentState.customTextColorLong.toInt()
+                            paint.shader = null
+                        } else {
+                            when (currentState.selectedEffect) {
+                                VisualEffect.ROYAL_GOLD -> {
+                                    paint.shader = LinearGradient(
+                                        0f, lineY - paint.textSize * 0.8f,
+                                        0f, lineY + paint.textSize * 0.2f,
+                                        intArrayOf(
+                                            android.graphics.Color.parseColor("#FFF7DB"),
+                                            android.graphics.Color.parseColor("#F5C369"),
+                                            android.graphics.Color.parseColor("#D49438"),
+                                            android.graphics.Color.parseColor("#FFE8A3"),
+                                            android.graphics.Color.parseColor("#B0731E")
+                                        ),
+                                        floatArrayOf(0.0f, 0.25f, 0.55f, 0.75f, 1.0f),
+                                        Shader.TileMode.CLAMP
+                                    )
+                                }
+                                VisualEffect.LIQUID_CHROME -> {
+                                    paint.shader = LinearGradient(
+                                        -paint.textSize * 0.5f, lineY - paint.textSize * 0.8f,
+                                        paint.textSize * 0.5f, lineY + paint.textSize * 0.2f,
+                                        intArrayOf(
+                                            android.graphics.Color.parseColor("#FFFFFF"),
+                                            android.graphics.Color.parseColor("#9EA5B0"),
+                                            android.graphics.Color.parseColor("#181C22"),
+                                            android.graphics.Color.parseColor("#FFFFFF"),
+                                            android.graphics.Color.parseColor("#505866"),
+                                            android.graphics.Color.parseColor("#DDE2EA")
+                                        ),
+                                        floatArrayOf(0.0f, 0.2f, 0.45f, 0.55f, 0.8f, 1.0f),
+                                        Shader.TileMode.CLAMP
+                                    )
+                                }
+                                VisualEffect.CYBER_NEON -> {
+                                    paint.color = android.graphics.Color.parseColor("#00FF9D")
+                                    paint.shader = null
+                                }
+                                VisualEffect.CINEMATIC_SHADOW -> {
+                                    paint.color = android.graphics.Color.parseColor("#F2F2F2")
+                                    paint.shader = null
+                                }
+                                VisualEffect.FROSTED_GLASS -> {
+                                    paint.color = android.graphics.Color.parseColor("#DDFFFFFF")
+                                    paint.shader = null
+                                }
+                                VisualEffect.MINIMAL_LUXURY -> {
+                                    paint.color = android.graphics.Color.WHITE
+                                    paint.shader = null
+                                }
+                            }
+                        }
+
                         strokePaint?.let { sp ->
                             canvas.drawText(line, lineX, lineY, sp)
                         }
                         canvas.drawText(line, lineX, lineY, paint)
                     }
                     canvas.restore()
+
+                    // Trim transparent margins if sticker export requested
+                    val finalBitmap = if (isTransparent && isStickerTrimmed) {
+                        val padding = (48f * (width / 1080f)).toInt()
+                        val cropped = cropTransparentBitmap(bitmap, paddingPx = padding)
+                        if (cropped != bitmap) {
+                            bitmap.recycle()
+                        }
+                        cropped
+                    } else {
+                        bitmap
+                    }
 
                     // Save to Gallery via MediaStore
                     val filename = "Athar_${System.currentTimeMillis()}.${if (isTransparent) "png" else "jpg"}"
@@ -515,7 +580,7 @@ class AtharStudioViewModel : ViewModel() {
 
                     if (imageUri != null) {
                         resolver.openOutputStream(imageUri)?.use { out ->
-                            bitmap.compress(
+                            finalBitmap.compress(
                                 if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
                                 100,
                                 out
@@ -534,7 +599,7 @@ class AtharStudioViewModel : ViewModel() {
                     if (!exportDir.exists()) exportDir.mkdirs()
                     val cacheFile = File(exportDir, filename)
                     FileOutputStream(cacheFile).use { out ->
-                        bitmap.compress(
+                        finalBitmap.compress(
                             if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
                             100,
                             out
@@ -552,7 +617,13 @@ class AtharStudioViewModel : ViewModel() {
                         context.startActivity(Intent.createChooser(shareIntent, "مشاركة تصميم أَثَــر"))
                     }
 
-                    Result.success("تم حفظ التصميم في المعرض بنجاح (${resolution.label})")
+                    Result.success(
+                        if (isTransparent && isStickerTrimmed) {
+                            "تم تصدير الملصق الشفاف المقصوص بنجاح (PNG)"
+                        } else {
+                            "تم حفظ التصميم في المعرض بنجاح (${resolution.label})"
+                        }
+                    )
                 } catch (e: Exception) {
                     Result.failure(e)
                 }
