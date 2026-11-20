@@ -103,6 +103,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -206,65 +207,70 @@ fun AtharStudioScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // Floating Frosted Glass Top Bar
+            // Modern Sleek Studio Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .background(GlassBackground)
                     .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(20.dp))
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Branding & Projects Button
+                    // Right: Logo & Project Library Button
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "أَثَــر",
                             color = PureWhite,
-                            fontSize = 24.sp,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 1.sp
                         )
                         Spacer(modifier = Modifier.width(6.dp))
 
-                        // Open Projects Library Button
                         IconButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 viewModel.loadProjectsList(context)
                                 showProjectsSheet = true
                             },
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FolderOpen,
                                 contentDescription = "مشاريعي ومسوداتي",
                                 tint = GoldAccent,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(19.dp)
                             )
                         }
                     }
 
-                    // Undo / Redo & Studio Actions
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Center: Studio Quick Controls Pill (Undo, Redo, Grid, Lock, Reset)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(GlassSurface)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
                         IconButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 viewModel.undo()
                             },
                             enabled = canUndo,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Undo,
                                 contentDescription = "تراجع",
                                 tint = if (canUndo) PureWhite else SubtleGray.copy(alpha = 0.35f),
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(17.dp)
                             )
                         }
 
@@ -274,97 +280,109 @@ fun AtharStudioScreen(
                                 viewModel.redo()
                             },
                             enabled = canRedo,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Redo,
                                 contentDescription = "إعادة",
                                 tint = if (canRedo) PureWhite else SubtleGray.copy(alpha = 0.35f),
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(17.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(16.dp)
+                                .background(GlassBorder)
+                        )
 
+                        // Grid Toggle
                         IconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                coroutineScope.launch {
-                                    val currentVersion = try {
-                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.5.1"
-                                    } catch (e: Exception) {
-                                        "1.5.1"
-                                    }
-                                    val info = updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = false)
-                                    if (info == null) {
-                                        Toast.makeText(context, "أنت تستخدم أحدث إصدار من أَثَــر (v$currentVersion)", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.toggleGridGuides()
                             },
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.CloudDownload,
-                                contentDescription = "التحقق من التحديثات",
-                                tint = MutedWhite,
-                                modifier = Modifier.size(19.dp)
+                                imageVector = Icons.Default.GridOn,
+                                contentDescription = "شبكة المحاذاة الذهبية",
+                                tint = if (canvasState.showGridGuides) GoldAccent else SubtleGray,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
 
+                        // Lock Toggle
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.toggleLock()
+                            },
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (canvasState.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                contentDescription = "قفل موضع النص",
+                                tint = if (canvasState.isLocked) GoldAccent else SubtleGray,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Reset Canvas Transform
                         IconButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 viewModel.resetCanvasTransform()
                             },
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CenterFocusStrong,
-                                contentDescription = "إعادة ضبط موضع النص",
-                                tint = MutedWhite,
-                                modifier = Modifier.size(19.dp)
+                                contentDescription = "توسيط وإعادة ضبط النص",
+                                tint = SubtleGray,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.width(6.dp))
-
-                        Button(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showExportSheet = true
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(34.dp),
-                            enabled = !isExporting
-                        ) {
-                            if (isExporting) {
-                                CircularProgressIndicator(
-                                    color = AmoledBlack,
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "تصدير",
-                                    tint = AmoledBlack,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text(
-                                    text = "تصدير",
-                                    color = AmoledBlack,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.5.sp
-                                )
-                            }
+                    // Left: Prominent Export Button
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showExportSheet = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(34.dp),
+                        enabled = !isExporting
+                    ) {
+                        if (isExporting) {
+                            CircularProgressIndicator(
+                                color = AmoledBlack,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "تصدير",
+                                tint = AmoledBlack,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "تصدير",
+                                color = AmoledBlack,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }
             }
 
-            // Interactive Canvas Area (Draw-Phase Isolated 120Hz)
+            // Interactive Canvas Area (Clean, Unobstructed Workspace)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -380,75 +398,6 @@ fun AtharStudioScreen(
                         showTextDialog = true
                     }
                 )
-
-                // Floating Canvas Quick Actions (Edit, Lock, Grid)
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(GlassBackground)
-                            .border(1.dp, GlassBorderActive, CircleShape)
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                showTextDialog = true
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "تعديل النص",
-                            tint = PureWhite,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (canvasState.isLocked) GoldAccent.copy(alpha = 0.25f) else GlassBackground)
-                            .border(1.dp, if (canvasState.isLocked) GoldAccent else GlassBorder, CircleShape)
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                viewModel.toggleLock()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (canvasState.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                            contentDescription = "قفل موضع النص",
-                            tint = if (canvasState.isLocked) GoldAccent else SubtleGray,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (canvasState.showGridGuides) GoldAccent.copy(alpha = 0.25f) else GlassBackground)
-                            .border(1.dp, if (canvasState.showGridGuides) GoldAccent else GlassBorder, CircleShape)
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                viewModel.toggleGridGuides()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.GridOn,
-                            contentDescription = "شبكة المحاذاة الذهبية",
-                            tint = if (canvasState.showGridGuides) GoldAccent else SubtleGray,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
             }
 
             // Professional Un-Cluttered Studio Tool Panel & Dock
@@ -1526,75 +1475,99 @@ fun AtharStudioScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 22.dp, vertical = 8.dp)
+                        .padding(horizontal = 22.dp, vertical = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "محرر التايبوغرافي العربي",
-                            color = PureWhite,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp
-                        )
+                        Column {
+                            Text(
+                                text = "تحرير النص والتشكيل العربي",
+                                color = PureWhite,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp
+                            )
+                            Text(
+                                text = "انقر مرتين على الكانفاس للفتح السريع",
+                                color = SubtleGray,
+                                fontSize = 11.sp
+                            )
+                        }
                         TextButton(onClick = { tempText = "" }) {
-                            Text("مسح الكل", color = SubtleGray, fontSize = 12.5.sp)
+                            Text("مسح", color = SubtleGray, fontSize = 12.sp)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(GlassSurface)
-                            .border(1.dp, GlassBorderActive, RoundedCornerShape(16.dp))
-                            .padding(vertical = 16.dp, horizontal = 16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (tempText.isBlank()) "أَثَــر" else tempText,
-                            color = GoldAccent,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                    // Hero Text Input Area (Single, Large, Gorgeous Typographic Input)
                     OutlinedTextField(
                         value = tempText,
                         onValueChange = { tempText = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 90.dp, max = 150.dp),
                         singleLine = false,
                         maxLines = 4,
+                        textStyle = TextStyle(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PureWhite,
+                            textAlign = TextAlign.Center
+                        ),
                         shape = RoundedCornerShape(16.dp),
-                        placeholder = { Text("اكتب نصك أو بيت الشعر هنا...", color = SubtleGray) },
+                        placeholder = {
+                            Text(
+                                text = "اكتب النص أو بيت الشعر هنا...",
+                                color = SubtleGray,
+                                fontSize = 16.sp,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GoldAccent,
                             unfocusedBorderColor = GlassBorder,
+                            focusedContainerColor = GlassSurface,
+                            unfocusedContainerColor = GlassSurface,
                             focusedTextColor = PureWhite,
                             unfocusedTextColor = PureWhite,
                             cursorColor = GoldAccent
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Text(text = "التشكيل والحركات والرموز الإسلامية:", color = SubtleGray, fontSize = 11.5.sp)
-                    Spacer(modifier = Modifier.height(5.dp))
-                    val arabicMarks = listOf("َ", "ُ", "ِ", "ّ", "ْ", "ً", "ٍ", "ٌ", "ـ", "ﷻ", "ﷺ", "﷽", "۞", "۝")
+                    // Authentic Diacritics and Islamic Calligraphic Glyphs (100% visibly rendered with carrier)
+                    Text(text = "التشكيل والحركات والرموز الإسلامية:", color = MutedWhite, fontSize = 11.5.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    val arabicMarks = listOf(
+                        "ـَ" to "َ",
+                        "ـُ" to "ُ",
+                        "ـِ" to "ِ",
+                        "ـّ" to "ّ",
+                        "ـْ" to "ْ",
+                        "ـً" to "ً",
+                        "ـٌ" to "ٌ",
+                        "ـٍ" to "ٍ",
+                        "ـ" to "ـ",
+                        "ﷺ" to "ﷺ",
+                        "ﷻ" to "ﷻ",
+                        "﷽" to "﷽",
+                        "۞" to "۞",
+                        "۝" to "۝"
+                    )
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        arabicMarks.forEach { mark ->
+                        arabicMarks.forEach { (displayGlyph, insertChar) ->
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
@@ -1602,20 +1575,25 @@ fun AtharStudioScreen(
                                     .border(0.5.dp, GlassBorderActive, RoundedCornerShape(8.dp))
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        tempText += mark
+                                        tempText += insertChar
                                     }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = mark, color = GoldAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = displayGlyph,
+                                    color = GoldAccent,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Text(text = "اقتراحات وسياقات جاهزة:", color = SubtleGray, fontSize = 11.5.sp)
-                    Spacer(modifier = Modifier.height(5.dp))
+                    Text(text = "اقتراحات وسياقات جاهزة:", color = MutedWhite, fontSize = 11.5.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1641,22 +1619,39 @@ fun AtharStudioScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    Button(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.setText(tempText.ifBlank { "أَثَــر" })
-                            showTextDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
+                    // Action Buttons (Apply & Cancel)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("تطبيق وتحديث التصميم", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.setText(tempText.ifBlank { "أَثَــر" })
+                                showTextDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("تطبيق وتحديث التصميم", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                showTextDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.height(50.dp)
+                        ) {
+                            Text("إلغاء", color = PureWhite, fontSize = 13.sp)
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(26.dp))
+                    Spacer(modifier = Modifier.height(34.dp))
                 }
             }
         }

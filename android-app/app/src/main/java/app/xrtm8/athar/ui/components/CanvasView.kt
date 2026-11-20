@@ -103,11 +103,12 @@ fun CanvasView(
     }
 
     // Pre-allocated paint objects to guarantee 120Hz zero GC drops
+    var isInteracting by remember { mutableStateOf(false) }
     val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE } }
-    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#77E5C07B"); strokeWidth = 2.5f } }
+    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#99FFD700"); strokeWidth = 2.0f } }
     val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
     val grayMatrix = remember { ColorMatrix().apply { setSaturation(0f) } }
 
@@ -135,6 +136,7 @@ fun CanvasView(
                     detectCanvasGestures(
                         isLocked = state.isLocked,
                         onTransform = { pan, zoom, rotate ->
+                            isInteracting = true
                             val cw = canvasW.coerceAtLeast(10f)
                             val ch = canvasH.coerceAtLeast(10f)
 
@@ -148,6 +150,7 @@ fun CanvasView(
                             if (abs(localNormY) < 0.015f) localNormY = 0f
                         },
                         onGestureEnd = {
+                            isInteracting = false
                             onTransformFinished?.invoke(localNormX, localNormY, localScale, localRotation)
                         },
                         onDoubleTap = {
@@ -166,9 +169,9 @@ fun CanvasView(
 
                 // 1. Draw Background: Transparency Checkerboard or Image or Solid Color
                 if (state.isTransparentBg) {
-                    val tileSize = 20f * density
-                    val darkTile = android.graphics.Color.parseColor("#0E0E0E")
-                    val lightTile = android.graphics.Color.parseColor("#181818")
+                    val tileSize = 16f * density
+                    val darkTile = android.graphics.Color.parseColor("#121418")
+                    val lightTile = android.graphics.Color.parseColor("#1A1D24")
                     val tilePaint = Paint()
                     val cols = (canvasWidth / tileSize).toInt() + 1
                     val rows = (canvasHeight / tileSize).toInt() + 1
@@ -232,11 +235,14 @@ fun CanvasView(
                     nativeCanvas.drawLine(0f, canvasHeight * 2f / 3f, canvasWidth, canvasHeight * 2f / 3f, gridPaint)
                 }
 
-                if (abs(localNormX) < 0.005f) {
-                    nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
-                }
-                if (abs(localNormY) < 0.005f) {
-                    nativeCanvas.drawLine(0f, canvasHeight / 2f, canvasWidth, canvasHeight / 2f, guidePaint)
+                // Draw center magnetic guidelines ONLY when actively dragging and snapped
+                if (isInteracting) {
+                    if (abs(localNormX) < 0.005f) {
+                        nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
+                    }
+                    if (abs(localNormY) < 0.005f) {
+                        nativeCanvas.drawLine(0f, canvasHeight / 2f, canvasWidth, canvasHeight / 2f, guidePaint)
+                    }
                 }
 
                 if (state.displayText.isEmpty()) return@drawIntoCanvas
