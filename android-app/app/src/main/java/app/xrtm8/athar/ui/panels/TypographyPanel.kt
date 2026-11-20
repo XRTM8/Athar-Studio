@@ -94,7 +94,7 @@ fun TypographyPanel(
 
         // 2. Arabic Font Families Carousel with authentic specimen previews
         Text(
-            text = "الخط العربي الأصيل:",
+            text = "الخط العربي:",
             color = MutedWhite,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium
@@ -239,7 +239,7 @@ fun TypographyPanel(
         Spacer(modifier = Modifier.height(4.dp))
 
         StudioSlider(
-            title = "تباعد الحروف (Letter Spacing)",
+            title = "تباعد الحروف",
             value = state.letterSpacing,
             onValueChange = onLetterSpacingChange,
             onValueChangeFinished = onSliderChangeFinished,
@@ -251,7 +251,7 @@ fun TypographyPanel(
         Spacer(modifier = Modifier.height(4.dp))
 
         StudioSlider(
-            title = "تباعد الأسطر (Line Spacing)",
+            title = "تباعد الأسطر",
             value = state.lineSpacingMultiplier,
             onValueChange = onLineSpacingChange,
             onValueChangeFinished = onSliderChangeFinished,

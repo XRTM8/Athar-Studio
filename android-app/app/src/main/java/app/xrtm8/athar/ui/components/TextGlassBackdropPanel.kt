@@ -68,13 +68,13 @@ fun TextGlassBackdropPanel(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "بطاقة الزجاج المعتم خلف النصوص",
+                    text = "لوح زجاجي خلف النص",
                     color = PureWhite,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "إبراز التايبوغرافي فوق الصور المعقدة بطبقة زجاجية مصنفرة فاخرة",
+                    text = "طبقة مصنفرة شبه شفافة تبرز النص فوق الصور",
                     color = SubtleGray,
                     fontSize = 10.5.sp
                 )
@@ -93,7 +93,7 @@ fun TextGlassBackdropPanel(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Presets Horizontal Carousel
-            Text(text = "خامات وتنسيقات الزجاج الفاخرة:", color = MutedWhite, fontSize = 11.5.sp)
+            Text(text = "أنماط الزجاج:", color = MutedWhite, fontSize = 11.5.sp)
             Spacer(modifier = Modifier.height(5.dp))
 
             Row(

@@ -59,7 +59,7 @@ fun PhotoAdjustmentsPanel(
     Column(modifier = modifier.fillMaxWidth()) {
         // Blur Slider
         StudioSlider(
-            title = "نسبة ضبابية الصورة (Blur)",
+            title = "الضبابية",
             value = state.backgroundBlur,
             onValueChange = onBlurChange,
             onValueChangeFinished = onSliderChangeFinished,
@@ -73,7 +73,7 @@ fun PhotoAdjustmentsPanel(
 
         // Dim Overlay Slider
         StudioSlider(
-            title = "تعتيم الصورة لبروز الخط (Dim)",
+            title = "التعتيم",
             value = state.backgroundDim,
             onValueChange = onDimChange,
             onValueChangeFinished = onSliderChangeFinished,
@@ -87,7 +87,7 @@ fun PhotoAdjustmentsPanel(
 
         // Brightness Slider
         StudioSlider(
-            title = "السطوع (Brightness)",
+            title = "السطوع",
             value = state.backgroundBrightness,
             onValueChange = onBrightnessChange,
             onValueChangeFinished = onSliderChangeFinished,
@@ -101,7 +101,7 @@ fun PhotoAdjustmentsPanel(
 
         // Contrast Slider
         StudioSlider(
-            title = "التباين (Contrast)",
+            title = "التباين",
             value = state.backgroundContrast,
             onValueChange = onContrastChange,
             onValueChangeFinished = onSliderChangeFinished,
@@ -115,7 +115,7 @@ fun PhotoAdjustmentsPanel(
 
         // Saturation Slider
         StudioSlider(
-            title = "التشبع اللوني (Saturation)",
+            title = "التشبع",
             value = state.backgroundSaturation,
             onValueChange = onSaturationChange,
             onValueChangeFinished = onSliderChangeFinished,
@@ -129,7 +129,7 @@ fun PhotoAdjustmentsPanel(
 
         // Vignette Slider
         StudioSlider(
-            title = "الظل السينمائي المحيطي (Vignette)",
+            title = "تدرج الحواف (Vignette)",
             value = state.backgroundVignette,
             onValueChange = onVignetteChange,
             onValueChangeFinished = onSliderChangeFinished,

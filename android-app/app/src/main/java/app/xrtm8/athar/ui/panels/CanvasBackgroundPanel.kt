@@ -80,7 +80,7 @@ fun CanvasBackgroundPanel(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             listOf(
-                0 to ("الكانفاس والأبعاد" to Icons.Default.AspectRatio),
+                0 to ("الكانفاس" to Icons.Default.AspectRatio),
                 1 to ("تعديل الصورة" to Icons.Default.Tune)
             ).forEach { (idx, item) ->
                 val (title, icon) = item
@@ -134,7 +134,7 @@ fun CanvasBackgroundPanel(
             when (currentSection) {
                 0 -> Column(modifier = Modifier.fillMaxWidth()) {
                     // Aspect Ratio Selector
-                    Text(text = "نسبة أبعاد الكانفاس:", color = MutedWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+                    Text(text = "أبعاد التصميم:", color = MutedWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(5.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -174,8 +174,8 @@ fun CanvasBackgroundPanel(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "خلفية شفافة (ملصق ستوري)", color = PureWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "تفريغ الخلفية لتصدير ملصق شفاف نقي بدون أي هوامش", color = SubtleGray, fontSize = 10.sp)
+                            Text(text = "خلفية شفافة", color = PureWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "تفريغ الخلفية لتصدير ملصق شفاف (PNG)", color = SubtleGray, fontSize = 10.sp)
                         }
                         Switch(
                             checked = state.isTransparentBg,
@@ -190,7 +190,7 @@ fun CanvasBackgroundPanel(
                     // Solid Luxury Presets (when not transparent and no image)
                     if (!state.isTransparentBg) {
                         Spacer(modifier = Modifier.height(10.dp))
-                        Text(text = "ألوان الكانفاس الفاخرة:", color = MutedWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+                        Text(text = "لون الخلفية:", color = MutedWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
                         Spacer(modifier = Modifier.height(5.dp))
                         Row(
                             modifier = Modifier
@@ -284,7 +284,7 @@ fun CanvasBackgroundPanel(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.GridOn, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "شبكة المحاذاة الذهبية (Rule of Thirds)", color = PureWhite, fontSize = 12.sp)
+                            Text(text = "شبكة المحاذاة (أثلاث)", color = PureWhite, fontSize = 12.sp)
                         }
                         Switch(
                             checked = state.showGridGuides,

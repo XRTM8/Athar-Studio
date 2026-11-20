@@ -57,7 +57,7 @@ fun KashidaPanel(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "المدّ والكشيدة العربية الأصيلة",
+                    text = "المد والتطويل",
                     color = PureWhite,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold
@@ -79,7 +79,7 @@ fun KashidaPanel(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "إلغاء المد (0x)",
+                    text = "إلغاء المد",
                     color = SubtleGray,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium
@@ -91,7 +91,7 @@ fun KashidaPanel(
 
         // 1. Stretch Level Slider
         StudioSlider(
-            title = "مستوى المد المتجهي (الكشيدة)",
+            title = "مستوى المد",
             value = state.stretchLevel.toFloat(),
             onValueChange = { onStretchLevelChange(it.toInt()) },
             onValueChangeFinished = onSliderChangeFinished,
@@ -110,11 +110,11 @@ fun KashidaPanel(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             listOf(
-                0 to "بدون مد",
-                2 to "خفيف 2x",
-                4 to "متوازن 4x",
-                6 to "ممدود 6x",
-                8 to "ملكي 8x"
+                0 to "بدون",
+                2 to "2x",
+                4 to "4x",
+                6 to "6x",
+                8 to "8x"
             ).forEach { (lvl, title) ->
                 val isSelected = state.stretchLevel == lvl
                 Box(
@@ -143,9 +143,9 @@ fun KashidaPanel(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 3. Kashida Distribution Mode Selector (7 Classical Styles)
+        // 3. Kashida Distribution Mode Selector
         Text(
-            text = "أسلوب توزيع المد الخطّي:",
+            text = "نمط التوزيع:",
             color = MutedWhite,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium
@@ -163,7 +163,7 @@ fun KashidaPanel(
             Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(13.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "اختر حرفاً محدداً لتمديده بشكل مستقل:",
+                text = "تمديد حرف محدد:",
                 color = MutedWhite,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium

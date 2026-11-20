@@ -55,9 +55,9 @@ fun ExportBottomSheet(
                 .padding(horizontal = 22.dp, vertical = 6.dp)
                 .navigationBarsPadding()
         ) {
-            Text(text = "تصدير وحفظ التصميم", color = PureWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(text = "تصدير التصميم", color = PureWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(3.dp))
-            Text(text = "دقة فائقة تصل إلى 4K أو حفظ كمشروع قابل للتعديل", color = SubtleGray, fontSize = 12.sp)
+            Text(text = "اختر دقة التصدير أو احفظ كمسودة قابلة للتعديل", color = SubtleGray, fontSize = 12.sp)
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -123,13 +123,13 @@ fun ExportBottomSheet(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = if (state.isTransparentBg) "تصدير الكانفاس الشفاف الكامل (PNG)" else "تصدير التصميم الكامل (${selectedResolution.label})",
+                                text = if (state.isTransparentBg) "تصدير الكانفاس الشفاف (PNG)" else "تصدير التصميم بالكامل (${selectedResolution.label})",
                                 color = AmoledBlack,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
                             Text(
-                                text = "بالأبعاد الكاملة مع ضبط الخلفية والظلال الحالي بدقة الشاشة",
+                                text = "بالأبعاد الكاملة مع ضبط الخلفية والظلال الحالي",
                                 color = AmoledBlack.copy(alpha = 0.75f),
                                 fontSize = 10.sp
                             )
@@ -148,7 +148,7 @@ fun ExportBottomSheet(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                 shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = !isExporting
             ) {
@@ -161,8 +161,8 @@ fun ExportBottomSheet(
                         Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(text = "ملصق شفاف مقصوص للستوري (Sticker PNG)", color = PureWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(text = "مفرغ بدون خلفية ومقصوص بدقة حول الخط مباشرة", color = SubtleGray, fontSize = 10.sp)
+                            Text(text = "ملصق شفاف مقصوص (Sticker PNG)", color = PureWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(text = "مفرغ بدون خلفية ومقصوص بدقة حول الخط", color = SubtleGray, fontSize = 10.sp)
                         }
                     }
                 }
@@ -178,13 +178,13 @@ fun ExportBottomSheet(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                 shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
                 modifier = Modifier.fillMaxWidth().height(46.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Save, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "حفظ في مسوداتي (مشروع محلي)", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                    Text(text = "حفظ كمسودة محلية", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 13.sp)
                 }
             }
 
@@ -198,13 +198,13 @@ fun ExportBottomSheet(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                 shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
                 modifier = Modifier.fillMaxWidth().height(46.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.FolderZip, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "مشاركة كمشروع قابل للتعديل (.athar)", color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(text = "مشاركة ملف المشروع (.athar)", color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
 

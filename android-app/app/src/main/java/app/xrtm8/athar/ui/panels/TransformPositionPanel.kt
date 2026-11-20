@@ -76,7 +76,7 @@ fun TransformPositionPanel(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "إعادة ضبط التمركز والتكبير للوسط ✦",
+                    text = "إعادة ضبط الموضع والتكبير",
                     color = PureWhite,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
@@ -125,7 +125,7 @@ fun TransformPositionPanel(
             ) {
                 listOf(
                     -90f to "-90°",
-                    0f to "0° أفقي",
+                    0f to "0°",
                     90f to "+90°",
                     180f to "180°"
                 ).forEach { (angle, label) ->
@@ -204,7 +204,7 @@ fun TransformPositionPanel(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "1.0x الأصلي",
+                    text = "1.0x",
                     color = GoldAccent,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold

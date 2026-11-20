@@ -52,7 +52,7 @@ fun TextPlacementMatrix(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "المحاذاة والتموضع الشامل (9-Point Matrix):",
+                text = "شبكة المحاذاة الفورية:",
                 color = PureWhite,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold
@@ -81,17 +81,17 @@ fun TextPlacementMatrix(
                 val rows = listOf(
                     listOf(
                         Triple(0.28f, -0.30f, "أعلى يمين" to TextAlignOption.RIGHT),
-                        Triple(0.0f, -0.30f, "أعلى وسط" to TextAlignOption.CENTER),
+                        Triple(0.0f, -0.30f, "أعلى" to TextAlignOption.CENTER),
                         Triple(-0.28f, -0.30f, "أعلى يسار" to TextAlignOption.LEFT)
                     ),
                     listOf(
-                        Triple(0.28f, 0.0f, "وسط يمين" to TextAlignOption.RIGHT),
-                        Triple(0.0f, 0.0f, "مركز ✦" to TextAlignOption.CENTER),
-                        Triple(-0.28f, 0.0f, "وسط يسار" to TextAlignOption.LEFT)
+                        Triple(0.28f, 0.0f, "يمين" to TextAlignOption.RIGHT),
+                        Triple(0.0f, 0.0f, "مركز" to TextAlignOption.CENTER),
+                        Triple(-0.28f, 0.0f, "يسار" to TextAlignOption.LEFT)
                     ),
                     listOf(
                         Triple(0.28f, 0.30f, "أسفل يمين" to TextAlignOption.RIGHT),
-                        Triple(0.0f, 0.30f, "أسفل وسط" to TextAlignOption.CENTER),
+                        Triple(0.0f, 0.30f, "أسفل" to TextAlignOption.CENTER),
                         Triple(-0.28f, 0.30f, "أسفل يسار" to TextAlignOption.LEFT)
                     )
                 )

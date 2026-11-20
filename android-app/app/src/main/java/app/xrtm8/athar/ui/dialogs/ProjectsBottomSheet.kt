@@ -73,7 +73,7 @@ fun ProjectsBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "مشاريعي ومسوداتي (.athar)",
+                    text = "المشاريع والمسودات",
                     color = PureWhite,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.5.sp
@@ -85,7 +85,7 @@ fun ProjectsBottomSheet(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                     shape = RoundedCornerShape(10.dp),
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
                     modifier = Modifier.height(34.dp)
                 ) {
                     Icon(Icons.Default.FileOpen, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))

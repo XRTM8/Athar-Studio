@@ -76,8 +76,8 @@ fun StyleEffectsPanel(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             listOf(
-                0 to ("الألوان والشيدرز" to Icons.Default.AutoAwesome),
-                1 to ("الظلال والتحديد" to Icons.Default.Layers),
+                0 to ("الألوان والخامات" to Icons.Default.AutoAwesome),
+                1 to ("الظل والتحديد" to Icons.Default.Layers),
                 2 to ("اللوح الزجاجي" to Icons.Default.FilterFrames)
             ).forEach { (idx, item) ->
                 val (title, icon) = item
@@ -131,7 +131,7 @@ fun StyleEffectsPanel(
             when (currentSubTab) {
                 0 -> Column(modifier = Modifier.fillMaxWidth()) {
                     // Shaders Carousel
-                    Text(text = "التظليلات المعدنية الفاخرة (Metallic Shaders):", color = MutedWhite, fontSize = 11.5.sp)
+                    Text(text = "الخامات المعدنية:", color = MutedWhite, fontSize = 11.5.sp)
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Row(
@@ -191,7 +191,7 @@ fun StyleEffectsPanel(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Luxury Color Swatches Palette
-                    Text(text = "لوحة الألوان الفاخرة المخصصة:", color = MutedWhite, fontSize = 11.5.sp)
+                    Text(text = "الألوان الجاهزة:", color = MutedWhite, fontSize = 11.5.sp)
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Row(
@@ -235,7 +235,7 @@ fun StyleEffectsPanel(
                 1 -> Column(modifier = Modifier.fillMaxWidth()) {
                     // Stroke Width Slider
                     StudioSlider(
-                        title = "سماكة التحديد الخارجي (Stroke)",
+                        title = "سماكة التحديد",
                         value = state.strokeWidth,
                         onValueChange = onStrokeWidthChange,
                         onValueChangeFinished = onSliderChangeFinished,
@@ -284,7 +284,7 @@ fun StyleEffectsPanel(
 
                     // Shadow Blur Radius Slider
                     StudioSlider(
-                        title = "تشتت الظل والوهج (Blur Radius)",
+                        title = "تشتت الظل",
                         value = state.shadowRadius,
                         onValueChange = onShadowRadiusChange,
                         onValueChangeFinished = onSliderChangeFinished,
@@ -298,7 +298,7 @@ fun StyleEffectsPanel(
 
                     // Directional 2D Shadow: Dy and Dx
                     StudioSlider(
-                        title = "عمق الظل الرأسي (Dy)",
+                        title = "عمق الظل (رأسي)",
                         value = state.shadowDy,
                         onValueChange = onShadowDyChange,
                         onValueChangeFinished = onSliderChangeFinished,
@@ -310,7 +310,7 @@ fun StyleEffectsPanel(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     StudioSlider(
-                        title = "انحراف الظل الأفقي (Dx)",
+                        title = "إزاحة الظل (أفقي)",
                         value = state.shadowDx,
                         onValueChange = onShadowDxChange,
                         onValueChangeFinished = onSliderChangeFinished,
@@ -321,7 +321,7 @@ fun StyleEffectsPanel(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Text(text = "لون الظل والتوهج:", color = MutedWhite, fontSize = 11.5.sp)
+                    Text(text = "لون الظل:", color = MutedWhite, fontSize = 11.5.sp)
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Row(
