@@ -19,7 +19,7 @@ object AtharFontManager {
     }
 
     fun preload(context: Context) {
-        ArabicFontFamily.values().forEach { font ->
+        ArabicFontFamily.entries.forEach { font ->
             getTypeface(context, font)
         }
     }

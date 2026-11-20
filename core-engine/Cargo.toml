@@ -15,15 +15,10 @@ jni = { version = "0.21", default-features = false }
 
 # Arabic text shaping & OpenType layout
 rustybuzz = "0.18"
-ttf-parser = "0.21"
-
-# Vector geometry and Bezier manipulation
-kurbo = "0.11"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Logging for Android Logcat
-android_logger = "0.13"
 log = "0.4"

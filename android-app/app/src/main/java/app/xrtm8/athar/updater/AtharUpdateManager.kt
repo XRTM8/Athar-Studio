@@ -166,11 +166,35 @@ class AtharUpdateManager(private val context: Context) {
         withContext(Dispatchers.IO) {
             try {
                 _downloadProgress.value = 0.05f
-                val url = URL(downloadUrl)
-                val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 15000
-                conn.readTimeout = 30000
-                conn.connect()
+                var currentUrl = downloadUrl
+                var conn: HttpURLConnection
+                var redirects = 0
+
+                while (true) {
+                    val url = URL(currentUrl)
+                    conn = url.openConnection() as HttpURLConnection
+                    conn.instanceFollowRedirects = true
+                    conn.connectTimeout = 15000
+                    conn.readTimeout = 30000
+                    conn.setRequestProperty("User-Agent", "Athar-App-Android")
+                    conn.connect()
+
+                    val code = conn.responseCode
+                    if ((code == HttpURLConnection.HTTP_MOVED_PERM ||
+                                code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                                code == HttpURLConnection.HTTP_SEE_OTHER ||
+                                code == 307 || code == 308) && redirects < 5
+                    ) {
+                        val location = conn.getHeaderField("Location")
+                        if (!location.isNullOrBlank()) {
+                            currentUrl = location
+                            redirects++
+                            conn.disconnect()
+                            continue
+                        }
+                    }
+                    break
+                }
 
                 val fileLength = conn.contentLength
                 val updatesDir = File(context.getExternalFilesDir(null), "updates")

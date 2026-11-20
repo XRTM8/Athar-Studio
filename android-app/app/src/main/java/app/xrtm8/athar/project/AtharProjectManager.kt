@@ -71,6 +71,7 @@ object AtharProjectManager {
             thumbBitmap.compress(Bitmap.CompressFormat.PNG, 90, baos)
             baos.toByteArray()
         }
+        thumbBitmap.recycle()
         FileOutputStream(thumbFile).use { it.write(thumbBytes) }
 
         // 2. Read Background Image Bytes if exists
@@ -359,6 +360,7 @@ object AtharProjectManager {
                             }
                             canvas.drawBitmap(srcBm, srcRect, Rect(0, 0, width, height), bgPaint)
                             photoDrawn = true
+                            srcBm.recycle()
                         }
                     }
                 } catch (e: Exception) {

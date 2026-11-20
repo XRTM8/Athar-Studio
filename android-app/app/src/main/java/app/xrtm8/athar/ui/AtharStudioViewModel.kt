@@ -504,6 +504,7 @@ class AtharStudioViewModel : ViewModel() {
                                 val dstRect = Rect(0, 0, width, height)
                                 canvas.drawBitmap(srcBitmap, srcRect, dstRect, bgPaint)
                                 photoDrawn = true
+                                srcBitmap.recycle()
                             }
                         }
 
@@ -761,6 +762,8 @@ class AtharStudioViewModel : ViewModel() {
                         }
                         context.startActivity(Intent.createChooser(shareIntent, "مشاركة تصميم أَثَــر"))
                     }
+
+                    finalBitmap.recycle()
 
                     Result.success(
                         if (effectiveTransparent && isStickerTrimmed) {

@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "app.xrtm8.athar"
     compileSdk = 34
+    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         applicationId = "app.xrtm8.athar"

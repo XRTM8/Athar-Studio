@@ -577,7 +577,7 @@ fun AtharStudioScreen(
                                                     .horizontalScroll(rememberScrollState()),
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                ArabicFontFamily.values().forEach { font ->
+                                                ArabicFontFamily.entries.forEach { font ->
                                                     val isSelected = canvasState.selectedFont == font
                                                     Box(
                                                         modifier = Modifier
@@ -872,7 +872,7 @@ fun AtharStudioScreen(
                                                         .padding(2.dp),
                                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
-                                                    TextAlignOption.values().forEach { align ->
+                                                    TextAlignOption.entries.forEach { align ->
                                                         val isSelected = canvasState.textAlign == align
                                                         Box(
                                                             modifier = Modifier
@@ -1026,7 +1026,7 @@ fun AtharStudioScreen(
                                                     .horizontalScroll(rememberScrollState()),
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                VisualEffect.values().forEach { effect ->
+                                                VisualEffect.entries.forEach { effect ->
                                                     val isSelected = canvasState.selectedEffect == effect && canvasState.customTextColorLong == null
                                                     Box(
                                                         modifier = Modifier
@@ -1376,7 +1376,7 @@ fun AtharStudioScreen(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                CanvasAspectRatio.values().forEach { ratio ->
+                                                CanvasAspectRatio.entries.forEach { ratio ->
                                                     val isSelected = canvasState.aspectRatio == ratio
                                                     Box(
                                                         modifier = Modifier
@@ -1693,7 +1693,7 @@ fun AtharStudioScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        ExportResolution.values().forEach { res ->
+                        ExportResolution.entries.forEach { res ->
                             val isSelected = selectedResolution == res
                             Box(
                                 modifier = Modifier

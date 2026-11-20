@@ -74,18 +74,33 @@ impl KashidaEngine {
     }
 
     #[inline(always)]
-    pub fn get_calligraphic_priority(c: char) -> u8 {
-        match c {
-            'س' | 'ش' => 10,
-            'ص' | 'ض' => 9,
-            'ع' | 'غ' => 8,
-            'ف' | 'ق' => 8,
-            'ط' | 'ظ' => 7,
-            'ب' | 'ت' | 'ث' | 'ن' | 'ي' => 6,
-            'ك' | 'ل' => 5,
-            'م' | 'ه' => 4,
-            _ => 1,
+    pub fn get_calligraphic_priority(c: char, next_c: char, is_pre_final: bool) -> u8 {
+        if c == 'ل' && matches!(next_c, 'ا' | 'أ' | 'إ' | 'آ' | 'ٱ') {
+            return 0;
         }
+        if c == 'م' && matches!(next_c, 'ج' | 'ح' | 'خ') {
+            return 1;
+        }
+
+        let mut score = match c {
+            'س' | 'ش' => 15,
+            'ص' | 'ض' => 14,
+            'ط' | 'ظ' => 13,
+            'ج' | 'ح' | 'خ' => 12,
+            'ف' | 'ق' => 11,
+            'ع' | 'غ' => 10,
+            'ب' | 'ت' | 'ث' | 'ن' | 'ي' | 'ئ' => 9,
+            'ك' | 'ل' => 7,
+            'م' => 5,
+            'ه' => 3,
+            _ => 4,
+        };
+
+        if is_pre_final {
+            score += 10;
+        }
+
+        score
     }
 
     /// Finds valid Kashida candidate positions, properly skipping over all Tashkeel/diacritics
@@ -123,14 +138,17 @@ impl KashidaEngine {
 
                     // A kashida occurs if current connects forward AND next connects backward
                     if next_type == ArabicJoiningType::DualJoining || next_type == ArabicJoiningType::RightJoining {
-                        let priority = Self::get_calligraphic_priority(current_char);
-                        candidates.push(KashidaCandidate {
-                            char_index: curr_byte_idx,
-                            insert_after_index: insert_after_byte_idx,
-                            unicode_char: current_char,
-                            priority,
-                            recommended_length_ratio: 1.0,
-                        });
+                        let is_pre_final = next_char_idx + next_char.len_utf8() >= text.len();
+                        let priority = Self::get_calligraphic_priority(current_char, next_char, is_pre_final);
+                        if priority > 0 {
+                            candidates.push(KashidaCandidate {
+                                char_index: curr_byte_idx,
+                                insert_after_index: insert_after_byte_idx,
+                                unicode_char: current_char,
+                                priority,
+                                recommended_length_ratio: 1.0,
+                            });
+                        }
                     }
                 }
             }
@@ -138,7 +156,7 @@ impl KashidaEngine {
             i += 1;
         }
 
-        candidates.sort_unstable_by(|a, b| b.priority.cmp(&a.priority));
+        candidates.sort_unstable_by_key(|a| std::cmp::Reverse(a.priority));
         candidates
     }
 
