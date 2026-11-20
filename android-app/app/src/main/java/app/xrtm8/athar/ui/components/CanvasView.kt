@@ -39,6 +39,7 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
@@ -56,6 +57,7 @@ fun CanvasView(
     onDoubleTap: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current.density
 
     var localNormX by remember { mutableFloatStateOf(state.normOffsetX) }
     var localNormY by remember { mutableFloatStateOf(state.normOffsetY) }
@@ -109,6 +111,9 @@ fun CanvasView(
     val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE } }
     val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#99FFD700"); strokeWidth = 2.0f } }
+    val selectBoxPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = android.graphics.Color.parseColor("#77FFD700"); strokeWidth = 1.2f * density } }
+    val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = android.graphics.Color.parseColor("#FFFFD700"); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
+    val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = android.graphics.Color.parseColor("#FFFFD700") } }
     val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
     val grayMatrix = remember { ColorMatrix().apply { setSaturation(0f) } }
 
@@ -434,6 +439,44 @@ fun CanvasView(
                             }
                         }
                     }
+                }
+
+                // 4. Draw Studio Bounding Box & Precision Corner Handles during interaction
+                if (isInteracting) {
+                    val pad = 12f * density
+                    val bLeft = when (state.textAlign) {
+                        TextAlignOption.RIGHT -> -maxLineWidth - pad
+                        TextAlignOption.CENTER -> -halfBlockW - pad
+                        TextAlignOption.LEFT -> -pad
+                    }
+                    val bRight = when (state.textAlign) {
+                        TextAlignOption.RIGHT -> pad
+                        TextAlignOption.CENTER -> halfBlockW + pad
+                        TextAlignOption.LEFT -> maxLineWidth + pad
+                    }
+                    val bTop = startY - textSizePx * 0.75f - pad
+                    val bBottom = startY + totalHeight + textSizePx * 0.25f + pad
+
+                    // Bounding Box
+                    nativeCanvas.drawRect(bLeft, bTop, bRight, bBottom, selectBoxPaint)
+
+                    // Corner L-Handles
+                    val cornerLen = 14f * density
+                    nativeCanvas.drawLine(bLeft, bTop, bLeft + cornerLen, bTop, handlePaint)
+                    nativeCanvas.drawLine(bLeft, bTop, bLeft, bTop + cornerLen, handlePaint)
+                    nativeCanvas.drawLine(bRight, bTop, bRight - cornerLen, bTop, handlePaint)
+                    nativeCanvas.drawLine(bRight, bTop, bRight, bTop + cornerLen, handlePaint)
+                    nativeCanvas.drawLine(bLeft, bBottom, bLeft + cornerLen, bBottom, handlePaint)
+                    nativeCanvas.drawLine(bLeft, bBottom, bLeft, bBottom - cornerLen, handlePaint)
+                    nativeCanvas.drawLine(bRight, bBottom, bRight - cornerLen, bBottom, handlePaint)
+                    nativeCanvas.drawLine(bRight, bBottom, bRight, bBottom - cornerLen, handlePaint)
+
+                    // Midpoint anchor dots
+                    val dotR = 2.5f * density
+                    nativeCanvas.drawCircle((bLeft + bRight) / 2f, bTop, dotR, handleFillPaint)
+                    nativeCanvas.drawCircle((bLeft + bRight) / 2f, bBottom, dotR, handleFillPaint)
+                    nativeCanvas.drawCircle(bLeft, (bTop + bBottom) / 2f, dotR, handleFillPaint)
+                    nativeCanvas.drawCircle(bRight, (bTop + bBottom) / 2f, dotR, handleFillPaint)
                 }
 
                 nativeCanvas.restore()

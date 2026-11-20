@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,6 +28,7 @@ import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.ui.components.StudioSlider
 import app.xrtm8.athar.ui.theme.*
 import java.util.Locale
+import kotlin.math.abs
 
 @Composable
 fun TypographyPanel(
@@ -40,12 +43,14 @@ fun TypographyPanel(
     onLetterSpacingChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onTextAlignChange: (TextAlignOption) -> Unit,
+    onSnapPosition: (normX: Float, normY: Float, align: TextAlignOption?) -> Unit,
+    onNudgeOffset: (deltaX: Float, deltaY: Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Quick Text Editor Trigger Bar
+        // 1. Quick Text Editor Hero Trigger Bar
         Button(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -88,7 +93,199 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Arabic Font Families Carousel
+        // 2. Unified 9-Point Spatial Positioning Matrix + Micro-Nudge D-Pad
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(GlassSurface)
+                .border(0.5.dp, GlassBorder, RoundedCornerShape(14.dp))
+                .padding(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "المحاذاة والتموضع الشامل (9-Point Matrix):",
+                    color = PureWhite,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "X: ${(state.normOffsetX * 100).toInt()}%  Y: ${(state.normOffsetY * 100).toInt()}%",
+                    color = GoldAccent,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left: 9-Point Matrix Grid (3x3)
+                Column(
+                    modifier = Modifier.weight(1.35f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val rows = listOf(
+                        listOf(
+                            Triple(0.28f, -0.30f, "أعلى يمين" to TextAlignOption.RIGHT),
+                            Triple(0.0f, -0.30f, "أعلى وسط" to TextAlignOption.CENTER),
+                            Triple(-0.28f, -0.30f, "أعلى يسار" to TextAlignOption.LEFT)
+                        ),
+                        listOf(
+                            Triple(0.28f, 0.0f, "وسط يمين" to TextAlignOption.RIGHT),
+                            Triple(0.0f, 0.0f, "مركز ✦" to TextAlignOption.CENTER),
+                            Triple(-0.28f, 0.0f, "وسط يسار" to TextAlignOption.LEFT)
+                        ),
+                        listOf(
+                            Triple(0.28f, 0.30f, "أسفل يمين" to TextAlignOption.RIGHT),
+                            Triple(0.0f, 0.30f, "أسفل وسط" to TextAlignOption.CENTER),
+                            Triple(-0.28f, 0.30f, "أسفل يسار" to TextAlignOption.LEFT)
+                        )
+                    )
+
+                    rows.forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            row.forEach { (x, y, meta) ->
+                                val (label, align) = meta
+                                val isSnapped = abs(state.normOffsetX - x) < 0.05f &&
+                                        abs(state.normOffsetY - y) < 0.05f
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(28.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSnapped) GoldAccent else GlassBackground)
+                                        .border(0.5.dp, if (isSnapped) GoldAccent else GlassBorder, RoundedCornerShape(6.dp))
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onSnapPosition(x, y, align)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSnapped) AmoledBlack else PureWhite,
+                                        fontSize = 9.sp,
+                                        fontWeight = if (isSnapped) FontWeight.Bold else FontWeight.Normal,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // Right: 4-Way Micro-Nudge D-Pad
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(0.85f)
+                ) {
+                    // Nudge Up
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(GlassBackground)
+                            .border(0.5.dp, GlassBorder, RoundedCornerShape(6.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onNudgeOffset(0f, -0.015f)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "أعلى", tint = PureWhite, modifier = Modifier.size(18.dp))
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        // Right Nudge (Nudge X+)
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(GlassBackground)
+                                .border(0.5.dp, GlassBorder, RoundedCornerShape(6.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onNudgeOffset(0.015f, 0f)
+                            },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "يمين", tint = PureWhite, modifier = Modifier.size(18.dp))
+                        }
+
+                        // Center Reset
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(GlassBackground)
+                                .border(0.5.dp, GoldAccent.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSnapPosition(0f, 0f, TextAlignOption.CENTER)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("✦", color = GoldAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Left Nudge (Nudge X-)
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(GlassBackground)
+                                .border(0.5.dp, GlassBorder, RoundedCornerShape(6.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onNudgeOffset(-0.015f, 0f)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "يسار", tint = PureWhite, modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    // Nudge Down
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(GlassBackground)
+                            .border(0.5.dp, GlassBorder, RoundedCornerShape(6.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onNudgeOffset(0f, 0.015f)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "أسفل", tint = PureWhite, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 3. Arabic Font Families Carousel
         Text(text = "اختر الخط العربي الأصيل:", color = MutedWhite, fontSize = 11.5.sp)
         Spacer(modifier = Modifier.height(6.dp))
 
@@ -138,7 +335,7 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Font Size Slider
+        // 4. Font Size Slider
         StudioSlider(
             title = "حجم الخط",
             value = state.fontSize,
@@ -151,7 +348,7 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Styling Chips: Bold, Italic, Underline + Alignment
+        // 5. Styling Chips: Bold, Italic, Underline + Paragraph Flow (Right/Center/Left)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -217,7 +414,7 @@ fun TypographyPanel(
                 }
             }
 
-            // Text Alignment Options (Right, Center, Left)
+            // Text Flow / RTL Alignment Options
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
@@ -250,7 +447,7 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Text Opacity Slider
+        // 6. Text Opacity Slider
         StudioSlider(
             title = "شفافية النص",
             value = state.textOpacity,
@@ -263,7 +460,7 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Letter Spacing Slider
+        // 7. Letter Spacing Slider
         StudioSlider(
             title = "تباعد الحروف (Letter Spacing)",
             value = state.letterSpacing,
@@ -275,7 +472,7 @@ fun TypographyPanel(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Line Spacing Slider
+        // 8. Line Spacing Slider
         StudioSlider(
             title = "تباعد الأسطر (Line Spacing)",
             value = state.lineSpacingMultiplier,

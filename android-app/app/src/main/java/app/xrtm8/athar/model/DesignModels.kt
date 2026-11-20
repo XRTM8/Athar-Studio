@@ -41,10 +41,14 @@ enum class TextAlignOption(val label: String) {
     LEFT("يسار")
 }
 
-enum class KashidaMode(val label: String) {
-    SMART("خطي ذكي"),
-    ALL("شامل (الكل)"),
-    CUSTOM("موضع محدد")
+enum class KashidaMode(val label: String, val description: String = "") {
+    SMART("خطي ذكي", "توازن خطي موزون حسب قواعد الخط العربي"),
+    PRE_FINAL("عجز الكلمة (قبل الأخير)", "مد الوصلة السابقة للحرف الأخير لإيقاع خطي كلاسيكي متزن"),
+    INITIAL("صدر الكلمة (البداية)", "مد ما بعد الحرف الأول لعناوين كوفية وحديثة جريئة"),
+    MEDIAL("وسط الكلمة (القلب)", "مد الحروف المتصلة الداخلية في منتصف الكلمة"),
+    TEETH("الأسنان والأطباق (س، ص)", "مد مسار الحروف المسننة والأطباق الأفقية"),
+    ALL("شامل (الكل)", "مد متساوٍ لكافة مواضع الوصل القابلة للمد"),
+    CUSTOM("موضع مخصص", "اختيار يدوي دقيق للحرف المطلوب مده")
 }
 
 enum class ExportResolution(val label: String, val width: Int, val description: String) {

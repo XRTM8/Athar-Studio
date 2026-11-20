@@ -278,6 +278,21 @@ class AtharStudioViewModel : ViewModel() {
         pushHistory(_canvasState.value.copy(normOffsetX = 0f, normOffsetY = 0.28f, rotationAngle = 0f))
     }
 
+    fun snapToPosition(normX: Float, normY: Float, textAlign: TextAlignOption? = null) {
+        val updated = _canvasState.value.copy(
+            normOffsetX = normX,
+            normOffsetY = normY,
+            textAlign = textAlign ?: _canvasState.value.textAlign
+        )
+        pushHistory(updated)
+    }
+
+    fun nudgeOffset(deltaNormX: Float, deltaNormY: Float) {
+        val newX = (_canvasState.value.normOffsetX + deltaNormX).coerceIn(-0.45f, 0.45f)
+        val newY = (_canvasState.value.normOffsetY + deltaNormY).coerceIn(-0.45f, 0.45f)
+        pushHistory(_canvasState.value.copy(normOffsetX = newX, normOffsetY = newY))
+    }
+
     fun resetCanvasTransform() {
         pushHistory(
             _canvasState.value.copy(

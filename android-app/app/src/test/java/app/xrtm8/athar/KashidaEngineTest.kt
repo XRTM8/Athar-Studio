@@ -117,6 +117,28 @@ class KashidaEngineTest {
     }
 
     @Test
+    fun testPreFinalModeElongation() {
+        val text = "مَجْد"
+        val stretched = PureArabicKashidaEngine.stretchText(text, 3, KashidaMode.PRE_FINAL)
+        assertEquals("مَجْـــد", stretched)
+    }
+
+    @Test
+    fun testInitialModeElongation() {
+        val text = "مَجْد"
+        val stretched = PureArabicKashidaEngine.stretchText(text, 3, KashidaMode.INITIAL)
+        assertEquals("مَـــجْد", stretched)
+    }
+
+    @Test
+    fun testTeethModeElongation() {
+        val text = "مَسْجِد"
+        val stretched = PureArabicKashidaEngine.stretchText(text, 3, KashidaMode.TEETH)
+        // Seen has teeth, must be elongated
+        assertTrue(stretched.contains("سْـــ"))
+    }
+
+    @Test
     fun testEmptyAndSingleCharSafe() {
         assertEquals("", PureArabicKashidaEngine.stretchText("", 3))
         assertEquals("أ", PureArabicKashidaEngine.stretchText("أ", 3))

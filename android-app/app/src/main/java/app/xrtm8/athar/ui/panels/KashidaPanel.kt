@@ -89,45 +89,64 @@ fun KashidaPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Kashida Distribution Mode (خطي ذكي / شامل متوازن / موضع محدد)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(text = "نمط وتوزيع المد:", color = MutedWhite, fontSize = 11.5.sp)
+        // Kashida Distribution Mode (7 Classical Calligraphic Varieties)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "نمط وتوزيع الكشيدة الخطية:", color = MutedWhite, fontSize = 11.5.sp)
+                Text(
+                    text = state.kashidaMode.label,
+                    color = GoldAccent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
 
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(GlassSurface)
-                    .padding(2.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf(
-                    KashidaMode.SMART to "خطي ذكي",
-                    KashidaMode.ALL to "شامل (الكل)",
-                    KashidaMode.CUSTOM to "موضع محدد"
-                ).forEach { (mode, label) ->
+                KashidaMode.entries.forEach { mode ->
                     val isSelected = state.kashidaMode == mode
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) GoldAccent else Color.Transparent)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) GoldAccent else GlassSurface)
+                            .border(
+                                width = if (isSelected) 1.dp else 0.5.dp,
+                                color = if (isSelected) GoldAccent else GlassBorder,
+                                shape = RoundedCornerShape(8.dp)
+                            )
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onKashidaModeChange(mode)
                             }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
                         Text(
-                            text = label,
+                            text = mode.label,
                             color = if (isSelected) AmoledBlack else PureWhite,
-                            fontSize = 10.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
                 }
+            }
+
+            if (state.kashidaMode.description.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = state.kashidaMode.description,
+                    color = SubtleGray,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp
+                )
             }
         }
 

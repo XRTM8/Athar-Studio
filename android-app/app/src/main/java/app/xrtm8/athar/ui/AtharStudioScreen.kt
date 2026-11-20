@@ -251,7 +251,9 @@ fun AtharStudioScreen(
                                         onOpacityChange = { viewModel.setTextOpacity(it) },
                                         onLetterSpacingChange = { viewModel.setLetterSpacing(it) },
                                         onLineSpacingChange = { viewModel.setLineSpacing(it) },
-                                        onTextAlignChange = { viewModel.setTextAlign(it) }
+                                        onTextAlignChange = { viewModel.setTextAlign(it) },
+                                        onSnapPosition = { x, y, a -> viewModel.snapToPosition(x, y, a) },
+                                        onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) }
                                     )
 
                                     1 -> KashidaPanel(

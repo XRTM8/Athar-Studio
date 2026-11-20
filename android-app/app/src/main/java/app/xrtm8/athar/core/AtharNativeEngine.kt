@@ -290,6 +290,35 @@ object PureArabicKashidaEngine {
                             selectedTokenIndices.add(bestTokenIdx)
                         }
                     }
+                    KashidaMode.PRE_FINAL -> {
+                        val preFinalCand = wordCands.find { it.first == tokens.size - 2 }?.first ?: wordCands.last().first
+                        selectedTokenIndices.add(preFinalCand)
+                    }
+                    KashidaMode.INITIAL -> {
+                        val initialCand = wordCands.find { it.first == 0 }?.first ?: wordCands.first().first
+                        selectedTokenIndices.add(initialCand)
+                    }
+                    KashidaMode.MEDIAL -> {
+                        val medialCands = wordCands.filter { it.first > 0 && it.first < tokens.size - 2 }
+                        if (medialCands.isNotEmpty()) {
+                            val bestMedial = medialCands.maxByOrNull { it.second }?.first
+                            if (bestMedial != null) selectedTokenIndices.add(bestMedial)
+                        } else {
+                            selectedTokenIndices.add(wordCands[wordCands.size / 2].first)
+                        }
+                    }
+                    KashidaMode.TEETH -> {
+                        val teethChars = setOf('س', 'ش', 'ص', 'ض', 'ب', 'ت', 'ث', 'ن', 'ي', 'ئ')
+                        val teethCands = wordCands.filter { tokens[it.first].char in teethChars }
+                        if (teethCands.isNotEmpty()) {
+                            for (c in teethCands) {
+                                selectedTokenIndices.add(c.first)
+                            }
+                        } else {
+                            val best = wordCands.maxByOrNull { it.second }?.first
+                            if (best != null) selectedTokenIndices.add(best)
+                        }
+                    }
                     KashidaMode.ALL -> {
                         for (cand in wordCands) {
                             selectedTokenIndices.add(cand.first)
