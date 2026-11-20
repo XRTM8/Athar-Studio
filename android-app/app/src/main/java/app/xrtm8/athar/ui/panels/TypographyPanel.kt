@@ -52,6 +52,7 @@ fun TypographyPanel(
     onTextAlignChange: (TextAlignOption) -> Unit,
     onToggleCurvedText: (Boolean) -> Unit = {},
     onCurveAngleChange: (Float) -> Unit = {},
+    onAutoBalanceBlock: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -297,6 +298,41 @@ fun TypographyPanel(
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                }
+            }
+        }
+
+        if (onAutoBalanceBlock != null && state.displayText.contains("\n")) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(GlassCard)
+                    .border(0.5.dp, GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onAutoBalanceBlock()
+                    }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FormatAlignJustify,
+                        contentDescription = "ميزان الفقرة الذكي",
+                        tint = GoldAccent,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = "ميزان الفقرة الذكي (محاذاة هندسية متوازية بالمد)",
+                        color = GoldAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

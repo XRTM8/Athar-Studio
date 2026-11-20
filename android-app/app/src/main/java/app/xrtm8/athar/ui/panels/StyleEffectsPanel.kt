@@ -60,6 +60,8 @@ fun StyleEffectsPanel(
     onGlassPaddingChange: (Float) -> Unit,
     onBlendModeChange: (LayerBlendMode) -> Unit = {},
     onHarmonizeWithBackground: (() -> Unit)? = null,
+    onAutoLegibility: (() -> Unit)? = null,
+    extractedPalette: app.xrtm8.athar.core.SmartColorHarmonizer.ExtractedPalette? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -237,23 +239,86 @@ fun StyleEffectsPanel(
                     HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 1-Tap Auto Harmonize with background if photo exists
-                    if (onHarmonizeWithBackground != null && state.backgroundImageUri != null) {
-                        Button(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onHarmonizeWithBackground()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = GlassCard),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(38.dp)
-                        ) {
-                            Icon(Icons.Default.Palette, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("استخراج ألوان الصورة وتنسيق النص والظل تلقائياً (1-Tap Harmonize)", color = PureWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    // Smart Designer-Assist Intelligence Buttons
+                    if (state.backgroundImageUri != null) {
+                        if (onAutoLegibility != null) {
+                            Button(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onAutoLegibility()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GlassCard),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF64B5F6).copy(alpha = 0.6f)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(38.dp)
+                            ) {
+                                Icon(Icons.Default.Visibility, contentDescription = null, tint = Color(0xFF64B5F6), modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("الوضوح والتباين الذكي المباشر (Auto-Contrast)", color = PureWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (onHarmonizeWithBackground != null) {
+                            Button(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onHarmonizeWithBackground()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GlassCard),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(38.dp)
+                            ) {
+                                Icon(Icons.Default.Palette, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("استخراج ألوان الصورة وتنسيق التصميم بالكامل (Auto-Harmonize)", color = PureWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
+                        if (extractedPalette != null) {
+                            Text(text = "لوحة ألوان صورتك المستخرجة (تناغم ذكي):", color = MutedWhite, fontSize = 11.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                listOf(
+                                    "إضاءة" to extractedPalette.highlightLong,
+                                    "تباين" to extractedPalette.accentLong,
+                                    "مهيمن" to extractedPalette.dominantLong,
+                                    "زجاج" to extractedPalette.glassLong,
+                                    "ظل" to extractedPalette.shadowLong
+                                ).forEach { (label, cLong) ->
+                                    val isSelected = state.activeLayer.customTextColorLong == cLong
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onSelectCustomColor(cLong)
+                                        }
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(cLong))
+                                                .border(
+                                                    width = if (isSelected) 2.dp else 0.5.dp,
+                                                    color = if (isSelected) GoldAccent else GlassBorder,
+                                                    shape = CircleShape
+                                                )
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(label, color = SubtleGray, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
                     }
 
                     // Blend Mode Selector

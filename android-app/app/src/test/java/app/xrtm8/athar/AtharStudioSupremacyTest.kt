@@ -150,4 +150,13 @@ class AtharStudioSupremacyTest {
     fun testSubjectDepthEngineCache() {
         app.xrtm8.athar.core.SubjectDepthEngine.clearCache()
     }
+
+    @Test
+    fun testSmartTypographyBalancingEngine() {
+        val input = "أَثَرٌ جَمِيلٌ يَبْقَى\nفِي قُلُوبِ النَّاسِ"
+        val balanced = app.xrtm8.athar.core.SmartTypographyBalancingEngine.balanceArabicBlock(input)
+        val lines = balanced.split("\n")
+        assertEquals(2, lines.size)
+        assertTrue("Balanced text should be non-empty", balanced.isNotEmpty())
+    }
 }

@@ -34,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,6 +78,7 @@ fun StudioConsoleDrawer(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val extractedPalette by viewModel.extractedPalette.collectAsState()
 
     AnimatedVisibility(
         visible = isPanelExpanded,
@@ -169,6 +172,7 @@ fun StudioConsoleDrawer(
                             onTextAlignChange = { viewModel.setTextAlign(it) },
                             onToggleCurvedText = { viewModel.toggleCurvedText(it) },
                             onCurveAngleChange = { viewModel.setCurveAngle(it) },
+                            onAutoBalanceBlock = { viewModel.autoBalanceTypographicBlock() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
@@ -206,6 +210,8 @@ fun StudioConsoleDrawer(
                             onGlassPaddingChange = { viewModel.setGlassBackdropPadding(it) },
                             onBlendModeChange = { viewModel.setBlendMode(it) },
                             onHarmonizeWithBackground = { viewModel.harmonizeWithBackgroundImage(context) },
+                            onAutoLegibility = { viewModel.autoAdjustContrastAndLegibility(context) },
+                            extractedPalette = extractedPalette,
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
@@ -270,6 +276,7 @@ fun StudioConsoleDrawer(
                             onRotationChange = { viewModel.setRotationAngle(it) },
                             onScaleChange = { viewModel.setScale(it) },
                             onResetTransform = { viewModel.resetCanvasTransform() },
+                            onAutoSmartPlacement = { viewModel.autoPlaceInNegativeSpace(context) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
                     }

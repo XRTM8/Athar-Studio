@@ -14,7 +14,10 @@ import app.xrtm8.athar.core.AtharNativeEngine
 import app.xrtm8.athar.core.AtharPresetQRCodeManager
 import app.xrtm8.athar.core.FreeTashkeelEngine
 import app.xrtm8.athar.core.IslamicManuscriptEngine
+import app.xrtm8.athar.core.OpticalLegibilityEngine
 import app.xrtm8.athar.core.SmartColorHarmonizer
+import app.xrtm8.athar.core.SmartFocalPlacementEngine
+import app.xrtm8.athar.core.SmartTypographyBalancingEngine
 import app.xrtm8.athar.export.AtharExportManager
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
@@ -41,6 +44,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.ArrayDeque
 import java.util.UUID
 
@@ -67,6 +71,9 @@ class AtharStudioViewModel : ViewModel() {
 
     private val _projectsList = MutableStateFlow<List<AtharProjectMeta>>(emptyList())
     val projectsList: StateFlow<List<AtharProjectMeta>> = _projectsList.asStateFlow()
+
+    private val _extractedPalette = MutableStateFlow<SmartColorHarmonizer.ExtractedPalette?>(null)
+    val extractedPalette: StateFlow<SmartColorHarmonizer.ExtractedPalette?> = _extractedPalette.asStateFlow()
 
     private var kashidaDebounceJob: Job? = null
     private var sliderDragInitialState: CanvasState? = null
@@ -669,6 +676,7 @@ class AtharStudioViewModel : ViewModel() {
                 bmp.recycle()
 
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _extractedPalette.value = palette
                     pushActiveLayerHistory { active ->
                         SmartColorHarmonizer.harmonizeActiveLayer(active, palette)
                     }
@@ -677,6 +685,84 @@ class AtharStudioViewModel : ViewModel() {
                 // Ignore gracefully
             }
         }
+    }
+
+    fun loadExtractedPalette(context: Context) {
+        val uri = _canvasState.value.backgroundImageUri ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
+                val bmp = context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, opts)
+                } ?: return@launch
+                val palette = SmartColorHarmonizer.extractPalette(bmp)
+                bmp.recycle()
+                withContext(Dispatchers.Main) {
+                    _extractedPalette.value = palette
+                }
+            } catch (e: Exception) {
+                // Ignore gracefully
+            }
+        }
+    }
+
+    fun autoPlaceInNegativeSpace(context: Context) {
+        val uri = _canvasState.value.backgroundImageUri ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
+                val bmp = context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, opts)
+                } ?: return@launch
+
+                val result = SmartFocalPlacementEngine.findOptimalPlacement(bmp)
+                bmp.recycle()
+
+                withContext(Dispatchers.Main) {
+                    pushActiveLayerHistory { active ->
+                        active.copy(
+                            normOffsetX = result.normX,
+                            normOffsetY = result.normY,
+                            textAlign = result.recommendedAlign
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                // Safe fallback
+            }
+        }
+    }
+
+    fun autoAdjustContrastAndLegibility(context: Context) {
+        val uri = _canvasState.value.backgroundImageUri ?: return
+        val active = _canvasState.value.activeLayer
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
+                val bmp = context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, opts)
+                } ?: return@launch
+
+                val rec = OpticalLegibilityEngine.analyzeLegibility(bmp, active)
+                bmp.recycle()
+
+                withContext(Dispatchers.Main) {
+                    pushActiveLayerHistory { currentActive ->
+                        OpticalLegibilityEngine.applyLegibility(currentActive, rec)
+                    }
+                }
+            } catch (e: Exception) {
+                // Safe fallback
+            }
+        }
+    }
+
+    fun autoBalanceTypographicBlock() {
+        val active = _canvasState.value.activeLayer
+        if (!active.displayText.contains("\n")) return
+
+        val balanced = SmartTypographyBalancingEngine.balanceArabicBlock(active.displayText)
+        pushActiveLayerHistory { it.copy(displayText = balanced) }
     }
 
     // ==========================================

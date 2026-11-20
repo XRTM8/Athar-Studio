@@ -87,6 +87,7 @@ fun AtharStudioScreen(
     ) { uri ->
         if (uri != null) {
             viewModel.setBackgroundImageUri(uri)
+            viewModel.loadExtractedPalette(context)
             Toast.makeText(context, "تم تعيين صورة الخلفية بنجاح", Toast.LENGTH_SHORT).show()
         }
     }

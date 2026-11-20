@@ -94,6 +94,16 @@ object SmartColorHarmonizer {
         )
     }
 
+    fun getSwatches(palette: ExtractedPalette): List<Long> {
+        return listOf(
+            palette.highlightLong,
+            palette.accentLong,
+            palette.dominantLong,
+            palette.glassLong,
+            palette.shadowLong
+        )
+    }
+
     fun harmonizeActiveLayer(layer: TextLayer, palette: ExtractedPalette): TextLayer {
         return layer.copy(
             customTextColorLong = palette.highlightLong,
