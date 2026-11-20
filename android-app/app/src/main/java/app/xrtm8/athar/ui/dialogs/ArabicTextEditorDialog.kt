@@ -4,19 +4,43 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FormatClear
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
@@ -24,7 +48,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.xrtm8.athar.ui.theme.*
+import app.xrtm8.athar.ui.theme.AmoledBlack
+import app.xrtm8.athar.ui.theme.GlassBorder
+import app.xrtm8.athar.ui.theme.GlassBorderActive
+import app.xrtm8.athar.ui.theme.GlassSurface
+import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.MutedWhite
+import app.xrtm8.athar.ui.theme.PureWhite
+import app.xrtm8.athar.ui.theme.SubtleGray
 
 /**
  * Strips Arabic diacritics (Harakat / Tashkeel) from string while keeping Tatweel and base letters intact.
@@ -148,16 +179,17 @@ fun ArabicTextEditorDialog(
             )
             Spacer(modifier = Modifier.height(6.dp))
 
+            // Robust marks with base consonant so they never render as tofu or broken square boxes on any device
             val marks = listOf(
-                "ـَ" to "َ",   // Fatha
-                "ـُ" to "ُ",   // Damma
-                "ـِ" to "ِ",   // Kasra
-                "ـّ" to "ّ",   // Shadda
-                "ـْ" to "ْ",   // Sukun
-                "ـً" to "ً",   // Tanween Fath
-                "ـٌ" to "ٌ",   // Tanween Damm
-                "ـٍ" to "ٍ",   // Tanween Kasr
-                "ـ" to "ـ",    // Tatweel / Kashida
+                "بَ" to "َ",   // الفتحة
+                "بُ" to "ُ",   // الضمة
+                "بِ" to "ِ",   // الكسرة
+                "بّ" to "ّ",   // الشدة
+                "بْ" to "ْ",   // السكون
+                "بً" to "ً",   // تنوين الفتح
+                "بٌ" to "ٌ",   // تنوين الضم
+                "بٍ" to "ٍ",   // تنوين الكسر
+                "ـ" to "ـ",    // تطويل / كشيدة
                 "ﷺ" to "ﷺ",
                 "ﷻ" to "ﷻ",
                 "﷽" to "﷽",
@@ -174,14 +206,16 @@ fun ArabicTextEditorDialog(
                 marks.forEach { (displayGlyph, insertChar) ->
                     Box(
                         modifier = Modifier
-                            .size(width = 44.dp, height = 38.dp)
+                            .height(38.dp)
+                            .widthIn(min = 44.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(GlassSurface)
                             .border(0.5.dp, GlassBorderActive, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 draftText += insertChar
-                            },
+                            }
+                            .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(

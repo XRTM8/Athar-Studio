@@ -3,21 +3,13 @@ package app.xrtm8.athar.ui.components
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BlurMaskFilter
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
-import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.Shader
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateCentroidSize
-import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateRotation
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,13 +23,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -110,10 +98,10 @@ fun CanvasView(
     val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE } }
-    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#99FFD700"); strokeWidth = 2.0f } }
-    val selectBoxPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = android.graphics.Color.parseColor("#77FFD700"); strokeWidth = 1.2f * density } }
-    val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = android.graphics.Color.parseColor("#FFFFD700"); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
-    val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = android.graphics.Color.parseColor("#FFFFD700") } }
+    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = Color.parseColor("#99FFD700"); strokeWidth = 2.0f } }
+    val selectBoxPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = Color.parseColor("#77FFD700"); strokeWidth = 1.2f * density } }
+    val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = Color.parseColor("#FFFFD700"); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
+    val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = Color.parseColor("#FFFFD700") } }
     val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
     val grayMatrix = remember { ColorMatrix().apply { setSaturation(0f) } }
 
@@ -136,7 +124,7 @@ fun CanvasView(
     ) {
         Canvas(
             modifier = canvasModifier
-                .background(if (state.isTransparentBg) Color.Transparent else AmoledBlack)
+                .background(if (state.isTransparentBg) androidx.compose.ui.graphics.Color.Transparent else AmoledBlack)
                 .pointerInput(state.isLocked) {
                     detectCanvasGestures(
                         isLocked = state.isLocked,
@@ -172,66 +160,23 @@ fun CanvasView(
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
 
-                // 1. Draw Background: Transparency Checkerboard or Image or Solid Color
-                if (state.isTransparentBg) {
-                    val tileSize = 16f * density
-                    val darkTile = android.graphics.Color.parseColor("#121418")
-                    val lightTile = android.graphics.Color.parseColor("#1A1D24")
-                    val tilePaint = Paint()
-                    val cols = (canvasWidth / tileSize).toInt() + 1
-                    val rows = (canvasHeight / tileSize).toInt() + 1
-                    for (r in 0 until rows) {
-                        for (c in 0 until cols) {
-                            tilePaint.color = if ((r + c) % 2 == 0) darkTile else lightTile
-                            nativeCanvas.drawRect(
-                                c * tileSize,
-                                r * tileSize,
-                                (c + 1) * tileSize,
-                                (r + 1) * tileSize,
-                                tilePaint
-                            )
-                        }
-                    }
-                } else if (bgBitmap != null) {
-                    if (state.backgroundGrayscale) {
-                        bgPaint.colorFilter = ColorMatrixColorFilter(grayMatrix)
-                    } else {
-                        bgPaint.colorFilter = null
-                    }
-                    val bm = bgBitmap!!
-                    val srcW = bm.width.toFloat()
-                    val srcH = bm.height.toFloat()
-                    val srcRatio = srcW / srcH
-                    val dstRatio = canvasWidth / canvasHeight
-
-                    val srcRect = if (srcRatio > dstRatio) {
-                        val newW = (srcH * dstRatio).toInt()
-                        val xOffset = ((srcW - newW) / 2).toInt()
-                        Rect(xOffset, 0, xOffset + newW, srcH.toInt())
-                    } else {
-                        val newH = (srcW / dstRatio).toInt()
-                        val yOffset = ((srcH - newH) / 2).toInt()
-                        Rect(0, yOffset, srcW.toInt(), yOffset + newH)
-                    }
-                    val dstRect = Rect(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
-                    nativeCanvas.drawBitmap(bm, srcRect, dstRect, bgPaint)
-
-                    // Dim Overlay for Text Legibility
-                    if (state.backgroundDim > 0f) {
-                        val alpha = (state.backgroundDim * 255).toInt().coerceIn(0, 240)
-                        nativeCanvas.drawColor(android.graphics.Color.argb(alpha, 0, 0, 0))
-                    }
-                } else if (state.solidBgColorLong != null) {
-                    nativeCanvas.drawColor(state.solidBgColorLong.toInt())
-                } else {
-                    nativeCanvas.drawColor(android.graphics.Color.BLACK)
-                }
+                // 1. Draw Background Viewport
+                CanvasBackgroundRenderer.drawBackground(
+                    nativeCanvas = nativeCanvas,
+                    state = state,
+                    canvasWidth = canvasWidth,
+                    canvasHeight = canvasHeight,
+                    density = density,
+                    bgBitmap = bgBitmap,
+                    bgPaint = bgPaint,
+                    grayMatrix = grayMatrix
+                )
 
                 // 2. Smart Snapping & Golden Grid Guidelines
                 if (state.showGridGuides) {
                     val gridPaint = Paint().apply {
                         isAntiAlias = true
-                        color = android.graphics.Color.parseColor("#33E5C07B")
+                        color = Color.parseColor("#33E5C07B")
                         strokeWidth = 1.5f
                     }
                     nativeCanvas.drawLine(canvasWidth / 3f, 0f, canvasWidth / 3f, canvasHeight, gridPaint)
@@ -366,76 +311,28 @@ fun CanvasView(
                         basePaint.shader = null
                         nativeCanvas.drawText(line, lineX, lineY, basePaint)
                     } else {
-                        when (state.selectedEffect) {
-                            VisualEffect.ROYAL_GOLD -> {
-                                basePaint.shader = LinearGradient(
-                                    0f, lineY - textSizePx * 0.85f,
-                                    0f, lineY + textSizePx * 0.25f,
-                                    intArrayOf(
-                                        android.graphics.Color.parseColor("#FFF7DB"),
-                                        android.graphics.Color.parseColor("#F5C369"),
-                                        android.graphics.Color.parseColor("#D49438"),
-                                        android.graphics.Color.parseColor("#FFE8A3"),
-                                        android.graphics.Color.parseColor("#B0731E")
-                                    ),
-                                    floatArrayOf(0.0f, 0.25f, 0.55f, 0.75f, 1.0f),
-                                    Shader.TileMode.CLAMP
-                                )
-                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
-                            }
-
-                            VisualEffect.LIQUID_CHROME -> {
-                                basePaint.shader = LinearGradient(
-                                    -textSizePx * 0.5f, lineY - textSizePx * 0.85f,
-                                    textSizePx * 0.5f, lineY + textSizePx * 0.25f,
-                                    intArrayOf(
-                                        android.graphics.Color.parseColor("#FFFFFF"),
-                                        android.graphics.Color.parseColor("#9EA5B0"),
-                                        android.graphics.Color.parseColor("#181C22"),
-                                        android.graphics.Color.parseColor("#FFFFFF"),
-                                        android.graphics.Color.parseColor("#505866"),
-                                        android.graphics.Color.parseColor("#DDE2EA")
-                                    ),
-                                    floatArrayOf(0.0f, 0.2f, 0.45f, 0.55f, 0.8f, 1.0f),
-                                    Shader.TileMode.CLAMP
-                                )
-                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
-                            }
-
-                            VisualEffect.FROSTED_GLASS -> {
-                                basePaint.shader = LinearGradient(
-                                    0f, lineY - textSizePx * 0.85f,
-                                    0f, lineY + textSizePx * 0.25f,
-                                    intArrayOf(
-                                        android.graphics.Color.parseColor("#E6FFFFFF"),
-                                        android.graphics.Color.parseColor("#33E2E8F0")
-                                    ),
-                                    null,
-                                    Shader.TileMode.CLAMP
-                                )
-                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
-                            }
-
-                            VisualEffect.CYBER_NEON -> {
-                                glowPaint.color = android.graphics.Color.parseColor("#6600FF9D")
-                                glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
-                                nativeCanvas.drawText(line, lineX, lineY, glowPaint)
-
-                                basePaint.shader = null
-                                basePaint.color = (android.graphics.Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
-                            }
-
-                            VisualEffect.CINEMATIC_SHADOW -> {
-                                basePaint.shader = null
-                                basePaint.color = (android.graphics.Color.parseColor("#F5F6F8") and 0x00FFFFFF) or (alphaInt shl 24)
-                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
-                            }
-
-                            VisualEffect.MINIMAL_LUXURY -> {
-                                basePaint.shader = null
-                                basePaint.color = (android.graphics.Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                        val effectShader = CanvasShaderFactory.createEffectShader(state.selectedEffect, lineY, textSizePx)
+                        if (effectShader != null) {
+                            basePaint.shader = effectShader
+                            nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                        } else {
+                            basePaint.shader = null
+                            when (state.selectedEffect) {
+                                VisualEffect.CYBER_NEON -> {
+                                    glowPaint.color = Color.parseColor("#6600FF9D")
+                                    glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
+                                    nativeCanvas.drawText(line, lineX, lineY, glowPaint)
+                                    basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
+                                    nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                                }
+                                VisualEffect.CINEMATIC_SHADOW -> {
+                                    basePaint.color = (Color.parseColor("#F5F6F8") and 0x00FFFFFF) or (alphaInt shl 24)
+                                    nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                                }
+                                else -> {
+                                    basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
+                                    nativeCanvas.drawText(line, lineX, lineY, basePaint)
+                                }
                             }
                         }
                     }
@@ -443,116 +340,23 @@ fun CanvasView(
 
                 // 4. Draw Studio Bounding Box & Precision Corner Handles during interaction
                 if (isInteracting) {
-                    val pad = 12f * density
-                    val bLeft = when (state.textAlign) {
-                        TextAlignOption.RIGHT -> -maxLineWidth - pad
-                        TextAlignOption.CENTER -> -halfBlockW - pad
-                        TextAlignOption.LEFT -> -pad
-                    }
-                    val bRight = when (state.textAlign) {
-                        TextAlignOption.RIGHT -> pad
-                        TextAlignOption.CENTER -> halfBlockW + pad
-                        TextAlignOption.LEFT -> maxLineWidth + pad
-                    }
-                    val bTop = startY - textSizePx * 0.75f - pad
-                    val bBottom = startY + totalHeight + textSizePx * 0.25f + pad
-
-                    // Bounding Box
-                    nativeCanvas.drawRect(bLeft, bTop, bRight, bBottom, selectBoxPaint)
-
-                    // Corner L-Handles
-                    val cornerLen = 14f * density
-                    nativeCanvas.drawLine(bLeft, bTop, bLeft + cornerLen, bTop, handlePaint)
-                    nativeCanvas.drawLine(bLeft, bTop, bLeft, bTop + cornerLen, handlePaint)
-                    nativeCanvas.drawLine(bRight, bTop, bRight - cornerLen, bTop, handlePaint)
-                    nativeCanvas.drawLine(bRight, bTop, bRight, bTop + cornerLen, handlePaint)
-                    nativeCanvas.drawLine(bLeft, bBottom, bLeft + cornerLen, bBottom, handlePaint)
-                    nativeCanvas.drawLine(bLeft, bBottom, bLeft, bBottom - cornerLen, handlePaint)
-                    nativeCanvas.drawLine(bRight, bBottom, bRight - cornerLen, bBottom, handlePaint)
-                    nativeCanvas.drawLine(bRight, bBottom, bRight, bBottom - cornerLen, handlePaint)
-
-                    // Midpoint anchor dots
-                    val dotR = 2.5f * density
-                    nativeCanvas.drawCircle((bLeft + bRight) / 2f, bTop, dotR, handleFillPaint)
-                    nativeCanvas.drawCircle((bLeft + bRight) / 2f, bBottom, dotR, handleFillPaint)
-                    nativeCanvas.drawCircle(bLeft, (bTop + bBottom) / 2f, dotR, handleFillPaint)
-                    nativeCanvas.drawCircle(bRight, (bTop + bBottom) / 2f, dotR, handleFillPaint)
+                    CanvasBoundingBoxRenderer.drawBoundingBox(
+                        nativeCanvas = nativeCanvas,
+                        textAlign = state.textAlign,
+                        maxLineWidth = maxLineWidth,
+                        halfBlockW = halfBlockW,
+                        startY = startY,
+                        totalHeight = totalHeight,
+                        textSizePx = textSizePx,
+                        density = density,
+                        selectBoxPaint = selectBoxPaint,
+                        handlePaint = handlePaint,
+                        handleFillPaint = handleFillPaint
+                    )
                 }
 
                 nativeCanvas.restore()
             }
-        }
-    }
-}
-
-/**
- * High-performance pointer gesture detector for interactive studio canvas.
- * Handles double-tap and transform gestures without recomposition lag or event conflicts.
- */
-private suspend fun PointerInputScope.detectCanvasGestures(
-    isLocked: Boolean,
-    onTransform: (pan: Offset, zoom: Float, rotation: Float) -> Unit,
-    onGestureEnd: () -> Unit,
-    onDoubleTap: () -> Unit
-) {
-    var lastTapTime = 0L
-
-    awaitEachGesture {
-        awaitFirstDown(requireUnconsumed = false)
-        val now = System.currentTimeMillis()
-        if (now - lastTapTime < 320L) {
-            onDoubleTap()
-            lastTapTime = 0L
-        } else {
-            lastTapTime = now
-        }
-
-        if (isLocked) return@awaitEachGesture
-
-        var zoom = 1f
-        var rotation = 0f
-        var pan = Offset.Zero
-        var pastTouchSlop = false
-        val touchSlop = viewConfiguration.touchSlop
-
-        do {
-            val event = awaitPointerEvent()
-            val canceled = event.changes.any { it.isConsumed }
-            if (!canceled) {
-                val zoomChange = event.calculateZoom()
-                val rotationChange = event.calculateRotation()
-                val panChange = event.calculatePan()
-
-                if (!pastTouchSlop) {
-                    zoom *= zoomChange
-                    rotation += rotationChange
-                    pan += panChange
-
-                    val centroidSize = event.calculateCentroidSize(useCurrent = false)
-                    val zoomMotion = abs(1f - zoom) * centroidSize
-                    val rotationMotion = abs(rotation * Math.PI.toFloat() * centroidSize / 180f)
-                    val panMotion = pan.getDistance()
-
-                    if (zoomMotion > touchSlop || rotationMotion > touchSlop || panMotion > touchSlop) {
-                        pastTouchSlop = true
-                    }
-                }
-
-                if (pastTouchSlop) {
-                    if (zoomChange != 1f || rotationChange != 0f || panChange != Offset.Zero) {
-                        onTransform(panChange, zoomChange, rotationChange)
-                    }
-                    event.changes.forEach {
-                        if (it.positionChanged()) {
-                            it.consume()
-                        }
-                    }
-                }
-            }
-        } while (!canceled && event.changes.any { it.pressed })
-
-        if (pastTouchSlop) {
-            onGestureEnd()
         }
     }
 }

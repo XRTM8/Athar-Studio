@@ -1,32 +1,46 @@
 package app.xrtm8.athar.ui.panels
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.RotateRight
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.LinearScale
+import androidx.compose.material.icons.filled.VerticalAlignBottom
+import androidx.compose.material.icons.filled.VerticalAlignCenter
+import androidx.compose.material.icons.filled.VerticalAlignTop
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.xrtm8.athar.core.PureArabicKashidaEngine
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.KashidaMode
+import app.xrtm8.athar.ui.components.KashidaModeSelector
+import app.xrtm8.athar.ui.components.KashidaOpportunityChips
 import app.xrtm8.athar.ui.components.StudioSlider
-import app.xrtm8.athar.ui.theme.*
+import app.xrtm8.athar.ui.theme.AmoledBlack
+import app.xrtm8.athar.ui.theme.GlassSurface
+import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.MutedWhite
+import app.xrtm8.athar.ui.theme.PureWhite
 
 @Composable
 fun KashidaPanel(
@@ -90,108 +104,19 @@ fun KashidaPanel(
         Spacer(modifier = Modifier.height(10.dp))
 
         // Kashida Distribution Mode (7 Classical Calligraphic Varieties)
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(text = "نمط وتوزيع الكشيدة الخطية:", color = MutedWhite, fontSize = 11.5.sp)
-                Text(
-                    text = state.kashidaMode.label,
-                    color = GoldAccent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                KashidaMode.entries.forEach { mode ->
-                    val isSelected = state.kashidaMode == mode
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(
-                                width = if (isSelected) 1.dp else 0.5.dp,
-                                color = if (isSelected) GoldAccent else GlassBorder,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onKashidaModeChange(mode)
-                            }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = mode.label,
-                            color = if (isSelected) AmoledBlack else PureWhite,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
-                    }
-                }
-            }
-
-            if (state.kashidaMode.description.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = state.kashidaMode.description,
-                    color = SubtleGray,
-                    fontSize = 10.sp,
-                    lineHeight = 13.sp
-                )
-            }
-        }
+        KashidaModeSelector(
+            selectedMode = state.kashidaMode,
+            onSelectMode = onKashidaModeChange
+        )
 
         // Available Kashida Opportunities (Chips to select specific letter to stretch)
-        val kashidaOpps = remember(state.rawText) {
-            PureArabicKashidaEngine.findOpportunities(state.rawText)
-        }
-        if (kashidaOpps.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-            ) {
-                Text(text = "مواضع المد:", color = MutedWhite, fontSize = 10.5.sp)
-                kashidaOpps.forEach { opp ->
-                    val isSelected = state.kashidaMode == KashidaMode.CUSTOM &&
-                            state.kashidaTargetIndex == opp.globalIndex
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) GoldAccent else if (opp.isRecommended) GoldAccent.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onTargetIndexChange(opp.globalIndex)
-                            }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = opp.displayLabel,
-                            color = if (isSelected) AmoledBlack else PureWhite,
-                            fontSize = 10.5.sp,
-                            fontWeight = if (isSelected || opp.isRecommended) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(6.dp))
+        KashidaOpportunityChips(
+            rawText = state.rawText,
+            currentMode = state.kashidaMode,
+            targetIndex = state.kashidaTargetIndex,
+            onSelectOpportunity = onTargetIndexChange
+        )
 
         Spacer(modifier = Modifier.height(10.dp))
 

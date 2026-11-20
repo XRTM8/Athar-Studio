@@ -5,32 +5,37 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import app.xrtm8.athar.ui.components.*
-import app.xrtm8.athar.ui.dialogs.*
-import app.xrtm8.athar.ui.panels.*
-import app.xrtm8.athar.ui.theme.*
+import app.xrtm8.athar.ui.components.CanvasView
+import app.xrtm8.athar.ui.components.GentleUpdateBanner
+import app.xrtm8.athar.ui.components.StudioConsoleDrawer
+import app.xrtm8.athar.ui.components.StudioDock
+import app.xrtm8.athar.ui.components.TopStudioBar
+import app.xrtm8.athar.ui.dialogs.ArabicTextEditorDialog
+import app.xrtm8.athar.ui.dialogs.ExportBottomSheet
+import app.xrtm8.athar.ui.dialogs.ProjectsBottomSheet
+import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
 
@@ -97,7 +102,7 @@ fun AtharStudioScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Gentle in-app update banner
+            // In-app update notification
             GentleUpdateBanner(
                 updateInfo = updateInfo,
                 downloadProgress = downloadProgress,
@@ -157,156 +162,23 @@ fun AtharStudioScreen(
                     .padding(horizontal = 14.dp, vertical = 4.dp)
             ) {
                 // Collapsible Panel Drawer
-                AnimatedVisibility(
-                    visible = isPanelExpanded,
-                    enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
-                    exit = fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) + shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(GlassBackground)
-                            .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(22.dp))
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 280.dp)
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            // Panel Header with close button
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val currentTabItem = STUDIO_DOCK_TABS.getOrNull(selectedTab)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (currentTabItem != null) {
-                                        Icon(
-                                            imageVector = currentTabItem.icon,
-                                            contentDescription = null,
-                                            tint = GoldAccent,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                    }
-                                    Text(
-                                        text = when (selectedTab) {
-                                            0 -> "الخط والنص العربي"
-                                            1 -> "المدّ الذكي والمحاذاة"
-                                            2 -> "المظهر والألوان الفاخرة"
-                                            3 -> "العمق والظل والتحديد"
-                                            else -> "الكانفاس والخلفية"
-                                        },
-                                        color = PureWhite,
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                IconButton(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        isPanelExpanded = false
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "تصغير اللوحة",
-                                        tint = SubtleGray,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Animated Switcher between Panels
-                            AnimatedContent(
-                                targetState = selectedTab,
-                                transitionSpec = {
-                                    if (targetState > initialState) {
-                                        slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeIn() togetherWith
-                                                slideOutHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeOut()
-                                    } else {
-                                        slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeIn() togetherWith
-                                                slideOutHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeOut()
-                                    }
-                                },
-                                label = "StudioConsoleTabs"
-                            ) { currentTab ->
-                                when (currentTab) {
-                                    0 -> TypographyPanel(
-                                        state = canvasState,
-                                        onOpenTextEditor = { showTextDialog = true },
-                                        onSelectFont = { viewModel.setFont(it) },
-                                        onFontSizeChange = { viewModel.setFontSize(it) },
-                                        onToggleBold = { viewModel.toggleBold() },
-                                        onToggleItalic = { viewModel.toggleItalic() },
-                                        onToggleUnderline = { viewModel.toggleUnderline() },
-                                        onOpacityChange = { viewModel.setTextOpacity(it) },
-                                        onLetterSpacingChange = { viewModel.setLetterSpacing(it) },
-                                        onLineSpacingChange = { viewModel.setLineSpacing(it) },
-                                        onTextAlignChange = { viewModel.setTextAlign(it) },
-                                        onSnapPosition = { x, y, a -> viewModel.snapToPosition(x, y, a) },
-                                        onNudgeOffset = { dx, dy -> viewModel.nudgeOffset(dx, dy) }
-                                    )
-
-                                    1 -> KashidaPanel(
-                                        state = canvasState,
-                                        onStretchLevelChange = { viewModel.setStretchLevel(it) },
-                                        onKashidaModeChange = { viewModel.setKashidaMode(it) },
-                                        onTargetIndexChange = { viewModel.setKashidaTargetIndex(it) },
-                                        onRotationChange = { viewModel.setRotationAngle(it) },
-                                        onRotateStep = { viewModel.rotateStep(it) },
-                                        onAlignTop = { viewModel.alignTop() },
-                                        onAlignCenter = { viewModel.alignCenter() },
-                                        onAlignBottom = { viewModel.alignBottom() }
-                                    )
-
-                                    2 -> ShadersColorPanel(
-                                        state = canvasState,
-                                        onSelectEffect = { viewModel.setEffect(it) },
-                                        onSelectCustomColor = { viewModel.setCustomColor(it) }
-                                    )
-
-                                    3 -> EffectsDepthPanel(
-                                        state = canvasState,
-                                        onStrokeWidthChange = { viewModel.setStrokeWidth(it) },
-                                        onStrokeColorChange = { viewModel.setStrokeColor(it) },
-                                        onShadowRadiusChange = { viewModel.setShadowRadius(it) },
-                                        onShadowDyChange = { viewModel.setShadowDy(it) },
-                                        onShadowDxChange = { viewModel.setShadowDx(it) },
-                                        onShadowColorChange = { viewModel.setShadowColor(it) }
-                                    )
-
-                                    else -> CanvasBackgroundPanel(
-                                        state = canvasState,
-                                        onToggleTransparent = { viewModel.setTransparentBg(it) },
-                                        onSelectSolidBgColor = { viewModel.setSolidBgColor(it) },
-                                        onPickImage = {
-                                            photoPickerLauncher.launch(
-                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                            )
-                                        },
-                                        onRemoveImage = {
-                                            viewModel.setBackgroundImageUri(null)
-                                            Toast.makeText(context, "تمت إزالة صورة الخلفية", Toast.LENGTH_SHORT).show()
-                                        },
-                                        onDimChange = { viewModel.setBackgroundDim(it) },
-                                        onToggleGrayscale = { viewModel.setBackgroundGrayscale(it) },
-                                        onAspectRatioChange = { viewModel.setAspectRatio(it) },
-                                        onToggleGridGuides = { viewModel.toggleGridGuides() }
-                                    )
-                                }
-                            }
-                        }
+                StudioConsoleDrawer(
+                    selectedTab = selectedTab,
+                    isPanelExpanded = isPanelExpanded,
+                    canvasState = canvasState,
+                    viewModel = viewModel,
+                    onClosePanel = { isPanelExpanded = false },
+                    onOpenTextEditor = { showTextDialog = true },
+                    onPickImage = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    onRemoveImage = {
+                        viewModel.setBackgroundImageUri(null)
+                        Toast.makeText(context, "تمت إزالة صورة الخلفية", Toast.LENGTH_SHORT).show()
                     }
-                }
+                )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
