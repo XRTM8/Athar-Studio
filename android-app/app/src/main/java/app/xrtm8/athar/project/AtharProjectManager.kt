@@ -15,6 +15,7 @@ import app.xrtm8.athar.core.AtharNativeEngine
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
@@ -95,6 +96,8 @@ object AtharProjectManager {
                 put("raw_text", state.rawText)
                 put("display_text", state.displayText)
                 put("stretch_level", state.stretchLevel)
+                put("kashida_mode", state.kashidaMode.name)
+                put("kashida_target_index", state.kashidaTargetIndex)
                 put("selected_font", state.selectedFont.name)
                 put("selected_effect", state.selectedEffect.name)
                 put("font_size", state.fontSize.toDouble())
@@ -232,6 +235,9 @@ object AtharProjectManager {
 
         val rawText = c.optString("raw_text", "أَثَــر")
         val stretchLevel = c.optInt("stretch_level", 3)
+        val kashidaModeStr = c.optString("kashida_mode", KashidaMode.SMART.name)
+        val kashidaMode = try { KashidaMode.valueOf(kashidaModeStr) } catch (e: Exception) { KashidaMode.SMART }
+        val kashidaTargetIndex = c.optInt("kashida_target_index", -1)
         val selectedFontStr = c.optString("selected_font", ArabicFontFamily.AREF_RUQAA.name)
         val selectedEffectStr = c.optString("selected_effect", VisualEffect.ROYAL_GOLD.name)
         val aspectRatioStr = c.optString("aspect_ratio", CanvasAspectRatio.STORY_9_16.name)
@@ -246,12 +252,14 @@ object AtharProjectManager {
         val solidBg = c.optLong("solid_bg_color", 0L)
 
         // Native Kashida calculation
-        val stretched = AtharNativeEngine.applyKashida(rawText, stretchLevel)
+        val stretched = AtharNativeEngine.applyKashida(rawText, stretchLevel, kashidaMode, kashidaTargetIndex)
 
         CanvasState(
             rawText = rawText,
             displayText = stretched,
             stretchLevel = stretchLevel,
+            kashidaMode = kashidaMode,
+            kashidaTargetIndex = kashidaTargetIndex,
             selectedFont = font,
             selectedEffect = effect,
             fontSize = c.optDouble("font_size", 52.0).toFloat(),

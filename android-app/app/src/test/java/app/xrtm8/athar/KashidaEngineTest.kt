@@ -1,6 +1,7 @@
 package app.xrtm8.athar
 
 import app.xrtm8.athar.core.PureArabicKashidaEngine
+import app.xrtm8.athar.model.KashidaMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -13,6 +14,46 @@ class KashidaEngineTest {
         val original = "أثر"
         val stretched = PureArabicKashidaEngine.stretchText(original, 2)
         assertEquals("أثــر", stretched)
+    }
+
+    @Test
+    fun testMajdCalligraphicCorrectness() {
+        // "مَجْد" contains Meem (with Fatha), Jeem (with Sukun), and Dal.
+        // In Arabic calligraphy, elongating between Meem and Jeem is incorrect.
+        // The elongation must occur after Jeem before Dal (Pre-final connection).
+        val text = "مَجْد"
+        val stretchedSmart = PureArabicKashidaEngine.stretchText(text, 4, KashidaMode.SMART)
+        assertEquals("مَجْــــد", stretchedSmart)
+
+        // Ensure "مَــــجد" is NOT produced in SMART mode
+        assertFalse(stretchedSmart.startsWith("مَــــ"))
+        assertTrue(stretchedSmart.contains("جْــــد"))
+    }
+
+    @Test
+    fun testAllModeMultiPointElongation() {
+        // In ALL mode, all valid joining points in "مَجْد" are stretched
+        val text = "مَجْد"
+        val stretchedAll = PureArabicKashidaEngine.stretchText(text, 2, KashidaMode.ALL)
+        assertEquals("مَــجْــد", stretchedAll)
+    }
+
+    @Test
+    fun testCustomOpportunityTargeting() {
+        val text = "مَجْد"
+        val opps = PureArabicKashidaEngine.findOpportunities(text)
+        assertEquals(2, opps.size)
+
+        // Opp 0 is after Meem, Opp 1 is after Jeem
+        assertEquals('م', opps[0].baseChar)
+        assertEquals('ج', opps[1].baseChar)
+        assertTrue(opps[1].isRecommended) // Jeem has highest calligraphic priority
+
+        val customMeem = PureArabicKashidaEngine.stretchText(text, 3, KashidaMode.CUSTOM, opps[0].globalIndex)
+        assertEquals("مَـــجْد", customMeem)
+
+        val customJeem = PureArabicKashidaEngine.stretchText(text, 3, KashidaMode.CUSTOM, opps[1].globalIndex)
+        assertEquals("مَجْـــد", customJeem)
     }
 
     @Test

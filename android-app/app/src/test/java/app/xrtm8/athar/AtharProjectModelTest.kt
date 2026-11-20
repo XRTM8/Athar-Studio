@@ -4,6 +4,7 @@ import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ColorSwatch
+import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.LUXURY_BG_PRESETS
 import app.xrtm8.athar.model.LUXURY_SWATCHES
 import app.xrtm8.athar.model.TextAlignOption
@@ -39,6 +40,8 @@ class AtharProjectModelTest {
             rawText = "أثر قرآني",
             displayText = "أثــــر قرآني",
             stretchLevel = 4,
+            kashidaMode = KashidaMode.ALL,
+            kashidaTargetIndex = 2,
             selectedEffect = VisualEffect.ROYAL_GOLD,
             selectedFont = ArabicFontFamily.ELGHARIB_HAFS_TAWEEL,
             fontSize = 64f,
@@ -72,6 +75,8 @@ class AtharProjectModelTest {
             put("raw_text", original.rawText)
             put("display_text", original.displayText)
             put("stretch_level", original.stretchLevel)
+            put("kashida_mode", original.kashidaMode.name)
+            put("kashida_target_index", original.kashidaTargetIndex)
             put("selected_font", original.selectedFont.name)
             put("selected_effect", original.selectedEffect.name)
             put("font_size", original.fontSize.toDouble())
@@ -108,6 +113,8 @@ class AtharProjectModelTest {
             rawText = json.optString("raw_text"),
             displayText = json.optString("display_text"),
             stretchLevel = json.optInt("stretch_level"),
+            kashidaMode = KashidaMode.valueOf(json.optString("kashida_mode", KashidaMode.SMART.name)),
+            kashidaTargetIndex = json.optInt("kashida_target_index", -1),
             selectedFont = ArabicFontFamily.valueOf(json.optString("selected_font")),
             selectedEffect = VisualEffect.valueOf(json.optString("selected_effect")),
             fontSize = json.optDouble("font_size").toFloat(),
@@ -137,6 +144,9 @@ class AtharProjectModelTest {
         )
 
         assertEquals(original.rawText, restored.rawText)
+        assertEquals(original.stretchLevel, restored.stretchLevel)
+        assertEquals(original.kashidaMode, restored.kashidaMode)
+        assertEquals(original.kashidaTargetIndex, restored.kashidaTargetIndex)
         assertEquals(original.selectedFont, restored.selectedFont)
         assertEquals(original.selectedEffect, restored.selectedEffect)
         assertEquals(original.strokeWidth, restored.strokeWidth, 0.01f)

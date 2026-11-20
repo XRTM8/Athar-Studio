@@ -110,10 +110,12 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.ExportResolution
+import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.LUXURY_BG_PRESETS
 import app.xrtm8.athar.model.LUXURY_SWATCHES
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
+import app.xrtm8.athar.core.PureArabicKashidaEngine
 import app.xrtm8.athar.ui.components.CanvasView
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
 import app.xrtm8.athar.ui.theme.AmoledBlack
@@ -764,6 +766,93 @@ fun AtharStudioScreen(
                                                             fontSize = 10.5.sp,
                                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                                         )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            // Kashida Distribution Mode (خطي ذكي / شامل متوازن / موضع محدد)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(text = "توزيع ونمط المد:", color = MutedWhite, fontSize = 11.5.sp)
+
+                                                Row(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(GlassSurface)
+                                                        .padding(2.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                                ) {
+                                                    listOf(
+                                                        KashidaMode.SMART to "خطي ذكي",
+                                                        KashidaMode.ALL to "شامل (الكل)",
+                                                        KashidaMode.CUSTOM to "موضع محدد"
+                                                    ).forEach { (mode, label) ->
+                                                        val isSelected = canvasState.kashidaMode == mode
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .background(if (isSelected) GoldAccent else Color.Transparent)
+                                                                .clickable {
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                    viewModel.setKashidaMode(mode)
+                                                                }
+                                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = label,
+                                                                color = if (isSelected) AmoledBlack else PureWhite,
+                                                                fontSize = 10.5.sp,
+                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Available Kashida Opportunities (Chips to select specific letter to stretch)
+                                            val kashidaOpps = remember(canvasState.rawText) {
+                                                PureArabicKashidaEngine.findOpportunities(canvasState.rawText)
+                                            }
+                                            if (kashidaOpps.isNotEmpty()) {
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .horizontalScroll(rememberScrollState())
+                                                ) {
+                                                    Text(text = "مواضع المد:", color = MutedWhite, fontSize = 10.5.sp)
+                                                    kashidaOpps.forEach { opp ->
+                                                        val isSelected = canvasState.kashidaMode == KashidaMode.CUSTOM &&
+                                                                canvasState.kashidaTargetIndex == opp.globalIndex
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .background(if (isSelected) GoldAccent else GlassSurface)
+                                                                .border(
+                                                                    width = 1.dp,
+                                                                    color = if (isSelected) GoldAccent else if (opp.isRecommended) GoldAccent.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
+                                                                    shape = RoundedCornerShape(8.dp)
+                                                                )
+                                                                .clickable {
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                    viewModel.setKashidaTargetIndex(opp.globalIndex)
+                                                                }
+                                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = opp.displayLabel,
+                                                                color = if (isSelected) AmoledBlack else PureWhite,
+                                                                fontSize = 10.5.sp,
+                                                                fontWeight = if (isSelected || opp.isRecommended) FontWeight.Bold else FontWeight.Normal
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }

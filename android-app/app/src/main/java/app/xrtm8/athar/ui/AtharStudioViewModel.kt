@@ -25,6 +25,7 @@ import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
+import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.project.AtharProjectManager
@@ -69,7 +70,12 @@ class AtharStudioViewModel : ViewModel() {
     private var kashidaDebounceJob: Job? = null
 
     init {
-        updateKashidaInternal(_canvasState.value.rawText, _canvasState.value.stretchLevel)
+        updateKashidaInternal(
+            _canvasState.value.rawText,
+            _canvasState.value.stretchLevel,
+            _canvasState.value.kashidaMode,
+            _canvasState.value.kashidaTargetIndex
+        )
     }
 
     private fun pushHistory(newState: CanvasState) {
@@ -105,13 +111,24 @@ class AtharStudioViewModel : ViewModel() {
 
     fun setText(newText: String) {
         pushHistory(_canvasState.value.copy(rawText = newText))
-        scheduleKashidaUpdate(newText, _canvasState.value.stretchLevel)
+        scheduleKashidaUpdate(newText, _canvasState.value.stretchLevel, _canvasState.value.kashidaMode, _canvasState.value.kashidaTargetIndex)
     }
 
     fun setStretchLevel(newLevel: Int) {
         if (newLevel == _canvasState.value.stretchLevel) return
         pushHistory(_canvasState.value.copy(stretchLevel = newLevel))
-        scheduleKashidaUpdate(_canvasState.value.rawText, newLevel)
+        scheduleKashidaUpdate(_canvasState.value.rawText, newLevel, _canvasState.value.kashidaMode, _canvasState.value.kashidaTargetIndex)
+    }
+
+    fun setKashidaMode(mode: KashidaMode) {
+        if (mode == _canvasState.value.kashidaMode) return
+        pushHistory(_canvasState.value.copy(kashidaMode = mode))
+        scheduleKashidaUpdate(_canvasState.value.rawText, _canvasState.value.stretchLevel, mode, _canvasState.value.kashidaTargetIndex)
+    }
+
+    fun setKashidaTargetIndex(targetIndex: Int) {
+        pushHistory(_canvasState.value.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM))
+        scheduleKashidaUpdate(_canvasState.value.rawText, _canvasState.value.stretchLevel, KashidaMode.CUSTOM, targetIndex)
     }
 
     fun setEffect(effect: VisualEffect) {
@@ -346,15 +363,25 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
-    private fun scheduleKashidaUpdate(text: String, level: Int) {
+    private fun scheduleKashidaUpdate(
+        text: String,
+        level: Int,
+        mode: KashidaMode = _canvasState.value.kashidaMode,
+        targetIndex: Int = _canvasState.value.kashidaTargetIndex
+    ) {
         kashidaDebounceJob?.cancel()
         kashidaDebounceJob = viewModelScope.launch(Dispatchers.Default) {
-            updateKashidaInternal(text, level)
+            updateKashidaInternal(text, level, mode, targetIndex)
         }
     }
 
-    private fun updateKashidaInternal(text: String, level: Int) {
-        val stretched = AtharNativeEngine.applyKashida(text, level)
+    private fun updateKashidaInternal(
+        text: String,
+        level: Int,
+        mode: KashidaMode = _canvasState.value.kashidaMode,
+        targetIndex: Int = _canvasState.value.kashidaTargetIndex
+    ) {
+        val stretched = AtharNativeEngine.applyKashida(text, level, mode, targetIndex)
         _canvasState.update { it.copy(displayText = stretched) }
     }
 

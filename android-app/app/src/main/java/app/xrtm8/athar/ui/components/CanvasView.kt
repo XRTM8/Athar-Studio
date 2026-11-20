@@ -449,7 +449,7 @@ private suspend fun PointerInputScope.detectCanvasGestures(
     var lastTapTime = 0L
 
     awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
+        awaitFirstDown(requireUnconsumed = false)
         val now = System.currentTimeMillis()
         if (now - lastTapTime < 320L) {
             onDoubleTap()

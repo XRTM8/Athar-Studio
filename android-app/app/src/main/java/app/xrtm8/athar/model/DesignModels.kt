@@ -41,6 +41,12 @@ enum class TextAlignOption(val label: String) {
     LEFT("يسار")
 }
 
+enum class KashidaMode(val label: String) {
+    SMART("خطي ذكي"),
+    ALL("شامل (الكل)"),
+    CUSTOM("موضع محدد")
+}
+
 enum class ExportResolution(val label: String, val width: Int, val description: String) {
     HD_1080P("عالية الدقة HD (1080p)", 1080, "مثالية للنشر السريع على انستغرام وتيك توك"),
     ULTRA_4K("فائقة الدقة Ultra 4K (2160p)", 2160, "دقة فائقة النقاء للطباعة وتفاصيل التايبوغرافي الحادة")
@@ -79,6 +85,8 @@ data class CanvasState(
     val rawText: String = "أَثَــر",
     val displayText: String = "أَثَـــر",
     val stretchLevel: Int = 3,
+    val kashidaMode: KashidaMode = KashidaMode.SMART,
+    val kashidaTargetIndex: Int = -1,
     val selectedEffect: VisualEffect = VisualEffect.ROYAL_GOLD,
     val selectedFont: ArabicFontFamily = ArabicFontFamily.AREF_RUQAA,
     val fontSize: Float = 52f,
