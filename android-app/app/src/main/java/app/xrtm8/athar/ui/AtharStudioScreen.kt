@@ -41,11 +41,11 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatAlignJustify
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.VerticalAlignCenter
 import androidx.compose.material.icons.filled.VerticalAlignTop
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,10 +80,12 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
+import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.ui.components.CanvasView
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
@@ -117,6 +119,7 @@ fun AtharStudioScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     var showTextDialog by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
+    var selectedResolution by remember { mutableStateOf(ExportResolution.HD_1080P) }
 
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
@@ -184,7 +187,7 @@ fun AtharStudioScreen(
                                 color = GoldAccent,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 2.sp
+                                letterSpacing = 1.5.sp
                             )
                         }
                     }
@@ -197,9 +200,9 @@ fun AtharStudioScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 coroutineScope.launch {
                                     val currentVersion = try {
-                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.1.0"
+                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.2.0"
                                     } catch (e: Exception) {
-                                        "1.1.0"
+                                        "1.2.0"
                                     }
                                     val info = updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = false)
                                     if (info == null) {
@@ -274,15 +277,24 @@ fun AtharStudioScreen(
                 }
             }
 
-            // Interactive Canvas Area (Draw-Phase Isolated)
+            // Interactive Canvas Area (Draw-Phase Isolated 120Hz with Unified Coordinate Sync)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                CanvasView(state = canvasState)
+                CanvasView(
+                    state = canvasState,
+                    onTransformChanged = { normX, normY, scale, rot ->
+                        viewModel.updateTransform(normX, normY, scale, rot)
+                    },
+                    onDoubleTap = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showTextDialog = true
+                    }
+                )
 
-                // Quick Edit Text FAB
+                // Quick Edit Text Floating Pill
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -290,7 +302,7 @@ fun AtharStudioScreen(
                         .size(46.dp)
                         .clip(CircleShape)
                         .background(GlassBackground)
-                        .border(1.dp, GlassBorder, CircleShape)
+                        .border(1.dp, GlassBorderActive, CircleShape)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             showTextDialog = true
@@ -318,57 +330,56 @@ fun AtharStudioScreen(
             ) {
                 Column {
                     // 5-Tab Segmented Glass Pills
+                    val tabs = listOf("المدّ الذكي", "التأثيرات", "الخطوط", "الخلفية", "الحجم والعمق")
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
                             .clip(RoundedCornerShape(14.dp))
                             .background(GlassSurface)
-                            .border(0.5.dp, GlassBorder, RoundedCornerShape(14.dp))
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val tabs = listOf("المَدّ والمحاذاة", "التأثيرات", "الخطوط", "الخلفية والصورة", "الحجم والعمق")
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTab == index
                             Box(
-                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(11.dp))
                                     .background(if (isSelected) GoldAccent else Color.Transparent)
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         selectedTab = index
                                     }
-                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = title,
                                     color = if (isSelected) AmoledBlack else MutedWhite,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 12.5.sp
+                                    fontSize = 11.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    // Tab Content
+                    // Tab Content Carousel with Physics Spring
                     AnimatedContent(
                         targetState = selectedTab,
                         transitionSpec = {
                             if (targetState > initialState) {
-                                (slideInHorizontally(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeIn()) togetherWith
-                                        (slideOutHorizontally(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeOut())
+                                slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeIn() togetherWith
+                                        slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeOut()
                             } else {
-                                (slideInHorizontally(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeIn()) togetherWith
-                                        (slideOutHorizontally(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeOut())
+                                slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeIn() togetherWith
+                                        slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeOut()
                             }
                         },
-                        label = "tabContentAnimation"
-                    ) { tabIndex ->
-                        when (tabIndex) {
+                        label = "ConsoleTabs"
+                    ) { currentTab ->
+                        when (currentTab) {
                             0 -> {
                                 // Kashida & Alignment Tab
                                 Column {
@@ -439,7 +450,7 @@ fun AtharStudioScreen(
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             viewModel.alignCenter()
                                         }) {
-                                            Icon(Icons.Default.VerticalAlignCenter, contentDescription = "محاذاة للوسط", tint = GoldAccent)
+                                            Icon(Icons.Default.VerticalAlignCenter, contentDescription = "توسيط", tint = GoldAccent)
                                         }
                                         IconButton(onClick = {
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -452,57 +463,10 @@ fun AtharStudioScreen(
                             }
 
                             1 -> {
-                                // Shaders Tab
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    VisualEffect.values().forEach { effect ->
-                                        val isSelected = canvasState.selectedEffect == effect
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(14.dp))
-                                                .background(if (isSelected) GoldAccent else GlassSurface)
-                                                .border(
-                                                    width = if (isSelected) 1.5.dp else 0.5.dp,
-                                                    color = if (isSelected) GoldAccent else GlassBorder,
-                                                    shape = RoundedCornerShape(14.dp)
-                                                )
-                                                .clickable {
-                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    viewModel.setEffect(effect)
-                                                }
-                                                .padding(horizontal = 16.dp, vertical = 11.dp)
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (isSelected) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.AutoAwesome,
-                                                        contentDescription = null,
-                                                        tint = AmoledBlack,
-                                                        modifier = Modifier.size(14.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                }
-                                                Text(
-                                                    text = effect.arabicName,
-                                                    color = if (isSelected) AmoledBlack else PureWhite,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    fontSize = 13.5.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            2 -> {
-                                // Arabic Fonts Tab
+                                // Shaders & Visual Effects Tab
                                 Column {
                                     Text(
-                                        text = "اختر نمط ونوع الخط العربي",
+                                        text = "اختر التظليل المعدني والضوئي",
                                         color = MutedWhite,
                                         fontSize = 12.sp
                                     )
@@ -511,10 +475,10 @@ fun AtharStudioScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        ArabicFontFamily.values().forEach { font ->
-                                            val isSelected = canvasState.selectedFont == font
+                                        VisualEffect.values().forEach { effect ->
+                                            val isSelected = canvasState.selectedEffect == effect
                                             Box(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(14.dp))
@@ -526,21 +490,88 @@ fun AtharStudioScreen(
                                                     )
                                                     .clickable {
                                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        viewModel.setEffect(effect)
+                                                    }
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.AutoAwesome,
+                                                            contentDescription = null,
+                                                            tint = AmoledBlack,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                    }
+                                                    Text(
+                                                        text = effect.arabicName,
+                                                        color = if (isSelected) AmoledBlack else PureWhite,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                        fontSize = 13.5.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            2 -> {
+                                // Arabic Fonts Tab - Real Authentic Typography Specimen Cards
+                                Column {
+                                    Text(
+                                        text = "اختر نمط ونوع الخط العربي الأصيل",
+                                        color = MutedWhite,
+                                        fontSize = 12.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        ArabicFontFamily.values().forEach { font ->
+                                            val isSelected = canvasState.selectedFont == font
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(135.dp)
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .background(if (isSelected) GoldAccent else GlassSurface)
+                                                    .border(
+                                                        width = if (isSelected) 1.5.dp else 0.5.dp,
+                                                        color = if (isSelected) GoldAccent else GlassBorder,
+                                                        shape = RoundedCornerShape(16.dp)
+                                                    )
+                                                    .clickable {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                         viewModel.setFont(font)
                                                     }
-                                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp)
                                             ) {
-                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Text(
+                                                        text = font.specimen,
+                                                        color = if (isSelected) AmoledBlack else GoldAccent,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 17.sp,
+                                                        maxLines = 1
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
                                                     Text(
                                                         text = font.fontName,
                                                         color = if (isSelected) AmoledBlack else PureWhite,
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 14.sp
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        fontSize = 12.5.sp
                                                     )
                                                     Text(
                                                         text = font.category,
                                                         color = if (isSelected) AmoledBlack.copy(alpha = 0.7f) else SubtleGray,
-                                                        fontSize = 11.sp
+                                                        fontSize = 10.5.sp
                                                     )
                                                 }
                                             }
@@ -578,24 +609,21 @@ fun AtharStudioScreen(
                                         }
 
                                         if (canvasState.backgroundImageUri != null) {
-                                            OutlinedButton(
+                                            IconButton(
                                                 onClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                     viewModel.setBackgroundImageUri(null)
-                                                },
-                                                shape = RoundedCornerShape(12.dp),
-                                                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder)
+                                                    Toast.makeText(context, "تمت إزالة خلفية الصورة", Toast.LENGTH_SHORT).show()
+                                                }
                                             ) {
-                                                Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("إزالة", color = Color(0xFFFF5252), fontSize = 12.sp)
+                                                Icon(Icons.Default.DeleteSweep, contentDescription = "إزالة الصورة", tint = Color(0xFFFF6B6B))
                                             }
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    // Photo Dimming Slider (if image is present)
+                                    // Photo Dimming Slider (if image loaded)
                                     if (canvasState.backgroundImageUri != null) {
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -610,11 +638,12 @@ fun AtharStudioScreen(
                                             valueRange = 0f..0.85f,
                                             colors = SliderDefaults.colors(thumbColor = GoldAccent, activeTrackColor = GoldAccent, inactiveTrackColor = GlassSurface)
                                         )
-                                        Spacer(modifier = Modifier.height(8.dp))
                                     }
 
-                                    // Aspect Ratio Selector
-                                    Text(text = "أبعاد التصميم والستوري", color = MutedWhite, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Aspect Ratio Selector Chips
+                                    Text(text = "نسبة أبعاد الكانفاس:", color = MutedWhite, fontSize = 12.sp)
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -623,7 +652,6 @@ fun AtharStudioScreen(
                                         CanvasAspectRatio.values().forEach { ratio ->
                                             val isSelected = canvasState.aspectRatio == ratio
                                             Box(
-                                                contentAlignment = Alignment.Center,
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .clip(RoundedCornerShape(10.dp))
@@ -633,7 +661,8 @@ fun AtharStudioScreen(
                                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                         viewModel.setAspectRatio(ratio)
                                                     }
-                                                    .padding(vertical = 8.dp)
+                                                    .padding(vertical = 8.dp),
+                                                contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
                                                     text = ratio.label,
@@ -719,22 +748,75 @@ fun AtharStudioScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
-        // Frosted Glass Text Edit Dialog
+        // Modern In-Place Text Editor Modal BottomSheet
         if (showTextDialog) {
             var tempText by remember { mutableStateOf(canvasState.rawText) }
-            AlertDialog(
+            ModalBottomSheet(
                 onDismissRequest = { showTextDialog = false },
-                containerColor = GlassBackground,
-                shape = RoundedCornerShape(24.dp),
-                title = { Text(text = "كتابة وتنسيق النص", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-                text = {
+                containerColor = AmoledBlack,
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .padding(vertical = 12.dp)
+                            .size(width = 40.dp, height = 4.dp)
+                            .clip(CircleShape)
+                            .background(GlassBorder)
+                    )
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "محرر التايبوغرافي العربي",
+                            color = PureWhite,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        TextButton(onClick = { tempText = "" }) {
+                            Text("مسح الكل", color = SubtleGray, fontSize = 13.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Real-Time Specimen Preview Card in the selected font
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(GlassSurface)
+                            .border(1.dp, GlassBorderActive, RoundedCornerShape(16.dp))
+                            .padding(vertical = 18.dp, horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (tempText.isBlank()) "أَثَــر" else tempText,
+                            color = GoldAccent,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Input Field
                     OutlinedTextField(
                         value = tempText,
                         onValueChange = { tempText = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = false,
                         maxLines = 4,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        placeholder = { Text("اكتب نصك أو بيت الشعر هنا...", color = SubtleGray) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GoldAccent,
                             unfocusedBorderColor = GlassBorder,
@@ -743,29 +825,58 @@ fun AtharStudioScreen(
                             cursorColor = GoldAccent
                         )
                     )
-                },
-                confirmButton = {
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Preset Inspiration Chips
+                    Text(text = "اقتراحات وسياقات سريعة:", color = SubtleGray, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("أَثَــر", "كُنْ ذَا أَثَــر", "وَيَبْقَى الأَثَــر", "أَثَــرٌ جَمِيل", "مُخْتَلِف", "إِبْدَاعٌ عَرَبِيّ").forEach { phrase ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(GlassSurface)
+                                    .border(0.5.dp, GlassBorder, RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        tempText = phrase
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 7.dp)
+                            ) {
+                                Text(text = phrase, color = PureWhite, fontSize = 13.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
                     Button(
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            viewModel.setText(tempText)
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.setText(tempText.ifBlank { "أَثَــر" })
                             showTextDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
                     ) {
-                        Text("تطبيق", color = AmoledBlack, fontWeight = FontWeight.Bold)
+                        Text("تطبيق وتحديث التصميم", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showTextDialog = false }) {
-                        Text("إلغاء", color = MutedWhite)
-                    }
+
+                    Spacer(modifier = Modifier.height(30.dp))
                 }
-            )
+            }
         }
 
-        // Frosted Glass Export BottomSheet
+        // Frosted Glass Export BottomSheet with 4K Support and Gallery Save
         if (showExportSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showExportSheet = false },
@@ -783,19 +894,60 @@ fun AtharStudioScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
                 ) {
                     Text(text = "تصدير التصميم الفاخر", color = PureWhite, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "اختر صيغة الحفظ المناسبة للستوري أو المنشورات", color = SubtleGray, fontSize = 12.5.sp)
+                    Text(text = "دقة فائقة تصل إلى 4K مع حفظ مباشر في ألبوم الصور", color = SubtleGray, fontSize = 12.5.sp)
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Resolution Selector
+                    Text(text = "دقة التصدير:", color = MutedWhite, fontSize = 12.5.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        ExportResolution.values().forEach { res ->
+                            val isSelected = selectedResolution == res
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) GoldAccent else GlassSurface)
+                                    .border(1.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        selectedResolution = res
+                                    }
+                                    .padding(vertical = 10.dp, horizontal = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = res.label,
+                                        color = if (isSelected) AmoledBlack else PureWhite,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        text = "${res.width}px",
+                                        color = if (isSelected) AmoledBlack.copy(alpha = 0.7f) else SubtleGray,
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     // 1. Export Transparent PNG Sticker
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.exportDesign(context, isTransparent = true)
+                            viewModel.exportDesign(context, resolution = selectedResolution, isTransparent = true)
                             showExportSheet = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
@@ -803,26 +955,35 @@ fun AtharStudioScreen(
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         enabled = !isExporting
                     ) {
-                        Text(text = "حفظ كملصق شفاف للستوري (PNG)", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "حفظ كملصق شفاف للستوري (PNG)", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // 2. Export Ultra HD Image with Photo / Canvas Background
+                    // 2. Export Image with Photo / Canvas Background
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.exportDesign(context, isTransparent = false)
+                            viewModel.exportDesign(context, resolution = selectedResolution, isTransparent = false)
                             showExportSheet = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                         shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorderActive),
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         enabled = !isExporting
                     ) {
-                        Text(text = "حفظ الصورة كاملة بخلفية (Ultra HD)", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Share, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "حفظ ومشاركة الصورة كاملة (${selectedResolution.label})", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        }
                     }
+
                     Spacer(modifier = Modifier.height(28.dp))
                 }
             }

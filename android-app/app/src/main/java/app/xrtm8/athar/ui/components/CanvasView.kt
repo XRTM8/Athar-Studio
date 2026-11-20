@@ -7,9 +7,9 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Shader
-import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -24,45 +24,61 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.VisualEffect
+import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import kotlin.math.abs
 
 @Composable
 fun CanvasView(
     state: CanvasState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onTransformChanged: ((normX: Float, normY: Float, scale: Float, rotation: Float) -> Unit)? = null,
+    onDoubleTap: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
 
-    var localOffsetX by remember { mutableFloatStateOf(state.offsetX) }
-    var localOffsetY by remember { mutableFloatStateOf(state.offsetY) }
+    var localNormX by remember { mutableFloatStateOf(state.normOffsetX) }
+    var localNormY by remember { mutableFloatStateOf(state.normOffsetY) }
     var localScale by remember { mutableFloatStateOf(state.scaleFactor) }
     var localRotation by remember { mutableFloatStateOf(state.rotationAngle) }
 
-    // Sync if external alignment is triggered (e.g. Align Center/Top/Bottom)
-    LaunchedEffect(state.offsetX, state.offsetY, state.scaleFactor, state.rotationAngle) {
-        localOffsetX = state.offsetX
-        localOffsetY = state.offsetY
+    var canvasW by remember { mutableFloatStateOf(1080f) }
+    var canvasH by remember { mutableFloatStateOf(1920f) }
+
+    // Sync when external alignment or reset is triggered
+    LaunchedEffect(state.normOffsetX, state.normOffsetY, state.scaleFactor, state.rotationAngle) {
+        localNormX = state.normOffsetX
+        localNormY = state.normOffsetY
         localScale = state.scaleFactor
         localRotation = state.rotationAngle
     }
 
-    // Load background image bitmap when URI changes
+    // Load background image bitmap safely with memory limits
     var bgBitmap by remember { mutableStateOf<Bitmap?>(null) }
     LaunchedEffect(state.backgroundImageUri) {
         val uri = state.backgroundImageUri
         bgBitmap = if (uri != null) {
             try {
+                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it)
+                    BitmapFactory.decodeStream(it, null, opts)
+                }
+                var sample = 1
+                while ((opts.outHeight / sample) > 1920 || (opts.outWidth / sample) > 1080) {
+                    sample *= 2
+                }
+                val finalOpts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, finalOpts)
                 }
             } catch (e: Exception) {
                 null
@@ -77,7 +93,7 @@ fun CanvasView(
     val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
     val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true; textAlign = Paint.Align.CENTER } }
     val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE; textAlign = Paint.Align.CENTER } }
-    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#55E5C07B"); strokeWidth = 2f } }
+    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = android.graphics.Color.parseColor("#77E5C07B"); strokeWidth = 2.5f } }
 
     val ratio = state.aspectRatio.ratio
     val canvasModifier = if (ratio != null) {
@@ -99,21 +115,39 @@ fun CanvasView(
                 .fillMaxSize()
                 .background(AmoledBlack)
                 .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            onDoubleTap?.invoke()
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, rotate ->
-                        localOffsetX += pan.x
-                        localOffsetY += pan.y
-                        localScale = (localScale * zoom).coerceIn(0.35f, 5.0f)
+                        val cw = canvasW.coerceAtLeast(10f)
+                        val ch = canvasH.coerceAtLeast(10f)
+
+                        localNormX += pan.x / cw
+                        localNormY += pan.y / ch
+                        localScale = (localScale * zoom).coerceIn(0.3f, 6.0f)
                         localRotation += rotate
+
+                        // Magnetic Snap to Center
+                        if (abs(localNormX) < 0.015f) localNormX = 0f
+                        if (abs(localNormY) < 0.015f) localNormY = 0f
+
+                        onTransformChanged?.invoke(localNormX, localNormY, localScale, localRotation)
                     }
                 }
         ) {
             val canvasWidth = size.width
             val canvasHeight = size.height
+            canvasW = canvasWidth
+            canvasH = canvasHeight
 
             drawIntoCanvas { composeCanvas ->
                 val nativeCanvas = composeCanvas.nativeCanvas
 
-                // 1. Draw Background Image (if loaded)
+                // 1. Draw Background Image
                 if (bgBitmap != null && !state.isTransparentBg) {
                     val src = Rect(0, 0, bgBitmap!!.width, bgBitmap!!.height)
                     val dst = Rect(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
@@ -127,12 +161,10 @@ fun CanvasView(
                 }
 
                 // 3. Smart Snapping Guidelines (visual feedback when centered)
-                val currentOx = localOffsetX
-                val currentOy = localOffsetY
-                if (abs(currentOx) < 18f) {
+                if (abs(localNormX) < 0.005f) {
                     nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
                 }
-                if (abs(currentOy) < 18f) {
+                if (abs(localNormY) < 0.005f) {
                     nativeCanvas.drawLine(0f, canvasHeight / 2f, canvasWidth, canvasHeight / 2f, guidePaint)
                 }
 
@@ -140,26 +172,19 @@ fun CanvasView(
 
                 nativeCanvas.save()
 
-                val centerX = canvasWidth / 2f + currentOx
-                val centerY = canvasHeight / 2f + currentOy
+                val centerX = canvasWidth / 2f + (canvasWidth * localNormX)
+                val centerY = canvasHeight / 2f + (canvasHeight * localNormY)
 
                 nativeCanvas.translate(centerX, centerY)
                 nativeCanvas.rotate(localRotation)
                 nativeCanvas.scale(localScale, localScale)
 
-                // Set Typeface according to selected font
-                val selectedTypeface = when (state.selectedFont) {
-                    ArabicFontFamily.TRADITIONAL -> Typeface.SERIF
-                    ArabicFontFamily.MODERN_SANS -> Typeface.SANS_SERIF
-                    ArabicFontFamily.RUQAA -> Typeface.SERIF
-                    ArabicFontFamily.KUFI -> Typeface.DEFAULT_BOLD
-                    ArabicFontFamily.ELEGANT -> Typeface.DEFAULT
-                    ArabicFontFamily.MONOSPACE -> Typeface.MONOSPACE
-                }
-                basePaint.typeface = selectedTypeface
-                glowPaint.typeface = selectedTypeface
-                shadowPaint.typeface = selectedTypeface
-                strokePaint.typeface = selectedTypeface
+                // Load Authentic Arabic Typeface from assets cache
+                val realTypeface = AtharFontManager.getTypeface(context, state.selectedFont)
+                basePaint.typeface = realTypeface
+                glowPaint.typeface = realTypeface
+                shadowPaint.typeface = realTypeface
+                strokePaint.typeface = realTypeface
 
                 val textSizePx = state.fontSize * density
                 basePaint.textSize = textSizePx
@@ -168,7 +193,7 @@ fun CanvasView(
                 strokePaint.textSize = textSizePx
 
                 val lines = state.displayText.split("\n")
-                val lineHeight = textSizePx * 1.32f
+                val lineHeight = textSizePx * 1.35f
                 val totalHeight = (lines.size - 1) * lineHeight
                 val startY = -totalHeight / 2f
 
@@ -178,10 +203,10 @@ fun CanvasView(
                     when (state.selectedEffect) {
                         VisualEffect.ROYAL_GOLD -> {
                             glowPaint.color = android.graphics.Color.parseColor("#44E5C07B")
-                            glowPaint.maskFilter = BlurMaskFilter(20f * density, BlurMaskFilter.Blur.NORMAL)
+                            glowPaint.maskFilter = BlurMaskFilter(22f * density, BlurMaskFilter.Blur.NORMAL)
                             nativeCanvas.drawText(line, 0f, lineY, glowPaint)
 
-                            shadowPaint.color = android.graphics.Color.parseColor("#88301B05")
+                            shadowPaint.color = android.graphics.Color.parseColor("#99301B05")
                             shadowPaint.maskFilter = null
                             nativeCanvas.drawText(line, 0f, lineY + (5f * density), shadowPaint)
 
@@ -237,7 +262,7 @@ fun CanvasView(
                                 0f, lineY - textSizePx * 0.8f,
                                 0f, lineY + textSizePx * 0.2f,
                                 intArrayOf(
-                                    android.graphics.Color.parseColor("#D9FFFFFF"),
+                                    android.graphics.Color.parseColor("#E6FFFFFF"),
                                     android.graphics.Color.parseColor("#33E2E8F0")
                                 ),
                                 null,
@@ -252,12 +277,12 @@ fun CanvasView(
                         }
 
                         VisualEffect.CYBER_NEON -> {
-                            glowPaint.color = android.graphics.Color.parseColor("#55FF007F")
+                            glowPaint.color = android.graphics.Color.parseColor("#6600FF9D")
                             glowPaint.maskFilter = BlurMaskFilter(28f * density, BlurMaskFilter.Blur.NORMAL)
                             nativeCanvas.drawText(line, 0f, lineY, glowPaint)
 
-                            shadowPaint.color = android.graphics.Color.parseColor("#8800F5D4")
-                            shadowPaint.maskFilter = BlurMaskFilter(10f * density, BlurMaskFilter.Blur.NORMAL)
+                            shadowPaint.color = android.graphics.Color.parseColor("#88009955")
+                            shadowPaint.maskFilter = BlurMaskFilter(12f * density, BlurMaskFilter.Blur.NORMAL)
                             nativeCanvas.drawText(line, 0f, lineY, shadowPaint)
 
                             basePaint.shader = null
@@ -267,7 +292,7 @@ fun CanvasView(
 
                         VisualEffect.CINEMATIC_SHADOW -> {
                             for (step in 1..6) {
-                                shadowPaint.color = android.graphics.Color.argb((100 - step * 14).coerceAtLeast(10), 0, 0, 0)
+                                shadowPaint.color = android.graphics.Color.argb((110 - step * 16).coerceAtLeast(10), 0, 0, 0)
                                 shadowPaint.maskFilter = null
                                 nativeCanvas.drawText(line, step * 1.5f * density, lineY + (step * 2.2f * density), shadowPaint)
                             }

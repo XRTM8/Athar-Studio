@@ -12,6 +12,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.AtharStudioScreen
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.AtharTheme
@@ -48,6 +49,9 @@ class MainActivity : ComponentActivity() {
             }
             updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = true)
         }
+
+        // Preload authentic Arabic typefaces into memory
+        AtharFontManager.preload(this)
 
         setContent {
             AtharTheme {
