@@ -424,22 +424,33 @@ object AtharExportManager {
         var maxX = -1
         var maxY = -1
 
-        val rowPixels = IntArray(width)
-        for (y in 0 until height) {
-            src.getPixels(rowPixels, 0, width, 0, y, width, 1)
-            var rowHasVisible = false
-            for (x in 0 until width) {
-                val alpha = (rowPixels[x] ushr 24) and 0xFF
-                if (alpha > 12) {
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    rowHasVisible = true
+        val batchRows = 64.coerceAtMost(height)
+        val batchPixels = IntArray(width * batchRows)
+
+        var y = 0
+        while (y < height) {
+            val currentH = batchRows.coerceAtMost(height - y)
+            src.getPixels(batchPixels, 0, width, 0, y, width, currentH)
+
+            var offset = 0
+            for (localY in 0 until currentH) {
+                val actualY = y + localY
+                var rowHasVisible = false
+                for (x in 0 until width) {
+                    val alpha = (batchPixels[offset + x] ushr 24) and 0xFF
+                    if (alpha > 12) {
+                        if (x < minX) minX = x
+                        if (x > maxX) maxX = x
+                        rowHasVisible = true
+                    }
                 }
+                if (rowHasVisible) {
+                    if (actualY < minY) minY = actualY
+                    if (actualY > maxY) maxY = actualY
+                }
+                offset += width
             }
-            if (rowHasVisible) {
-                if (y < minY) minY = y
-                if (y > maxY) maxY = y
-            }
+            y += currentH
         }
 
         if (maxX < minX || maxY < minY) {

@@ -42,7 +42,8 @@ fun ProjectsBottomSheet(
     onSaveCurrent: () -> Unit,
     onNewProject: () -> Unit,
     onOpenProject: (String) -> Unit,
-    onDeleteProject: (String) -> Unit
+    onDeleteProject: (String) -> Unit,
+    onShareProject: (String) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -225,19 +226,36 @@ fun ProjectsBottomSheet(
                                             fontSize = 9.5.sp
                                         )
                                     }
-                                    IconButton(
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            onDeleteProject(proj.id)
-                                        },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "حذف",
-                                            tint = Color(0xFFFF6B6B),
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                onShareProject(proj.id)
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Share,
+                                                contentDescription = "مشاركة المشروع (.athar)",
+                                                tint = GoldAccent,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                onDeleteProject(proj.id)
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "حذف",
+                                                tint = Color(0xFFFF6B6B),
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }

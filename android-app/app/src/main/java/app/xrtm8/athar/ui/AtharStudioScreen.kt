@@ -259,6 +259,9 @@ fun AtharStudioScreen(
                 },
                 onDeleteProject = { id ->
                     viewModel.deleteProject(context, id)
+                },
+                onShareProject = { id ->
+                    viewModel.shareProjectById(context, id)
                 }
             )
         }

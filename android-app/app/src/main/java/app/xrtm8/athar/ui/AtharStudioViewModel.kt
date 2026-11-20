@@ -430,6 +430,25 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    fun shareProjectById(context: Context, projectId: String) {
+        viewModelScope.launch {
+            try {
+                val proj = _projectsList.value.find { it.id == projectId }
+                val file = AtharProjectManager.getExportableProjectFile(context, projectId, proj?.title ?: "مشروع_أثر")
+                val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", file)
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/octet-stream"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "مشاركة مشروع أَثَــر (.athar)"))
+                _exportMessage.value = "تم تجهيز ملف المشروع للمشاركة"
+            } catch (e: Exception) {
+                _exportMessage.value = "فشل مشاركة المشروع: ${e.message}"
+            }
+        }
+    }
+
     fun openProjectFromUri(context: Context, uri: Uri) {
         viewModelScope.launch {
             try {
