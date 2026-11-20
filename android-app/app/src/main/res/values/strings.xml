@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">مَــدَى | Mada</string>
+    <string name="update_available_title">يتوفر إصدار جديد</string>
+    <string name="update_available_msg">نسخة أحدث من تطبيق مَــدَى متوفرة الآن مع تحسينات في مد الخط وتأثيرات الشيدرز.</string>
+    <string name="update_now">تحديث الآن</string>
+    <string name="update_later">لاحقاً</string>
+    <string name="export_success">تم حفظ التصميم بنجاح في المعرض</string>
+</resources>
