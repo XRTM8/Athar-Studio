@@ -26,7 +26,6 @@ import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.AtharHomeScreen
 import app.xrtm8.athar.ui.AtharStudioScreen
 import app.xrtm8.athar.ui.AtharStudioViewModel
-import app.xrtm8.athar.ui.splash.AtharSplashScreen
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.AmoledWhite
 import app.xrtm8.athar.ui.theme.AtharTheme
@@ -34,7 +33,6 @@ import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
 
 enum class AtharScreen {
-    SPLASH,
     HOME,
     STUDIO
 }
@@ -103,7 +101,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         var currentScreen by remember {
                             mutableStateOf(
-                                if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.SPLASH
+                                if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.HOME
                             )
                         }
 
@@ -112,13 +110,6 @@ class MainActivity : ComponentActivity() {
                             label = "ScreenCrossfade"
                         ) { screen ->
                             when (screen) {
-                                AtharScreen.SPLASH -> {
-                                    AtharSplashScreen(
-                                        onSplashFinished = {
-                                            currentScreen = AtharScreen.HOME
-                                        }
-                                    )
-                                }
                                 AtharScreen.HOME -> {
                                     AtharHomeScreen(
                                         viewModel = studioViewModel,
