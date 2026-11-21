@@ -35,7 +35,11 @@ data class CanvasState(
     val gainRed: Float = 0f,
     val gainGreen: Float = 0f,
     val gainBlue: Float = 0f,
-    val colorMixState: ColorMixState = ColorMixState()
+    val colorMixState: ColorMixState = ColorMixState(),
+    val patternState: PatternState = PatternState(),
+    val cinematicGlowState: CinematicGlowState = CinematicGlowState(),
+    val filmGrainState: FilmGrainState = FilmGrainState(),
+    val collageState: CollageState = CollageState()
 ) {
     val activeLayer: TextLayer
         get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()

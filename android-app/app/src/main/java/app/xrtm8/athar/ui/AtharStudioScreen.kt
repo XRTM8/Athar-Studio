@@ -88,9 +88,21 @@ fun AtharStudioScreen(
     }
     LaunchedEffect(Unit) { viewModel.loadCustomFonts(context) }
 
+    var pendingCollageCellId by remember { mutableStateOf<String?>(null) }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri -> if (uri != null) pendingCropImageUri = uri }
+    ) { uri ->
+        if (uri != null) {
+            val cellId = pendingCollageCellId
+            if (cellId != null) {
+                viewModel.setCollageCellPhoto(cellId, uri)
+                pendingCollageCellId = null
+            } else {
+                pendingCropImageUri = uri
+            }
+        }
+    }
 
     val projectImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -186,10 +198,17 @@ fun AtharStudioScreen(
                             onClosePanel = { isPanelExpanded = false },
                             onOpenTextEditor = { showTextDialog = true },
                             onOpenFontBrowser = { showFontBrowser = true },
-                            onPickImage = { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            onPickImage = {
+                                pendingCollageCellId = null
+                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
                             onRemoveImage = {
                                 viewModel.setBackgroundImageUri(null)
                                 Toast.makeText(context, "تمت إزالة صورة الخلفية", Toast.LENGTH_SHORT).show()
+                            },
+                            onPickCollagePhoto = { cellId ->
+                                pendingCollageCellId = cellId
+                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             }
                         )
 
@@ -207,27 +226,10 @@ fun AtharStudioScreen(
             }
 
             // Floating "إرجاع الأدوات" Button in Clean Preview Mode (Requirement 4)
-            AnimatedVisibility(
+            PreviewReturnButton(
                 visible = isPreviewMode,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
-            ) {
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isPreviewMode = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),
-                    shape = RoundedCornerShape(24.dp),
-                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.VisibilityOff, contentDescription = null, tint = PureWhite, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "إرجاع الأدوات", color = PureWhite, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+                onClick = { isPreviewMode = false }
+            )
         }
 
         // Modals & BottomSheets Helper

@@ -112,8 +112,36 @@ object AtharExportManager {
 
     private fun drawBackground(context: Context, canvas: Canvas, state: CanvasState, width: Int, height: Int) {
         var photoDrawn = false
-        val bgUri = state.backgroundImageUri
-        if (bgUri != null) {
+
+        if (state.collageState.isEnabled) {
+            val cellBitmaps = mutableMapOf<String, Bitmap>()
+            state.collageState.cells.forEach { cell ->
+                val uri = cell.imageUri
+                if (uri != null) {
+                    val cw = ((cell.rightNorm - cell.leftNorm) * width).toInt().coerceAtLeast(32)
+                    val ch = ((cell.bottomNorm - cell.topNorm) * height).toInt().coerceAtLeast(32)
+                    val bmp = decodeSampledBitmap(context, uri, cw, ch)
+                    if (bmp != null) {
+                        cellBitmaps[cell.id] = bmp
+                    }
+                }
+            }
+            val density = width / 380f
+            val collagePaint = Paint(Paint.FILTER_BITMAP_FLAG)
+            app.xrtm8.athar.ui.components.CollageCanvasRenderer.drawCollage(
+                canvas = canvas,
+                state = state.collageState,
+                width = width.toFloat(),
+                height = height.toFloat(),
+                density = density,
+                cellBitmaps = cellBitmaps,
+                paint = collagePaint
+            )
+            cellBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+            photoDrawn = true
+        } else {
+            val bgUri = state.backgroundImageUri
+            if (bgUri != null) {
             var srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
             if (srcBitmap != null) {
                 if (state.backgroundBlur > 0.5f) {
@@ -146,6 +174,22 @@ object AtharExportManager {
                     if (mixed != srcBitmap) {
                         srcBitmap.recycle()
                         srcBitmap = mixed
+                    }
+                }
+
+                if (state.cinematicGlowState.isEnabled) {
+                    val glowed = app.xrtm8.athar.core.AtharOpticalGlowEngine.processBitmap(srcBitmap, state.cinematicGlowState)
+                    if (glowed != srcBitmap) {
+                        srcBitmap.recycle()
+                        srcBitmap = glowed
+                    }
+                }
+
+                if (state.filmGrainState.isEnabled) {
+                    val grained = app.xrtm8.athar.core.AtharFilmGrainEngine.processBitmap(srcBitmap, state.filmGrainState)
+                    if (grained != srcBitmap) {
+                        srcBitmap.recycle()
+                        srcBitmap = grained
                     }
                 }
 
@@ -195,6 +239,7 @@ object AtharExportManager {
                 srcBitmap.recycle()
             }
         }
+    }
 
         if (!photoDrawn) {
             if (state.solidBgColorLong != null) {
@@ -214,6 +259,17 @@ object AtharExportManager {
                 width = width.toFloat(),
                 height = height.toFloat(),
                 scrim = state.gradientScrim
+            )
+        }
+
+        if (!state.isTransparentBg && state.patternState.isEnabled) {
+            val exportDensity = width / 380f
+            app.xrtm8.athar.core.AtharPatternFactory.drawPattern(
+                canvas = canvas,
+                width = width.toFloat(),
+                height = height.toFloat(),
+                state = state.patternState,
+                density = exportDensity
             )
         }
     }

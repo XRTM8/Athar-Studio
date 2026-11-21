@@ -11,13 +11,17 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
-import androidx.compose.material.icons.filled.Gradient
+import androidx.compose.material.icons.filled.Flare
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhotoFilter
+import androidx.compose.material.icons.filled.Texture
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -31,63 +35,27 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.xrtm8.athar.model.CanvasAspectRatio
-import app.xrtm8.athar.model.CanvasGradientDirection
 import app.xrtm8.athar.model.CanvasState
-import app.xrtm8.athar.model.ColorMixChannel
-import app.xrtm8.athar.model.FilmPreset
+import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.components.PhotoAdjustmentsPanel
 import app.xrtm8.athar.ui.panels.background.CanvasFramingSection
+import app.xrtm8.athar.ui.panels.background.CinematicEffectsPanel
+import app.xrtm8.athar.ui.panels.background.CollagePanel
 import app.xrtm8.athar.ui.panels.background.ColorMixPanel
-import app.xrtm8.athar.ui.panels.background.GradientScrimSection
+import app.xrtm8.athar.ui.panels.background.PatternPanel
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * Clean Canvas & Background Panel Coordinator.
- * Sub-units:
- * 0 -> CanvasFramingSection (Ratios, Solid BG, Framing, Stickers)
- * 1 -> PhotoAdjustmentsPanel (Blur, Dim, Contrast, Brightness, Saturation)
- * 2 -> GradientScrimSection (Directional Scrim, Custom Colors, Midpoint)
- * 3 -> FilmFilterPanel (Film Emulations & 3-way color grading)
+ * Clean Canvas & Background Panel Coordinator (< 240 lines).
  */
 @Composable
 fun CanvasBackgroundPanel(
     state: CanvasState,
-    onToggleTransparent: (Boolean) -> Unit,
-    onSelectSolidBgColor: (Long?) -> Unit,
+    viewModel: AtharStudioViewModel,
     onPickImage: () -> Unit,
     onRemoveImage: () -> Unit,
-    onDimChange: (Float) -> Unit,
-    onBlurChange: (Float) -> Unit,
-    onBrightnessChange: (Float) -> Unit,
-    onContrastChange: (Float) -> Unit,
-    onSaturationChange: (Float) -> Unit,
-    onVignetteChange: (Float) -> Unit,
-    onResetPhotoAdjustments: () -> Unit,
-    onAspectRatioChange: (CanvasAspectRatio) -> Unit,
-    onToggleGridGuides: () -> Unit,
-    onToggleFramingMode: (Boolean) -> Unit,
-    onBgPhotoOffsetXChange: (Float) -> Unit,
-    onBgPhotoOffsetYChange: (Float) -> Unit,
-    onBgPhotoScaleChange: (Float) -> Unit,
-    onToggleGradientScrim: (Boolean) -> Unit,
-    onGradientScrimDirectionChange: (CanvasGradientDirection) -> Unit,
-    onGradientScrimColorChange: (Long) -> Unit,
-    onGradientScrimOpacityChange: (Float) -> Unit,
-    onGradientScrimMidpointChange: (Float) -> Unit,
-    onSelectFilmPreset: (FilmPreset) -> Unit = {},
-    onToggleColorGrading: ((Boolean) -> Unit)? = null,
-    onLiftChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
-    onGammaChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
-    onGainChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
-    onResetColorGrading: (() -> Unit)? = null,
-    onColorMixAdjust: ((ColorMixChannel, Float, Float, Float) -> Unit)? = null,
-    onIsolateColorChannel: ((ColorMixChannel?) -> Unit)? = null,
-    onMonochromeColorChannel: ((ColorMixChannel?) -> Unit)? = null,
-    onResetColorMixChannel: ((ColorMixChannel) -> Unit)? = null,
-    onResetAllColorMix: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-    onSliderChangeFinished: (() -> Unit)? = null
+    onPickCollagePhoto: (String) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     var subSection by remember { mutableIntStateOf(0) }
@@ -100,28 +68,30 @@ fun CanvasBackgroundPanel(
                 .clip(RoundedCornerShape(12.dp))
                 .background(GlassSurface)
                 .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp))
-                .padding(3.dp),
+                .padding(3.dp)
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             listOf(
                 0 to ("الكانفاس" to Icons.Default.AspectRatio),
-                1 to ("الضبط" to Icons.Default.Tune),
-                2 to ("خلط الألوان" to Icons.Default.Palette),
-                3 to ("الظل" to Icons.Default.Gradient),
-                4 to ("الفلاتر" to Icons.Default.PhotoFilter)
+                1 to ("كولاج" to Icons.Default.GridView),
+                2 to ("سينمائي" to Icons.Default.Flare),
+                3 to ("باترن" to Icons.Default.Texture),
+                4 to ("الضبط" to Icons.Default.Tune),
+                5 to ("خلط الألوان" to Icons.Default.Palette),
+                6 to ("الفلاتر" to Icons.Default.PhotoFilter)
             ).forEach { (idx, item) ->
                 val (title, icon) = item
                 val isSelected = subSection == idx
                 Box(
                     modifier = Modifier
-                        .weight(1f)
                         .clip(RoundedCornerShape(9.dp))
                         .background(if (isSelected) BurgundyAccent else Color.Transparent)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             subSection = idx
                         }
-                        .padding(vertical = 7.dp),
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -131,11 +101,11 @@ fun CanvasBackgroundPanel(
                             tint = if (isSelected) PureWhite else MutedWhite,
                             modifier = Modifier.size(13.dp)
                         )
-                        Spacer(modifier = Modifier.width(3.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = title,
                             color = if (isSelected) PureWhite else MutedWhite,
-                            fontSize = 10.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
@@ -161,60 +131,89 @@ fun CanvasBackgroundPanel(
             when (currentSection) {
                 0 -> CanvasFramingSection(
                     state = state,
-                    onAspectRatioChange = onAspectRatioChange,
-                    onToggleGridGuides = onToggleGridGuides,
+                    onAspectRatioChange = { viewModel.setAspectRatio(it) },
+                    onToggleGridGuides = { viewModel.toggleGridGuides() },
                     onPickImage = onPickImage,
                     onRemoveImage = onRemoveImage,
-                    onToggleFramingMode = onToggleFramingMode,
-                    onBgPhotoOffsetXChange = onBgPhotoOffsetXChange,
-                    onBgPhotoOffsetYChange = onBgPhotoOffsetYChange,
-                    onBgPhotoScaleChange = onBgPhotoScaleChange,
-                    onToggleTransparent = onToggleTransparent,
-                    onSelectSolidBgColor = onSelectSolidBgColor,
-                    onSliderChangeFinished = onSliderChangeFinished
+                    onToggleFramingMode = { viewModel.toggleFramingMode(it) },
+                    onBgPhotoOffsetXChange = { viewModel.setBgPhotoOffset(it, state.bgPhotoOffsetY) },
+                    onBgPhotoOffsetYChange = { viewModel.setBgPhotoOffset(state.bgPhotoOffsetX, it) },
+                    onBgPhotoScaleChange = { viewModel.setBgPhotoScale(it) },
+                    onToggleTransparent = { viewModel.setTransparentBg(it) },
+                    onSelectSolidBgColor = { viewModel.setSolidBgColor(it) },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
-                1 -> PhotoAdjustmentsPanel(
+                1 -> CollagePanel(
+                    state = state.collageState,
+                    onLayoutChange = { viewModel.setCollageLayout(it) },
+                    onSelectCell = { viewModel.selectCollageCell(it) },
+                    onPickCellPhoto = onPickCollagePhoto,
+                    onSpacingChange = { viewModel.setCollageSpacing(it) },
+                    onCornerRadiusChange = { viewModel.setCollageCornerRadius(it) },
+                    onFrameColorChange = { viewModel.setCollageFrameColor(it) },
+                    onResetCollage = { viewModel.resetCollage() },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
+                )
+
+                2 -> CinematicEffectsPanel(
+                    glowState = state.cinematicGlowState,
+                    grainState = state.filmGrainState,
+                    onGlowChange = { viewModel.setCinematicGlow(it) },
+                    onRangeChange = { viewModel.setCinematicRange(it) },
+                    onSpreadChange = { viewModel.setCinematicSpread(it) },
+                    onWarmthChange = { viewModel.setCinematicWarmth(it) },
+                    onStyleChange = { viewModel.setCinematicStyle(it) },
+                    onResetGlow = { viewModel.resetCinematicGlow() },
+                    onGrainChange = { viewModel.setFilmGrain(it) },
+                    onGrainSizeChange = { viewModel.setFilmGrainSize(it) },
+                    onGrainRoughnessChange = { viewModel.setFilmGrainRoughness(it) },
+                    onResetGrain = { viewModel.resetFilmGrain() },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
+                )
+
+                3 -> PatternPanel(
+                    state = state.patternState,
+                    onPatternTypeChange = { viewModel.setPatternType(it) },
+                    onOpacityChange = { viewModel.setPatternOpacity(it) },
+                    onScaleChange = { viewModel.setPatternScale(it) },
+                    onBlendModeChange = { viewModel.setPatternBlendMode(it) },
+                    onToggleLightTint = { viewModel.setPatternLightTint(it) },
+                    onResetPattern = { viewModel.resetPattern() },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
+                )
+
+                4 -> PhotoAdjustmentsPanel(
                     state = state,
-                    onBlurChange = onBlurChange,
-                    onDimChange = onDimChange,
-                    onBrightnessChange = onBrightnessChange,
-                    onContrastChange = onContrastChange,
-                    onSaturationChange = onSaturationChange,
-                    onVignetteChange = onVignetteChange,
-                    onResetAdjustments = onResetPhotoAdjustments,
-                    onSliderChangeFinished = onSliderChangeFinished
+                    onBlurChange = { viewModel.setBackgroundBlur(it) },
+                    onDimChange = { viewModel.setBackgroundDim(it) },
+                    onBrightnessChange = { viewModel.setBackgroundBrightness(it) },
+                    onContrastChange = { viewModel.setBackgroundContrast(it) },
+                    onSaturationChange = { viewModel.setBackgroundSaturation(it) },
+                    onVignetteChange = { viewModel.setBackgroundVignette(it) },
+                    onResetAdjustments = { viewModel.resetPhotoAdjustments() },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
-                2 -> ColorMixPanel(
+                5 -> ColorMixPanel(
                     state = state.colorMixState,
-                    onChannelAdjust = { ch, h, s, l -> onColorMixAdjust?.invoke(ch, h, s, l) },
-                    onIsolateChannel = { onIsolateColorChannel?.invoke(it) },
-                    onMonochromeChannel = { onMonochromeColorChannel?.invoke(it) },
-                    onResetChannel = { onResetColorMixChannel?.invoke(it) },
-                    onResetAll = { onResetAllColorMix?.invoke() },
-                    onSliderChangeFinished = onSliderChangeFinished
-                )
-
-                3 -> GradientScrimSection(
-                    state = state,
-                    onToggleGradientScrim = onToggleGradientScrim,
-                    onGradientScrimDirectionChange = onGradientScrimDirectionChange,
-                    onGradientScrimColorChange = onGradientScrimColorChange,
-                    onGradientScrimOpacityChange = onGradientScrimOpacityChange,
-                    onGradientScrimMidpointChange = onGradientScrimMidpointChange,
-                    onSliderChangeFinished = onSliderChangeFinished
+                    onChannelAdjust = { ch, h, s, l -> viewModel.setColorMixChannel(ch, h, s, l) },
+                    onIsolateChannel = { viewModel.setIsolatedColorChannel(it) },
+                    onMonochromeChannel = { viewModel.setMonochromeColorChannel(it) },
+                    onResetChannel = { viewModel.resetColorMixChannel(it) },
+                    onResetAll = { viewModel.resetAllColorMix() },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
                 else -> FilmFilterPanel(
                     state = state,
-                    onSelectFilmPreset = onSelectFilmPreset,
-                    onToggleColorGrading = onToggleColorGrading,
-                    onLiftChange = onLiftChange,
-                    onGammaChange = onGammaChange,
-                    onGainChange = onGainChange,
-                    onResetColorGrading = onResetColorGrading,
-                    onSliderChangeFinished = onSliderChangeFinished
+                    onSelectFilmPreset = { viewModel.setFilmPreset(it) },
+                    onToggleColorGrading = { viewModel.setColorGradingEnabled(it) },
+                    onLiftChange = { r, g, b -> viewModel.setColorGradingLift(r, g, b) },
+                    onGammaChange = { r, g, b -> viewModel.setColorGradingGamma(r, g, b) },
+                    onGainChange = { r, g, b -> viewModel.setColorGradingGain(r, g, b) },
+                    onResetColorGrading = { viewModel.resetColorGrading() },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
             }
         }

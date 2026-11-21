@@ -64,7 +64,7 @@ fun rememberCanvasBackgroundBitmap(
         }
     }
 
-    LaunchedEffect(rawBgBitmap, state.backgroundBlur, state.colorMixState) {
+    LaunchedEffect(rawBgBitmap, state.backgroundBlur, state.colorMixState, state.cinematicGlowState, state.filmGrainState) {
         val base = rawBgBitmap
         val oldProcessed = processedBgBitmap
         val next = if (base != null) {
@@ -82,6 +82,23 @@ fun rememberCanvasBackgroundBitmap(
                     }
                     current = mixed
                 }
+
+                if (state.cinematicGlowState.isEnabled) {
+                    val glowed = app.xrtm8.athar.core.AtharOpticalGlowEngine.processBitmap(current, state.cinematicGlowState)
+                    if (current != base && current != glowed && !current.isRecycled) {
+                        current.recycle()
+                    }
+                    current = glowed
+                }
+
+                if (state.filmGrainState.isEnabled) {
+                    val grained = app.xrtm8.athar.core.AtharFilmGrainEngine.processBitmap(current, state.filmGrainState)
+                    if (current != base && current != grained && !current.isRecycled) {
+                        current.recycle()
+                    }
+                    current = grained
+                }
+
                 current
             }
         } else {

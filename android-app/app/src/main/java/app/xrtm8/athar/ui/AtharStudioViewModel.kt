@@ -1046,6 +1046,147 @@ class AtharStudioViewModel : ViewModel() {
         ))
     }
 
+    // ==========================================
+    // Micro-Patterns & Procedural Textures
+    // ==========================================
+
+    fun setPatternType(type: app.xrtm8.athar.model.PatternType) {
+        pushHistory(_canvasState.value.copy(
+            patternState = _canvasState.value.patternState.copy(type = type)
+        ))
+    }
+
+    fun setPatternOpacity(opacity: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(patternState = it.patternState.copy(opacity = opacity.coerceIn(0f, 1f))) }
+    }
+
+    fun setPatternScale(scale: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(patternState = it.patternState.copy(scale = scale.coerceIn(0.5f, 3.0f))) }
+    }
+
+    fun setPatternBlendMode(blend: app.xrtm8.athar.model.PatternBlend) {
+        pushHistory(_canvasState.value.copy(
+            patternState = _canvasState.value.patternState.copy(blendMode = blend)
+        ))
+    }
+
+    fun setPatternLightTint(isLight: Boolean) {
+        pushHistory(_canvasState.value.copy(
+            patternState = _canvasState.value.patternState.copy(isLightTint = isLight)
+        ))
+    }
+
+    fun resetPattern() {
+        pushHistory(_canvasState.value.copy(
+            patternState = app.xrtm8.athar.model.PatternState()
+        ))
+    }
+
+    // ==========================================
+    // Lightroom-Grade Cinematic Effects (Glow, Motion Streaks, Grain)
+    // ==========================================
+
+    fun setCinematicGlow(glow: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(glow = glow.coerceIn(0f, 100f))) }
+    }
+
+    fun setCinematicRange(range: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(range = range.coerceIn(0f, 100f))) }
+    }
+
+    fun setCinematicSpread(spread: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(spread = spread.coerceIn(0f, 100f))) }
+    }
+
+    fun setCinematicWarmth(warmth: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(warmth = warmth.coerceIn(0f, 100f))) }
+    }
+
+    fun setCinematicStyle(style: app.xrtm8.athar.model.GlowStyle) {
+        pushHistory(_canvasState.value.copy(
+            cinematicGlowState = _canvasState.value.cinematicGlowState.copy(style = style)
+        ))
+    }
+
+    fun resetCinematicGlow() {
+        pushHistory(_canvasState.value.copy(
+            cinematicGlowState = app.xrtm8.athar.model.CinematicGlowState()
+        ))
+    }
+
+    fun setFilmGrain(grain: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(filmGrainState = it.filmGrainState.copy(grain = grain.coerceIn(0f, 100f))) }
+    }
+
+    fun setFilmGrainSize(size: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(filmGrainState = it.filmGrainState.copy(size = size.coerceIn(0f, 100f))) }
+    }
+
+    fun setFilmGrainRoughness(roughness: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(filmGrainState = it.filmGrainState.copy(roughness = roughness.coerceIn(0f, 100f))) }
+    }
+
+    fun resetFilmGrain() {
+        pushHistory(_canvasState.value.copy(
+            filmGrainState = app.xrtm8.athar.model.FilmGrainState()
+        ))
+    }
+
+    // ==========================================
+    // Editorial Photo Collage
+    // ==========================================
+
+    fun setCollageLayout(layout: app.xrtm8.athar.model.CollageLayoutType) {
+        val cur = _canvasState.value.collageState
+        val newCells = app.xrtm8.athar.core.CollageLayoutCalculator.generateCellsForLayout(layout, cur.cells)
+        pushHistory(_canvasState.value.copy(
+            collageState = cur.copy(layout = layout, cells = newCells, activeCellId = newCells.firstOrNull()?.id)
+        ))
+    }
+
+    fun setCollageCellPhoto(cellId: String, uri: Uri?) {
+        val cur = _canvasState.value.collageState
+        val updated = cur.cells.map { if (it.id == cellId) it.copy(imageUri = uri) else it }
+        pushHistory(_canvasState.value.copy(
+            collageState = cur.copy(cells = updated)
+        ))
+    }
+
+    fun selectCollageCell(cellId: String) {
+        _canvasState.update { it.copy(collageState = it.collageState.copy(activeCellId = cellId)) }
+    }
+
+    fun setCollageSpacing(spacing: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(collageState = it.collageState.copy(spacingDp = spacing.coerceIn(0f, 24f))) }
+    }
+
+    fun setCollageCornerRadius(radius: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(collageState = it.collageState.copy(cornerRadiusDp = radius.coerceIn(0f, 32f))) }
+    }
+
+    fun setCollageFrameColor(colorLong: Long) {
+        pushHistory(_canvasState.value.copy(
+            collageState = _canvasState.value.collageState.copy(frameColorLong = colorLong)
+        ))
+    }
+
+    fun resetCollage() {
+        pushHistory(_canvasState.value.copy(
+            collageState = app.xrtm8.athar.model.CollageState()
+        ))
+    }
+
     fun resetPhotoAdjustments() {
         pushHistory(_canvasState.value.copy(
             backgroundBlur = 0f,

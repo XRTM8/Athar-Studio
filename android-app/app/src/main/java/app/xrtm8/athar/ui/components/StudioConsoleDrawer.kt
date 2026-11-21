@@ -67,6 +67,7 @@ fun StudioConsoleDrawer(
     onOpenFontBrowser: () -> Unit,
     onPickImage: () -> Unit,
     onRemoveImage: () -> Unit,
+    onPickCollagePhoto: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -191,40 +192,10 @@ fun StudioConsoleDrawer(
 
                         2 -> CanvasBackgroundPanel(
                             state = canvasState,
-                            onToggleTransparent = { viewModel.setTransparentBg(it) },
-                            onSelectSolidBgColor = { viewModel.setSolidBgColor(it) },
+                            viewModel = viewModel,
                             onPickImage = onPickImage,
                             onRemoveImage = onRemoveImage,
-                            onDimChange = { viewModel.setBackgroundDim(it) },
-                            onBlurChange = { viewModel.setBackgroundBlur(it) },
-                            onBrightnessChange = { viewModel.setBackgroundBrightness(it) },
-                            onContrastChange = { viewModel.setBackgroundContrast(it) },
-                            onSaturationChange = { viewModel.setBackgroundSaturation(it) },
-                            onVignetteChange = { viewModel.setBackgroundVignette(it) },
-                            onResetPhotoAdjustments = { viewModel.resetPhotoAdjustments() },
-                            onAspectRatioChange = { viewModel.setAspectRatio(it) },
-                            onToggleGridGuides = { viewModel.toggleGridGuides() },
-                            onToggleFramingMode = { viewModel.toggleFramingMode(it) },
-                            onBgPhotoOffsetXChange = { viewModel.setBgPhotoOffset(it, canvasState.bgPhotoOffsetY) },
-                            onBgPhotoOffsetYChange = { viewModel.setBgPhotoOffset(canvasState.bgPhotoOffsetX, it) },
-                            onBgPhotoScaleChange = { viewModel.setBgPhotoScale(it) },
-                            onToggleGradientScrim = { viewModel.setGradientScrimEnabled(it) },
-                            onGradientScrimDirectionChange = { viewModel.setGradientScrimDirection(it) },
-                            onGradientScrimColorChange = { viewModel.setGradientScrimColor(it) },
-                            onGradientScrimOpacityChange = { viewModel.setGradientScrimOpacity(it) },
-                            onGradientScrimMidpointChange = { viewModel.setGradientScrimMidpoint(it) },
-                            onSelectFilmPreset = { viewModel.setFilmPreset(it) },
-                            onToggleColorGrading = { viewModel.setColorGradingEnabled(it) },
-                            onLiftChange = { r, g, b -> viewModel.setColorGradingLift(r, g, b) },
-                            onGammaChange = { r, g, b -> viewModel.setColorGradingGamma(r, g, b) },
-                            onGainChange = { r, g, b -> viewModel.setColorGradingGain(r, g, b) },
-                            onResetColorGrading = { viewModel.resetColorGrading() },
-                            onColorMixAdjust = { ch, h, s, l -> viewModel.setColorMixChannel(ch, h, s, l) },
-                            onIsolateColorChannel = { viewModel.setIsolatedColorChannel(it) },
-                            onMonochromeColorChannel = { viewModel.setMonochromeColorChannel(it) },
-                            onResetColorMixChannel = { viewModel.resetColorMixChannel(it) },
-                            onResetAllColorMix = { viewModel.resetAllColorMix() },
-                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
+                            onPickCollagePhoto = onPickCollagePhoto
                         )
 
                         else -> TransformPositionPanel(

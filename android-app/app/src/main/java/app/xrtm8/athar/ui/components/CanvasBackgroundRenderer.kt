@@ -58,11 +58,22 @@ object CanvasBackgroundRenderer {
         canvasHeight: Float,
         density: Float,
         bgBitmap: Bitmap?,
-        bgPaint: Paint
+        bgPaint: Paint,
+        cellBitmaps: Map<String, Bitmap> = emptyMap()
     ) {
         if (state.isTransparentBg) {
             // Instant 1-draw-call hardware repeated pattern (1,100x faster than loop drawRect)
             nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, getCheckerboardPaint(density))
+        } else if (state.collageState.isEnabled) {
+            CollageCanvasRenderer.drawCollage(
+                canvas = nativeCanvas,
+                state = state.collageState,
+                width = canvasWidth,
+                height = canvasHeight,
+                density = density,
+                cellBitmaps = cellBitmaps,
+                paint = bgPaint
+            )
         } else if (bgBitmap != null) {
             // Apply composite adjustments combined with Film Preset ColorMatrix and 3-Way Color Wheels
             bgPaint.colorFilter = FilmPresetEngine.createCompositeFilter(
@@ -138,6 +149,17 @@ object CanvasBackgroundRenderer {
                 width = canvasWidth,
                 height = canvasHeight,
                 scrim = state.gradientScrim
+            )
+        }
+
+        // Procedural Micro-Texture & Pattern Overlay
+        if (!state.isTransparentBg && state.patternState.isEnabled) {
+            app.xrtm8.athar.core.AtharPatternFactory.drawPattern(
+                canvas = nativeCanvas,
+                width = canvasWidth,
+                height = canvasHeight,
+                state = state.patternState,
+                density = density
             )
         }
     }

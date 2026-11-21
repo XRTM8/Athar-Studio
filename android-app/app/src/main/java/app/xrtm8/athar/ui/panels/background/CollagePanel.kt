@@ -1,0 +1,201 @@
+package app.xrtm8.athar.ui.panels.background
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.xrtm8.athar.model.CollageLayoutType
+import app.xrtm8.athar.model.CollageState
+import app.xrtm8.athar.ui.components.StudioSlider
+import app.xrtm8.athar.ui.theme.*
+
+/**
+ * Editorial Photo Collage Panel (< 230 lines).
+ */
+@Composable
+fun CollagePanel(
+    state: CollageState,
+    onLayoutChange: (CollageLayoutType) -> Unit,
+    onSelectCell: (String) -> Unit,
+    onPickCellPhoto: (String) -> Unit,
+    onSpacingChange: (Float) -> Unit,
+    onCornerRadiusChange: (Float) -> Unit,
+    onFrameColorChange: (Long) -> Unit,
+    onResetCollage: () -> Unit,
+    modifier: Modifier = Modifier,
+    onSliderChangeFinished: (() -> Unit)? = null
+) {
+    val haptic = LocalHapticFeedback.current
+
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Layout Templates Row
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "قوالب الكولاج التحريرية",
+                    color = PureWhite,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (state.isEnabled) {
+                    Text(
+                        text = "إلغاء الكولاج",
+                        color = CherryAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onResetCollage()
+                        }
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                CollageLayoutType.values().forEach { layout ->
+                    val isSelected = state.layout == layout
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected) BurgundyAccent else StudioSurface)
+                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onLayoutChange(layout)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = layout.label,
+                            color = if (isSelected) PureWhite else MutedWhite,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+
+        if (state.isEnabled) {
+            // Cells management list
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(text = "الصور في الكولاج (اضغط لإضافة أو استبدال)", color = SubtleGray, fontSize = 11.5.sp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    state.cells.forEachIndexed { idx, cell ->
+                        val isSelected = state.activeCellId == cell.id
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) StudioSurfaceElevated else StudioSurface)
+                                .border(1.dp, if (isSelected) BurgundyAccent else GlassBorder, RoundedCornerShape(10.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelectCell(cell.id)
+                                    onPickCellPhoto(cell.id)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                    contentDescription = null,
+                                    tint = if (cell.imageUri != null) CherryAccent else SubtleGray,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (cell.imageUri != null) "خلية ${idx + 1} ✓" else "خلية ${idx + 1} +",
+                                    color = if (isSelected) PureWhite else MutedWhite,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Spacing & Corner Radius Sliders
+            StudioSlider(
+                title = "الفواصل بين الصور",
+                value = state.spacingDp,
+                valueRange = 0f..24f,
+                valueDisplay = "${state.spacingDp.toInt()} dp",
+                onValueChange = onSpacingChange,
+                onValueChangeFinished = onSliderChangeFinished
+            )
+
+            StudioSlider(
+                title = "استدارة الحواف (Corner Radius)",
+                value = state.cornerRadiusDp,
+                valueRange = 0f..32f,
+                valueDisplay = "${state.cornerRadiusDp.toInt()} dp",
+                onValueChange = onCornerRadiusChange,
+                onValueChangeFinished = onSliderChangeFinished
+            )
+
+            // Frame background color palette
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "لون الإطار الخارجي", color = SubtleGray, fontSize = 11.5.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        0xFF0D0F14L to "أسود سينمائي",
+                        0xFFF5F3EFL to "بيج كينفولك",
+                        0xFF2A080FL to "عنابي",
+                        0xFFFFFFFFL to "أبيض"
+                    ).forEach { (colorLong, _) ->
+                        val isSelected = state.frameColorLong == colorLong
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(colorLong))
+                                .border(if (isSelected) 2.dp else 0.5.dp, if (isSelected) PureWhite else GlassBorder, RoundedCornerShape(6.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onFrameColorChange(colorLong)
+                                }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

@@ -171,6 +171,51 @@ object AtharProjectSerializer {
                 }
             }
             put("color_mix_channels", cmObj)
+
+            // Procedural Micro-Texture & Pattern
+            val pat = state.patternState
+            put("pattern_type", pat.type.name)
+            put("pattern_opacity", pat.opacity.toDouble())
+            put("pattern_scale", pat.scale.toDouble())
+            put("pattern_blend", pat.blendMode.name)
+            put("pattern_light_tint", pat.isLightTint)
+
+            // Cinematic Glow & Motion
+            val glow = state.cinematicGlowState
+            put("glow_style", glow.style.name)
+            put("glow_intensity", glow.glow.toDouble())
+            put("glow_range", glow.range.toDouble())
+            put("glow_spread", glow.spread.toDouble())
+            put("glow_warmth", glow.warmth.toDouble())
+
+            // Organic Film Grain
+            val grain = state.filmGrainState
+            put("film_grain", grain.grain.toDouble())
+            put("grain_size", grain.size.toDouble())
+            put("grain_roughness", grain.roughness.toDouble())
+
+            // Editorial Photo Collage
+            val col = state.collageState
+            put("collage_layout", col.layout.name)
+            put("collage_spacing", col.spacingDp.toDouble())
+            put("collage_radius", col.cornerRadiusDp.toDouble())
+            put("collage_frame_color", col.frameColorLong)
+            val cellsArr = JSONArray()
+            col.cells.forEach { cell ->
+                val cellObj = JSONObject().apply {
+                    put("id", cell.id)
+                    put("uri", cell.imageUri?.toString() ?: "")
+                    put("l", cell.leftNorm.toDouble())
+                    put("t", cell.topNorm.toDouble())
+                    put("r", cell.rightNorm.toDouble())
+                    put("b", cell.bottomNorm.toDouble())
+                    put("ox", cell.photoOffsetX.toDouble())
+                    put("oy", cell.photoOffsetY.toDouble())
+                    put("scale", cell.photoScale.toDouble())
+                }
+                cellsArr.put(cellObj)
+            }
+            put("collage_cells", cellsArr)
         }
     }
 
@@ -374,6 +419,66 @@ object AtharProjectSerializer {
             monochromeChannel = cmMono
         )
 
+        val patTypeStr = c.optString("pattern_type", app.xrtm8.athar.model.PatternType.NONE.name)
+        val patType = try { app.xrtm8.athar.model.PatternType.valueOf(patTypeStr) } catch (e: Exception) { app.xrtm8.athar.model.PatternType.NONE }
+        val patBlendStr = c.optString("pattern_blend", app.xrtm8.athar.model.PatternBlend.OVERLAY.name)
+        val patBlend = try { app.xrtm8.athar.model.PatternBlend.valueOf(patBlendStr) } catch (e: Exception) { app.xrtm8.athar.model.PatternBlend.OVERLAY }
+        val deserializedPattern = app.xrtm8.athar.model.PatternState(
+            type = patType,
+            opacity = c.optDouble("pattern_opacity", 0.30).toFloat(),
+            scale = c.optDouble("pattern_scale", 1.0).toFloat(),
+            blendMode = patBlend,
+            isLightTint = c.optBoolean("pattern_light_tint", true)
+        )
+
+        val glowStyleStr = c.optString("glow_style", app.xrtm8.athar.model.GlowStyle.MOTION.name)
+        val glowStyle = try { app.xrtm8.athar.model.GlowStyle.valueOf(glowStyleStr) } catch (e: Exception) { app.xrtm8.athar.model.GlowStyle.MOTION }
+        val deserializedGlow = app.xrtm8.athar.model.CinematicGlowState(
+            style = glowStyle,
+            glow = c.optDouble("glow_intensity", 0.0).toFloat(),
+            range = c.optDouble("glow_range", 70.0).toFloat(),
+            spread = c.optDouble("glow_spread", 65.0).toFloat(),
+            warmth = c.optDouble("glow_warmth", 70.0).toFloat()
+        )
+
+        val deserializedGrain = app.xrtm8.athar.model.FilmGrainState(
+            grain = c.optDouble("film_grain", 0.0).toFloat(),
+            size = c.optDouble("grain_size", 47.0).toFloat(),
+            roughness = c.optDouble("grain_roughness", 50.0).toFloat()
+        )
+
+        val colLayoutStr = c.optString("collage_layout", app.xrtm8.athar.model.CollageLayoutType.NONE.name)
+        val colLayout = try { app.xrtm8.athar.model.CollageLayoutType.valueOf(colLayoutStr) } catch (e: Exception) { app.xrtm8.athar.model.CollageLayoutType.NONE }
+        val cellsArr = c.optJSONArray("collage_cells")
+        val deserializedCells = mutableListOf<app.xrtm8.athar.model.CollageCell>()
+        if (cellsArr != null) {
+            for (i in 0 until cellsArr.length()) {
+                val o = cellsArr.optJSONObject(i) ?: continue
+                val uStr = o.optString("uri", "")
+                val uri = if (uStr.isNotBlank()) try { Uri.parse(uStr) } catch (e: Exception) { null } else null
+                deserializedCells.add(
+                    app.xrtm8.athar.model.CollageCell(
+                        id = o.optString("id", "cell_$i"),
+                        imageUri = uri,
+                        leftNorm = o.optDouble("l", 0.0).toFloat(),
+                        topNorm = o.optDouble("t", 0.0).toFloat(),
+                        rightNorm = o.optDouble("r", 1.0).toFloat(),
+                        bottomNorm = o.optDouble("b", 1.0).toFloat(),
+                        photoOffsetX = o.optDouble("ox", 0.0).toFloat(),
+                        photoOffsetY = o.optDouble("oy", 0.0).toFloat(),
+                        photoScale = o.optDouble("scale", 1.0).toFloat()
+                    )
+                )
+            }
+        }
+        val deserializedCollage = app.xrtm8.athar.model.CollageState(
+            layout = colLayout,
+            cells = if (deserializedCells.isNotEmpty()) deserializedCells else app.xrtm8.athar.core.CollageLayoutCalculator.generateCellsForLayout(colLayout),
+            spacingDp = c.optDouble("collage_spacing", 6.0).toFloat(),
+            cornerRadiusDp = c.optDouble("collage_radius", 8.0).toFloat(),
+            frameColorLong = c.optLong("collage_frame_color", 0xFF0D0F14)
+        )
+
         return CanvasState(
             layers = if (layers.isNotEmpty()) layers else listOf(TextLayer()),
             activeLayerId = activeLayerId,
@@ -404,7 +509,11 @@ object AtharProjectSerializer {
             gainRed = c.optDouble("gain_red", 0.0).toFloat(),
             gainGreen = c.optDouble("gain_green", 0.0).toFloat(),
             gainBlue = c.optDouble("gain_blue", 0.0).toFloat(),
-            colorMixState = deserializedColorMix
+            colorMixState = deserializedColorMix,
+            patternState = deserializedPattern,
+            cinematicGlowState = deserializedGlow,
+            filmGrainState = deserializedGrain,
+            collageState = deserializedCollage
         )
     }
 }
