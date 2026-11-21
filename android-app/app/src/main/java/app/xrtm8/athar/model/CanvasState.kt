@@ -1,0 +1,207 @@
+package app.xrtm8.athar.model
+
+import android.net.Uri
+import androidx.compose.ui.graphics.Color
+
+data class CanvasState(
+    val layers: List<TextLayer> = listOf(TextLayer(id = "layer_primary")),
+    val activeLayerId: String = "layer_primary",
+    val showGridGuides: Boolean = false,
+    val aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
+    val solidBgColorLong: Long? = null,
+    val backgroundImageUri: Uri? = null,
+    val backgroundDim: Float = 0.25f,
+    val backgroundBlur: Float = 0f,
+    val backgroundBrightness: Float = 0f,
+    val backgroundContrast: Float = 1.0f,
+    val backgroundSaturation: Float = 1.0f,
+    val backgroundVignette: Float = 0f,
+    val backgroundGrayscale: Boolean = false,
+    val isTransparentBg: Boolean = false,
+    val gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
+    val filmPreset: FilmPreset = FilmPreset.NONE,
+    val bgPhotoOffsetX: Float = 0f,
+    val bgPhotoOffsetY: Float = 0f,
+    val bgPhotoScale: Float = 1.0f,
+    val isFramingMode: Boolean = false,
+    // 3-Way Color Wheels Grading (Lift / Gamma / Gain)
+    val colorGradingEnabled: Boolean = false,
+    val liftRed: Float = 0f,
+    val liftGreen: Float = 0f,
+    val liftBlue: Float = 0f,
+    val gammaRed: Float = 0f,
+    val gammaGreen: Float = 0f,
+    val gammaBlue: Float = 0f,
+    val gainRed: Float = 0f,
+    val gainGreen: Float = 0f,
+    val gainBlue: Float = 0f
+) {
+    val activeLayer: TextLayer
+        get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()
+
+    // 100% Backward compatibility delegates for existing components
+    val rawText: String get() = activeLayer.rawText
+    val displayText: String get() = activeLayer.displayText
+    val stretchLevel: Int get() = activeLayer.stretchLevel
+    val kashidaMode: KashidaMode get() = activeLayer.kashidaMode
+    val kashidaTargetIndex: Int get() = activeLayer.kashidaTargetIndex
+    val selectedEffect: VisualEffect get() = activeLayer.selectedEffect
+    val selectedFont: ArabicFontFamily get() = activeLayer.selectedFont
+    val fontSize: Float get() = activeLayer.fontSize
+    val textColor: Color get() = activeLayer.textColor
+    val customTextColorLong: Long? get() = activeLayer.customTextColorLong
+    val strokeWidth: Float get() = activeLayer.strokeWidth
+    val strokeColorLong: Long get() = activeLayer.strokeColorLong
+    val shadowRadius: Float get() = activeLayer.shadowRadius
+    val shadowDx: Float get() = activeLayer.shadowDx
+    val shadowDy: Float get() = activeLayer.shadowDy
+    val shadowColorLong: Long get() = activeLayer.shadowColorLong
+    val textAlign: TextAlignOption get() = activeLayer.textAlign
+    val lineSpacingMultiplier: Float get() = activeLayer.lineSpacingMultiplier
+    val letterSpacing: Float get() = activeLayer.letterSpacing
+    val textOpacity: Float get() = activeLayer.textOpacity
+    val isBold: Boolean get() = activeLayer.isBold
+    val boxWidthRatio: Float get() = activeLayer.boxWidthRatio
+    val isItalic: Boolean get() = activeLayer.isItalic
+    val isUnderline: Boolean get() = activeLayer.isUnderline
+    val isLocked: Boolean get() = activeLayer.isLocked
+    val rotationAngle: Float get() = activeLayer.rotationAngle
+    val scaleFactor: Float get() = activeLayer.scaleFactor
+    val normOffsetX: Float get() = activeLayer.normOffsetX
+    val normOffsetY: Float get() = activeLayer.normOffsetY
+    val enableGlassBackdrop: Boolean get() = activeLayer.enableGlassBackdrop
+    val glassBackdropOpacity: Float get() = activeLayer.glassBackdropOpacity
+    val glassBackdropColorLong: Long get() = activeLayer.glassBackdropColorLong
+    val glassBackdropBorderColorLong: Long get() = activeLayer.glassBackdropBorderColorLong
+    val glassBackdropCornerRadius: Float get() = activeLayer.glassBackdropCornerRadius
+    val glassBackdropPadding: Float get() = activeLayer.glassBackdropPadding
+    val blendMode: LayerBlendMode get() = activeLayer.blendMode
+    val isCurved: Boolean get() = activeLayer.isCurved
+    val curveAngle: Float get() = activeLayer.curveAngle
+    val gradientPreset: LuxuryGradientPreset get() = activeLayer.gradientPreset
+    val gradientAngle: Float get() = activeLayer.gradientAngle
+    val isRadialGradient: Boolean get() = activeLayer.isRadialGradient
+    val isHollowText: Boolean get() = activeLayer.isHollowText
+
+    // Convenience constructor for legacy / single-layer callers
+    constructor(
+        rawText: String = "",
+        displayText: String = "",
+        stretchLevel: Int = 3,
+        kashidaMode: KashidaMode = KashidaMode.SMART,
+        kashidaTargetIndex: Int = -1,
+        selectedEffect: VisualEffect = VisualEffect.ROYAL_GOLD,
+        selectedFont: ArabicFontFamily = ArabicFontFamily.AREF_RUQAA,
+        fontSize: Float = 52f,
+        textColor: Color = Color.White,
+        customTextColorLong: Long? = null,
+        strokeWidth: Float = 0f,
+        strokeColorLong: Long = 0xFF000000,
+        shadowRadius: Float = 16f,
+        shadowDx: Float = 0f,
+        shadowDy: Float = 6f,
+        shadowColorLong: Long = 0xAA000000,
+        textAlign: TextAlignOption = TextAlignOption.CENTER,
+        lineSpacingMultiplier: Float = 1.35f,
+        letterSpacing: Float = 0f,
+        textOpacity: Float = 1.0f,
+        isBold: Boolean = false,
+        isItalic: Boolean = false,
+        isUnderline: Boolean = false,
+        isLocked: Boolean = false,
+        showGridGuides: Boolean = false,
+        aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
+        solidBgColorLong: Long? = null,
+        backgroundImageUri: Uri? = null,
+        backgroundDim: Float = 0.25f,
+        backgroundBlur: Float = 0f,
+        backgroundBrightness: Float = 0f,
+        backgroundContrast: Float = 1.0f,
+        backgroundSaturation: Float = 1.0f,
+        backgroundVignette: Float = 0f,
+        backgroundGrayscale: Boolean = false,
+        enableGlassBackdrop: Boolean = false,
+        glassBackdropOpacity: Float = 0.65f,
+        glassBackdropColorLong: Long = 0xFF0D0F14,
+        glassBackdropBorderColorLong: Long = 0x55E5C07B,
+        glassBackdropCornerRadius: Float = 22f,
+        glassBackdropPadding: Float = 22f,
+        rotationAngle: Float = 0f,
+        scaleFactor: Float = 1.0f,
+        normOffsetX: Float = 0f,
+        normOffsetY: Float = 0f,
+        isTransparentBg: Boolean = false,
+        gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
+        filmPreset: FilmPreset = FilmPreset.NONE,
+        bgPhotoOffsetX: Float = 0f,
+        bgPhotoOffsetY: Float = 0f,
+        bgPhotoScale: Float = 1.0f,
+        isFramingMode: Boolean = false,
+        blendMode: LayerBlendMode = LayerBlendMode.NORMAL,
+        isCurved: Boolean = false,
+        curveAngle: Float = 0f
+    ) : this(
+        layers = listOf(
+            TextLayer(
+                id = "layer_primary",
+                name = "نص رئيسي",
+                rawText = rawText,
+                displayText = displayText,
+                stretchLevel = stretchLevel,
+                kashidaMode = kashidaMode,
+                kashidaTargetIndex = kashidaTargetIndex,
+                selectedEffect = selectedEffect,
+                selectedFont = selectedFont,
+                fontSize = fontSize,
+                textColor = textColor,
+                customTextColorLong = customTextColorLong,
+                strokeWidth = strokeWidth,
+                strokeColorLong = strokeColorLong,
+                shadowRadius = shadowRadius,
+                shadowDx = shadowDx,
+                shadowDy = shadowDy,
+                shadowColorLong = shadowColorLong,
+                textAlign = textAlign,
+                lineSpacingMultiplier = lineSpacingMultiplier,
+                letterSpacing = letterSpacing,
+                textOpacity = textOpacity,
+                isBold = isBold,
+                isItalic = isItalic,
+                isUnderline = isUnderline,
+                isLocked = isLocked,
+                rotationAngle = rotationAngle,
+                scaleFactor = scaleFactor,
+                normOffsetX = normOffsetX,
+                normOffsetY = normOffsetY,
+                enableGlassBackdrop = enableGlassBackdrop,
+                glassBackdropOpacity = glassBackdropOpacity,
+                glassBackdropColorLong = glassBackdropColorLong,
+                glassBackdropBorderColorLong = glassBackdropBorderColorLong,
+                glassBackdropCornerRadius = glassBackdropCornerRadius,
+                glassBackdropPadding = glassBackdropPadding,
+                blendMode = blendMode,
+                isCurved = isCurved,
+                curveAngle = curveAngle
+            )
+        ),
+        activeLayerId = "layer_primary",
+        showGridGuides = showGridGuides,
+        aspectRatio = aspectRatio,
+        solidBgColorLong = solidBgColorLong,
+        backgroundImageUri = backgroundImageUri,
+        backgroundDim = backgroundDim,
+        backgroundBlur = backgroundBlur,
+        backgroundBrightness = backgroundBrightness,
+        backgroundContrast = backgroundContrast,
+        backgroundSaturation = backgroundSaturation,
+        backgroundVignette = backgroundVignette,
+        backgroundGrayscale = backgroundGrayscale,
+        isTransparentBg = isTransparentBg,
+        gradientScrim = gradientScrim,
+        filmPreset = filmPreset,
+        bgPhotoOffsetX = bgPhotoOffsetX,
+        bgPhotoOffsetY = bgPhotoOffsetY,
+        bgPhotoScale = bgPhotoScale,
+        isFramingMode = isFramingMode
+    )
+}

@@ -3,8 +3,6 @@ package app.xrtm8.athar.ui.components
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BlurMaskFilter
-import android.graphics.Color
-import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.PorterDuffXfermode
@@ -14,42 +12,38 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
-import app.xrtm8.athar.ui.theme.*
 import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.LayerBlendMode
-import app.xrtm8.athar.model.LuxuryGradientPreset
-import app.xrtm8.athar.model.TextAlignOption
-import app.xrtm8.athar.model.TextLayer
-import app.xrtm8.athar.model.VisualEffect
-import app.xrtm8.athar.typography.AtharFontManager
-import app.xrtm8.athar.typography.AtharTextLayout
-import app.xrtm8.athar.typography.CurvedTextRenderer
-import app.xrtm8.athar.ui.theme.AmoledBlack
-import app.xrtm8.athar.ui.theme.GlassBorder
+import app.xrtm8.athar.ui.canvas.CanvasGuidesRenderer
+import app.xrtm8.athar.ui.canvas.CanvasHitTester
+import app.xrtm8.athar.ui.canvas.CanvasLayerTextRenderer
+import app.xrtm8.athar.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
+/**
+ * Clean Canvas Viewport Composable.
+ * Orchestrates:
+ * - Canvas viewport geometry and touch gesture tracking
+ * - Background rendering via CanvasBackgroundRenderer
+ * - Guides and snapping via CanvasGuidesRenderer
+ * - Text layer rendering via CanvasLayerTextRenderer
+ * - Touch hit-testing via CanvasHitTester
+ */
 @Composable
 fun CanvasView(
     state: CanvasState,
@@ -275,7 +269,7 @@ fun CanvasView(
                         },
                         onTap = { tapOffset ->
                             if (!state.isFramingMode) {
-                                val hit = findHitLayer(tapOffset.x, tapOffset.y, canvasW, canvasH, state, density)
+                                val hit = CanvasHitTester.findHitLayer(tapOffset.x, tapOffset.y, canvasW, canvasH, state, density)
                                 if (hit != null) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     onSelectLayer?.invoke(hit.id)
@@ -284,7 +278,7 @@ fun CanvasView(
                         },
                         onDoubleTap = { tapOffset ->
                             if (!state.isFramingMode) {
-                                val hit = findHitLayer(tapOffset.x, tapOffset.y, canvasW, canvasH, state, density)
+                                val hit = CanvasHitTester.findHitLayer(tapOffset.x, tapOffset.y, canvasW, canvasH, state, density)
                                 if (hit != null) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onSelectLayer?.invoke(hit.id)
@@ -318,314 +312,62 @@ fun CanvasView(
                     bgPaint = bgPaint
                 )
 
-                // 2. Smart Snapping & Golden Grid Guidelines
+                // 2. Alignment & Snapping Guides
                 if (state.showGridGuides || state.isFramingMode) {
-                    nativeCanvas.drawLine(canvasWidth / 3f, 0f, canvasWidth / 3f, canvasHeight, gridPaint)
-                    nativeCanvas.drawLine(canvasWidth * 2f / 3f, 0f, canvasWidth * 2f / 3f, canvasHeight, gridPaint)
-                    nativeCanvas.drawLine(0f, canvasHeight / 3f, canvasWidth, canvasHeight / 3f, gridPaint)
-                    nativeCanvas.drawLine(0f, canvasHeight * 2f / 3f, canvasWidth, canvasHeight * 2f / 3f, gridPaint)
+                    CanvasGuidesRenderer.drawGridGuides(nativeCanvas, canvasWidth, canvasHeight, gridPaint)
                 }
 
                 if (isInteracting && !state.isFramingMode) {
-                    if (abs(localNormX) < 0.005f) {
-                        nativeCanvas.drawLine(canvasWidth / 2f, 0f, canvasWidth / 2f, canvasHeight, guidePaint)
-                    }
-                    if (abs(localNormY) < 0.005f) {
-                        nativeCanvas.drawLine(0f, canvasHeight / 2f, canvasWidth, canvasHeight / 2f, guidePaint)
-                    }
+                    CanvasGuidesRenderer.drawSnapGuides(nativeCanvas, canvasWidth, canvasHeight, localNormX, localNormY, guidePaint)
                 }
 
-                // 3. Render all Text Layers with Blend Modes, Curved Paths, Free Tashkeel & Subject Depth
-                val renderTextLayer: (TextLayer) -> Unit = { layer ->
-                    if (layer.isVisible && layer.displayText.isNotEmpty()) {
-                        val isCurrentActive = (layer.id == active.id)
+                // 3. Render all Text Layers
+                state.layers.forEach { layer ->
+                    val isCurrentActive = (layer.id == active.id)
+                    val layerNormX = if (isCurrentActive) localNormX else layer.normOffsetX
+                    val layerNormY = if (isCurrentActive) localNormY else layer.normOffsetY
+                    val layerScale = if (isCurrentActive) localScale else layer.scaleFactor
+                    val layerRotation = if (isCurrentActive) localRotation else layer.rotationAngle
 
-                        val layerNormX = if (isCurrentActive) localNormX else layer.normOffsetX
-                        val layerNormY = if (isCurrentActive) localNormY else layer.normOffsetY
-                        val layerScale = if (isCurrentActive) localScale else layer.scaleFactor
-                        val layerRotation = if (isCurrentActive) localRotation else layer.rotationAngle
-
-                        val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
-                        val canvasDensityFactor = canvasWidth / 380f
-                        val textSizePx = (layer.fontSize / 380f) * canvasWidth
-                        val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
-                        val alphaInt = (alphaFloat * 255).toInt()
-                        val alphaColorFilter = if (alphaFloat >= 0.999f) null else {
-                            colorFilterCache.getOrPut(alphaInt) {
-                                ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })
-                            }
-                        }
-
-                        basePaint.typeface = realTypeface
-                        shadowPaint.typeface = realTypeface
-                        strokePaint.typeface = realTypeface
-
-                        val align = when (layer.textAlign) {
-                            TextAlignOption.RIGHT -> Paint.Align.RIGHT
-                            TextAlignOption.CENTER -> Paint.Align.CENTER
-                            TextAlignOption.LEFT -> Paint.Align.LEFT
-                        }
-
-                        basePaint.textAlign = align
-                        shadowPaint.textAlign = align
-                        strokePaint.textAlign = align
-
-                        basePaint.textSize = textSizePx
-                        basePaint.letterSpacing = layer.letterSpacing
-                        basePaint.isUnderlineText = layer.isUnderline
-                        basePaint.isFakeBoldText = layer.isBold
-                        basePaint.textSkewX = if (layer.isItalic) -0.25f else 0f
-                        basePaint.alpha = alphaInt
-                        basePaint.colorFilter = alphaColorFilter
-                        basePaint.xfermode = if (layer.blendMode != LayerBlendMode.NORMAL) {
-                            blendModeXfermode.getOrPut(layer.blendMode) {
-                                PorterDuffXfermode(layer.blendMode.porterDuffMode)
-                            }
-                        } else null
-
-                        shadowPaint.textSize = textSizePx
-                        shadowPaint.letterSpacing = layer.letterSpacing
-                        shadowPaint.textSkewX = basePaint.textSkewX
-                        shadowPaint.isFakeBoldText = layer.isBold
-
-                        strokePaint.textSize = textSizePx
-                        strokePaint.strokeJoin = Paint.Join.ROUND
-                        strokePaint.strokeCap = Paint.Cap.ROUND
-                        strokePaint.letterSpacing = layer.letterSpacing
-                        strokePaint.isUnderlineText = layer.isUnderline
-                        strokePaint.isFakeBoldText = layer.isBold
-                        strokePaint.textSkewX = basePaint.textSkewX
-                        strokePaint.alpha = alphaInt
-                        strokePaint.colorFilter = alphaColorFilter
-
-                        val effectiveStroke = if (layer.isHollowText && layer.strokeWidth <= 0f) 2.0f else layer.strokeWidth
-                        if (effectiveStroke > 0f) {
-                            strokePaint.strokeWidth = (effectiveStroke / 380f) * canvasWidth
-                            strokePaint.color = layer.strokeColorLong.toInt()
-                        }
-
-                        val layerLayout = AtharTextLayout.computeLayout(
-                            text = layer.displayText,
-                            paint = basePaint,
-                            lineSpacingMultiplier = layer.lineSpacingMultiplier,
-                            textAlign = layer.textAlign,
-                            maxWidth = canvasWidth * layer.boxWidthRatio.coerceIn(0.2f, 1.0f)
-                        )
-
-                        nativeCanvas.save()
-
-                        val centerX = canvasWidth / 2f + (canvasWidth * layerNormX)
-                        val centerY = canvasHeight / 2f + (canvasHeight * layerNormY)
-
-                        nativeCanvas.translate(centerX, centerY)
-                        nativeCanvas.rotate(layerRotation)
-                        nativeCanvas.scale(layerScale, layerScale)
-
-                        // Draw Frosted Glass Plaque with calibrated canvas density
-                        TextGlassBackdropRenderer.drawGlassBackdrop(
-                            canvas = nativeCanvas,
-                            layer = layer,
-                            layout = layerLayout,
-                            textSizePx = textSizePx,
-                            density = canvasDensityFactor
-                        )
-
-                        val shadowDxPx = (layer.shadowDx / 380f) * canvasWidth
-                        val shadowDyPx = (layer.shadowDy / 380f) * canvasWidth
-                        val shadowRadiusInt = ((layer.shadowRadius / 380f) * canvasWidth).toInt()
-                        val shadowBlurFilter = if (shadowRadiusInt > 0) {
-                            shadowBlurFilterCache.getOrPut(shadowRadiusInt) {
-                                BlurMaskFilter(shadowRadiusInt.toFloat().coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
-                            }
-                        } else null
-
-                        layerLayout.lines.forEachIndexed { index, line ->
-                            val lineY = layerLayout.startY + (index * layerLayout.lineHeight)
-
-                            // 1. Draw 2D Directional Shadow with Blur & Custom Color
-                            if (layer.shadowRadius > 0f) {
-                                val sColor = layer.shadowColorLong.toInt()
-                                val shadowAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
-                                shadowPaint.color = (sColor and 0x00FFFFFF) or (shadowAlpha shl 24)
-                                shadowPaint.maskFilter = shadowBlurFilter
-                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint, layer.curveAngle)
-                                } else {
-                                    nativeCanvas.drawText(line, layerLayout.lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint)
-                                }
-                            }
-
-                            // 2. Draw Stroke
-                            if (effectiveStroke > 0f) {
-                                strokePaint.strokeWidth = (effectiveStroke / 380f) * canvasWidth
-                                strokePaint.color = layer.strokeColorLong.toInt()
-                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, strokePaint, layer.curveAngle)
-                                } else {
-                                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, strokePaint)
-                                }
-                            }
-
-                            // 3. Fill: Luxury Rotatable Gradient or Solid Swatch Fill
-                            if (!layer.isHollowText) {
-                                val activeGrad = if (layer.gradientPreset != LuxuryGradientPreset.NONE) {
-                                    layer.gradientPreset
-                                } else if (layer.customTextColorLong == null) {
-                                    when (layer.selectedEffect) {
-                                        VisualEffect.LIQUID_CHROME -> LuxuryGradientPreset.TITANIUM_CHROME
-                                        VisualEffect.CYBER_NEON -> LuxuryGradientPreset.CYBER_EMERALD
-                                        VisualEffect.FROSTED_GLASS -> LuxuryGradientPreset.FROSTED_PEARL
-                                        VisualEffect.MINIMAL_LUXURY, VisualEffect.CINEMATIC_SHADOW -> LuxuryGradientPreset.NONE
-                                        else -> LuxuryGradientPreset.ANDALUSIAN_GOLD
-                                    }
-                                } else {
-                                    LuxuryGradientPreset.NONE
-                                }
-
-                                if (activeGrad != LuxuryGradientPreset.NONE) {
-                                    val gradShader = CanvasShaderFactory.createMultiStopGradientShader(
-                                        preset = activeGrad,
-                                        angle = layer.gradientAngle,
-                                        isRadial = layer.isRadialGradient,
-                                        centerX = layerLayout.lineX,
-                                        centerY = lineY,
-                                        radiusPx = textSizePx * 3f
-                                    )
-                                    basePaint.shader = gradShader
-                                    basePaint.color = Color.WHITE
-                                } else {
-                                    val defaultTextColor = if (isAmoledWhite) 0xFF0F1014L else 0xFFFFFFFFL
-                                    val baseColor = (layer.customTextColorLong ?: defaultTextColor).toInt()
-                                    basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
-                                    basePaint.shader = null
-                                }
-
-                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
-                                } else {
-                                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
-                                }
-                            }
-                        }
-
-                        // 4. Draw Selection Handles on the active layer
-                        if (isCurrentActive && !state.isFramingMode) {
-                            CanvasBoundingBoxRenderer.drawBoundingBox(
-                                nativeCanvas = nativeCanvas,
-                                textAlign = layer.textAlign,
-                                layout = layerLayout,
-                                textSizePx = textSizePx,
-                                density = density,
-                                selectBoxPaint = selectBoxPaint,
-                                handlePaint = handlePaint,
-                                handleFillPaint = handleFillPaint
-                            )
-                        }
-
-                        nativeCanvas.restore()
-                    }
+                    CanvasLayerTextRenderer.renderTextLayer(
+                        nativeCanvas = nativeCanvas,
+                        context = context,
+                        layer = layer,
+                        isCurrentActive = isCurrentActive,
+                        isFramingMode = state.isFramingMode,
+                        layerNormX = layerNormX,
+                        layerNormY = layerNormY,
+                        layerScale = layerScale,
+                        layerRotation = layerRotation,
+                        canvasWidth = canvasWidth,
+                        canvasHeight = canvasHeight,
+                        density = density,
+                        isAmoledWhite = isAmoledWhite,
+                        basePaint = basePaint,
+                        shadowPaint = shadowPaint,
+                        strokePaint = strokePaint,
+                        selectBoxPaint = selectBoxPaint,
+                        handlePaint = handlePaint,
+                        handleFillPaint = handleFillPaint,
+                        colorFilterCache = colorFilterCache,
+                        shadowBlurFilterCache = shadowBlurFilterCache,
+                        blendModeXfermode = blendModeXfermode
+                    )
                 }
 
-                // Render layers back-to-front
-                state.layers.forEach { renderTextLayer(it) }
-
-                // If no visible text on canvas, draw an inviting, sleek placeholder prompt
+                // 4. Draw Empty Prompt if no visible text
                 val hasAnyText = state.layers.any { it.isVisible && it.displayText.isNotBlank() }
                 if (!hasAnyText && !state.isFramingMode) {
-                    val promptW = (230f * density).coerceAtMost(canvasWidth * 0.85f)
-                    val promptH = 68f * density
-                    val left = (canvasWidth - promptW) / 2f
-                    val top = (canvasHeight - promptH) / 2f
-
-                    val dashedBoxPaint = Paint().apply {
-                        isAntiAlias = true
-                        style = Paint.Style.STROKE
-                        color = 0x55E02447.toInt()
-                        strokeWidth = 1.4f * density
-                        pathEffect = android.graphics.DashPathEffect(floatArrayOf(8f * density, 6f * density), 0f)
-                    }
-                    val bgBoxPaint = Paint().apply {
-                        isAntiAlias = true
-                        style = Paint.Style.FILL
-                        color = if (isAmoledWhite) 0x14000000.toInt() else 0x33000000.toInt()
-                    }
-                    val textPromptPaint = Paint().apply {
-                        isAntiAlias = true
-                        color = 0xCCE02447.toInt()
-                        textSize = 13.5f * density
-                        textAlign = Paint.Align.CENTER
-                        typeface = AtharFontManager.getTypeface(context, app.xrtm8.athar.model.ArabicFontFamily.AREF_RUQAA)
-                    }
-                    val subTextPaint = Paint().apply {
-                        isAntiAlias = true
-                        color = if (isAmoledWhite) 0x99000000.toInt() else 0x88FFFFFF.toInt()
-                        textSize = 10f * density
-                        textAlign = Paint.Align.CENTER
-                    }
-
-                    val rectF = android.graphics.RectF(left, top, left + promptW, top + promptH)
-                    nativeCanvas.drawRoundRect(rectF, 14f * density, 14f * density, bgBoxPaint)
-                    nativeCanvas.drawRoundRect(rectF, 14f * density, 14f * density, dashedBoxPaint)
-                    nativeCanvas.drawText("انقر مرتين هنا لكتابة النص العربي", canvasWidth / 2f, top + 30f * density, textPromptPaint)
-                    nativeCanvas.drawText("أو استخدم خيار الخط والنص بالأسفل", canvasWidth / 2f, top + 50f * density, subTextPaint)
+                    CanvasLayerTextRenderer.drawEmptyPrompt(
+                        nativeCanvas = nativeCanvas,
+                        context = context,
+                        canvasWidth = canvasWidth,
+                        canvasHeight = canvasHeight,
+                        density = density,
+                        isAmoledWhite = isAmoledWhite
+                    )
                 }
             }
         }
     }
-}
-
-/**
- * Precision canvas hit-testing to detect which text layer the user tapped.
- * Accounts for canvas offset, scaling, rotation angle, and finger touch targets.
- */
-private fun findHitLayer(
-    touchX: Float,
-    touchY: Float,
-    canvasW: Float,
-    canvasH: Float,
-    state: CanvasState,
-    density: Float
-): TextLayer? {
-    val pad = 28f * density
-    // Search top-to-bottom in visual z-order
-    for (layer in state.layers.asReversed()) {
-        if (!layer.isVisible || layer.displayText.isEmpty()) continue
-
-        val cx = canvasW / 2f + (layer.normOffsetX * canvasW)
-        val cy = canvasH / 2f + (layer.normOffsetY * canvasH)
-        val scale = layer.scaleFactor.coerceAtLeast(0.1f)
-
-        val scaledTextSize = (layer.fontSize / 380f) * canvasW
-        val testPaint = Paint().apply {
-            textSize = scaledTextSize
-            letterSpacing = layer.letterSpacing
-        }
-        val layout = AtharTextLayout.computeLayout(
-            text = layer.displayText,
-            paint = testPaint,
-            lineSpacingMultiplier = layer.lineSpacingMultiplier,
-            textAlign = layer.textAlign,
-            maxWidth = canvasW * layer.boxWidthRatio.coerceIn(0.2f, 1.0f)
-        )
-
-        val totalW = layout.maxLineWidth.coerceAtLeast(scaledTextSize * 1.5f)
-        val totalH = (layout.totalHeight + scaledTextSize).coerceAtLeast(scaledTextSize)
-
-        val halfW = (totalW / 2f) * scale + pad
-        val halfH = (totalH / 2f) * scale + pad
-
-        val dx = touchX - cx
-        val dy = touchY - cy
-
-        val rad = Math.toRadians(-layer.rotationAngle.toDouble())
-        val cosA = Math.cos(rad).toFloat()
-        val sinA = Math.sin(rad).toFloat()
-        val localX = dx * cosA - dy * sinA
-        val localY = dx * sinA + dy * cosA
-
-        if (abs(localX) <= halfW && abs(localY) <= halfH) {
-            return layer
-        }
-    }
-    return null
 }
