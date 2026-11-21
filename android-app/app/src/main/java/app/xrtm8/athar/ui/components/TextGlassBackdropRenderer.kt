@@ -97,7 +97,7 @@ object TextGlassBackdropRenderer {
         textSizePx: Float,
         density: Float
     ) {
-        if (!enableGlassBackdrop) return
+        if (!enableGlassBackdrop || layout.maxLineWidth <= 0f) return
 
         val pad = glassBackdropPadding * density
         val bLeft = when (textAlign) {

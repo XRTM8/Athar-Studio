@@ -10,6 +10,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.CompositionLocalProvider
@@ -17,11 +21,18 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.lifecycleScope
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.ui.AtharHomeScreen
 import app.xrtm8.athar.ui.AtharStudioScreen
+import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.AtharTheme
 import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
+
+enum class AtharScreen {
+    HOME,
+    STUDIO
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -66,10 +77,28 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = AmoledBlack
                     ) {
-                        AtharStudioScreen(
-                            updateManager = updateManager,
-                            initialProjectUri = initialProjectUri
-                        )
+                        val studioViewModel = remember { AtharStudioViewModel() }
+                        var currentScreen by remember {
+                            mutableStateOf(if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.HOME)
+                        }
+
+                        when (currentScreen) {
+                            AtharScreen.HOME -> {
+                                AtharHomeScreen(
+                                    viewModel = studioViewModel,
+                                    updateManager = updateManager,
+                                    onNavigateToStudio = { currentScreen = AtharScreen.STUDIO }
+                                )
+                            }
+                            AtharScreen.STUDIO -> {
+                                AtharStudioScreen(
+                                    updateManager = updateManager,
+                                    initialProjectUri = initialProjectUri,
+                                    viewModel = studioViewModel,
+                                    onNavigateBackToHome = { currentScreen = AtharScreen.HOME }
+                                )
+                            }
+                        }
                     }
                 }
             }

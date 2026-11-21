@@ -97,7 +97,7 @@ fun TypographyPanel(
                     )
                 }
                 Text(
-                    text = state.rawText.take(18),
+                    text = state.rawText.take(18).ifBlank { "اكتب نصك هنا..." },
                     color = GoldAccent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,

@@ -181,7 +181,10 @@ class AtharStudioViewModel : ViewModel() {
 
     fun removeActiveLayer() {
         val current = _canvasState.value
-        if (current.layers.size <= 1) return
+        if (current.layers.size <= 1) {
+            pushActiveLayerHistory { it.copy(rawText = "", displayText = "") }
+            return
+        }
         val activeId = current.activeLayer.id
         val remaining = current.layers.filter { it.id != activeId }
         val nextActive = remaining.lastOrNull()?.id ?: ""
@@ -630,6 +633,42 @@ class AtharStudioViewModel : ViewModel() {
     // ==========================================
     // Project & Export Management
     // ==========================================
+
+    fun createNewProject(
+        aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
+        initialText: String = ""
+    ) {
+        val newLayer = TextLayer(
+            id = "layer_primary",
+            name = "نص 1",
+            rawText = initialText,
+            displayText = initialText
+        )
+        val newState = CanvasState(
+            layers = listOf(newLayer),
+            activeLayerId = "layer_primary",
+            aspectRatio = aspectRatio,
+            solidBgColorLong = null,
+            backgroundImageUri = null,
+            backgroundDim = 0.25f,
+            backgroundBlur = 0f
+        )
+        _canvasState.value = newState
+        undoStack.clear()
+        redoStack.clear()
+        _canUndo.value = false
+        _canRedo.value = false
+    }
+
+    fun createNewProjectWithImage(
+        context: Context,
+        imageUri: Uri,
+        aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16
+    ) {
+        createNewProject(aspectRatio, initialText = "")
+        setBackgroundImageUri(imageUri)
+        loadExtractedPalette(context)
+    }
 
     fun clearExportMessage() {
         _exportMessage.value = null

@@ -510,6 +510,47 @@ fun CanvasView(
 
                 // Render layers back-to-front
                 state.layers.forEach { renderTextLayer(it) }
+
+                // If no visible text on canvas, draw an inviting, sleek placeholder prompt
+                val hasAnyText = state.layers.any { it.isVisible && it.displayText.isNotBlank() }
+                if (!hasAnyText && !state.isFramingMode) {
+                    val promptW = (230f * density).coerceAtMost(canvasWidth * 0.85f)
+                    val promptH = 68f * density
+                    val left = (canvasWidth - promptW) / 2f
+                    val top = (canvasHeight - promptH) / 2f
+
+                    val dashedBoxPaint = Paint().apply {
+                        isAntiAlias = true
+                        style = Paint.Style.STROKE
+                        color = 0x55E5C07B.toInt()
+                        strokeWidth = 1.4f * density
+                        pathEffect = android.graphics.DashPathEffect(floatArrayOf(8f * density, 6f * density), 0f)
+                    }
+                    val bgBoxPaint = Paint().apply {
+                        isAntiAlias = true
+                        style = Paint.Style.FILL
+                        color = 0x33000000.toInt()
+                    }
+                    val textPromptPaint = Paint().apply {
+                        isAntiAlias = true
+                        color = 0xCCE5C07B.toInt()
+                        textSize = 13.5f * density
+                        textAlign = Paint.Align.CENTER
+                        typeface = AtharFontManager.getTypeface(context, app.xrtm8.athar.model.ArabicFontFamily.AREF_RUQAA)
+                    }
+                    val subTextPaint = Paint().apply {
+                        isAntiAlias = true
+                        color = 0x88FFFFFF.toInt()
+                        textSize = 10f * density
+                        textAlign = Paint.Align.CENTER
+                    }
+
+                    val rectF = android.graphics.RectF(left, top, left + promptW, top + promptH)
+                    nativeCanvas.drawRoundRect(rectF, 14f * density, 14f * density, bgBoxPaint)
+                    nativeCanvas.drawRoundRect(rectF, 14f * density, 14f * density, dashedBoxPaint)
+                    nativeCanvas.drawText("انقر مرتين هنا لكتابة النص العربي", canvasWidth / 2f, top + 30f * density, textPromptPaint)
+                    nativeCanvas.drawText("أو استخدم خيار الخط والنص بالأسفل", canvasWidth / 2f, top + 50f * density, subTextPaint)
+                }
             }
         }
     }

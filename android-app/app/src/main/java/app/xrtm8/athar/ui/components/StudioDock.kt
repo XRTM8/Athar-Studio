@@ -55,9 +55,8 @@ fun StudioDock(
             .clip(RoundedCornerShape(20.dp))
             .background(GlassBackground)
             .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(20.dp))
-            .padding(horizontal = 6.dp, vertical = 5.dp)
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 6.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
         STUDIO_DOCK_TABS.forEach { tab ->
@@ -65,13 +64,14 @@ fun StudioDock(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
+                    .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isSelected) GoldAccent.copy(alpha = 0.18f) else Color.Transparent)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(tab.index)
                     }
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                    .padding(vertical = 5.dp)
             ) {
                 Icon(
                     imageVector = tab.icon,

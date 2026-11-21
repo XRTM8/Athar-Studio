@@ -21,6 +21,7 @@ object CanvasBoundingBoxRenderer {
         handlePaint: Paint,
         handleFillPaint: Paint
     ) {
+        if (layout.maxLineWidth <= 0f) return
         val pad = 12f * density
         val bLeft = when (textAlign) {
             TextAlignOption.RIGHT -> -layout.maxLineWidth - pad

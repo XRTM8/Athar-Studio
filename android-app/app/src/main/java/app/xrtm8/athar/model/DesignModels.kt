@@ -207,8 +207,8 @@ enum class FilmPreset(
 data class TextLayer(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "نص",
-    val rawText: String = "أَثَــر",
-    val displayText: String = "أَثَـــر",
+    val rawText: String = "",
+    val displayText: String = "",
     val stretchLevel: Int = 3,
     val kashidaMode: KashidaMode = KashidaMode.SMART,
     val kashidaTargetIndex: Int = -1,
@@ -332,8 +332,8 @@ data class CanvasState(
 
     // Convenience constructor for legacy / single-layer callers
     constructor(
-        rawText: String = "أَثَــر",
-        displayText: String = "أَثَـــر",
+        rawText: String = "",
+        displayText: String = "",
         stretchLevel: Int = 3,
         kashidaMode: KashidaMode = KashidaMode.SMART,
         kashidaTargetIndex: Int = -1,

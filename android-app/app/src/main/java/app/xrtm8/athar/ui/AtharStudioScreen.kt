@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,17 +52,30 @@ fun AtharStudioScreen(
     updateManager: AtharUpdateManager,
     initialProjectUri: Uri? = null,
     viewModel: AtharStudioViewModel = remember { AtharStudioViewModel() },
+    onNavigateBackToHome: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
 
+    BackHandler(enabled = onNavigateBackToHome != null) {
+        onNavigateBackToHome?.invoke()
+    }
+
     val canvasState by viewModel.canvasState.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
     val canRedo by viewModel.canRedo.collectAsState()
     val isExporting by viewModel.isExporting.collectAsState()
     val projectsList by viewModel.projectsList.collectAsState()
+    val exportMessage by viewModel.exportMessage.collectAsState()
+
+    LaunchedEffect(exportMessage) {
+        exportMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearExportMessage()
+        }
+    }
 
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
@@ -142,7 +156,8 @@ fun AtharStudioScreen(
                 onToggleGrid = { viewModel.toggleGridGuides() },
                 onToggleLock = { viewModel.toggleLock() },
                 onResetTransform = { viewModel.resetCanvasTransform() },
-                onExportClick = { showExportSheet = true }
+                onExportClick = { showExportSheet = true },
+                onBackToHome = onNavigateBackToHome
             )
 
             // 2. Floating Multi-Text Layer Selector Strip
@@ -288,7 +303,7 @@ fun AtharStudioScreen(
                 onImportProject = { projectImportLauncher.launch("*/*") },
                 onSaveCurrent = { viewModel.saveCurrentProject(context) },
                 onNewProject = {
-                    viewModel.setText("أَثَــر")
+                    viewModel.createNewProject()
                     showProjectsSheet = false
                 },
                 onOpenProject = { id ->

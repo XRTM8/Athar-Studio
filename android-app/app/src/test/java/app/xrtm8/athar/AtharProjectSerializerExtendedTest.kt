@@ -23,7 +23,7 @@ class AtharProjectSerializerExtendedTest {
         val restored = AtharProjectSerializer.deserializeCanvasState(json)
 
         assertEquals(defaultState.rawText, restored.rawText)
-        assertTrue(restored.displayText.isNotEmpty())
+        assertEquals(defaultState.displayText, restored.displayText)
         assertEquals(defaultState.stretchLevel, restored.stretchLevel)
         assertEquals(defaultState.fontSize, restored.fontSize, 0.001f)
         assertEquals(defaultState.isTransparentBg, restored.isTransparentBg)
