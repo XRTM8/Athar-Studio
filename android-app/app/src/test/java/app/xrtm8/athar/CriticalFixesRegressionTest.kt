@@ -17,6 +17,36 @@ import org.junit.Test
 class CriticalFixesRegressionTest {
 
     @Test
+    fun stretchAndUndoKeepEachLayersOwnText() {
+        val vm = AtharStudioViewModel()
+        vm.createNewProject(initialText = "أثر")
+        val first = vm.canvasState.value.activeLayer
+        assertEquals("أثـــر", first.displayText)
+        vm.addTextLayer("مجد")
+        val second = vm.canvasState.value.activeLayer
+        assertEquals("مجـــد", second.displayText)
+        vm.setStretchLevel(2)
+        vm.setStretchLevel(6)
+        vm.commitHistoryCheckpoint()
+        vm.selectLayer(first.id)
+        assertEquals(first, vm.canvasState.value.activeLayer)
+        assertEquals("مجــــــد", vm.canvasState.value.layers.last().displayText)
+        vm.undo()
+        assertEquals(second, vm.canvasState.value.activeLayer)
+        vm.redo()
+        assertEquals("مجــــــد", vm.canvasState.value.layers.last().displayText)
+    }
+
+    @Test
+    fun existingTatweelAndArabicMarksPreserveTheJoin() {
+        val text = "أثَـر"
+        assertEquals("أثَـــر", PureArabicKashidaEngine.stretchText(text, 2))
+        assertEquals(text, PureArabicKashidaEngine.stretchText(text, 0))
+        assertEquals("ب\u0656ــت", PureArabicKashidaEngine.stretchText("ب\u0656ت", 2))
+    }
+
+
+    @Test
     fun testAlefMaqsuraNeverConnectsToFollowingLetter() {
         // 'ى' is RIGHT_JOINING only. It must NEVER have a Kashida opportunity after it.
         val text = "هدى الله"

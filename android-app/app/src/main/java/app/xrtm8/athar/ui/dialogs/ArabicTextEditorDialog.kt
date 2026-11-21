@@ -156,9 +156,7 @@ fun ArabicTextEditorDialog(
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            if (textFieldValue.text.isNotBlank()) {
-                                onApplyText(textFieldValue.text)
-                            }
+                            onApplyText(textFieldValue.text)
                             onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),
@@ -185,9 +183,7 @@ fun ArabicTextEditorDialog(
                 keyboardActions = KeyboardActions(
                     onDone = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (textFieldValue.text.isNotBlank()) {
-                            onApplyText(textFieldValue.text)
-                        }
+                        onApplyText(textFieldValue.text)
                         onDismiss()
                     }
                 ),
@@ -347,9 +343,7 @@ fun ArabicTextEditorDialog(
                 Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (textFieldValue.text.isNotBlank()) {
-                            onApplyText(textFieldValue.text)
-                        }
+                        onApplyText(textFieldValue.text)
                         onDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),

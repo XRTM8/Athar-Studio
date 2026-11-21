@@ -245,7 +245,7 @@ object AtharProjectSerializer {
             for (i in 0 until arr.length()) {
                 val lObj = arr.getJSONObject(i)
                 val rawText = lObj.optString("raw_text", "أَثَــر")
-                val stretchLevel = lObj.optInt("stretch_level", 3)
+                val stretchLevel = lObj.optInt("stretch_level", 3).coerceIn(0, 8)
                 val kModeStr = lObj.optString("kashida_mode", KashidaMode.SMART.name)
                 val kMode = try { KashidaMode.valueOf(kModeStr) } catch (e: Exception) { KashidaMode.SMART }
                 val targetIdx = lObj.optInt("kashida_target_index", -1)
@@ -329,7 +329,7 @@ object AtharProjectSerializer {
         } else {
             // Legacy document fallback
             val rawText = c.optString("raw_text", "أَثَــر")
-            val stretchLevel = c.optInt("stretch_level", 3)
+            val stretchLevel = c.optInt("stretch_level", 3).coerceIn(0, 8)
             val kModeStr = c.optString("kashida_mode", KashidaMode.SMART.name)
             val kMode = try { KashidaMode.valueOf(kModeStr) } catch (e: Exception) { KashidaMode.SMART }
             val targetIdx = c.optInt("kashida_target_index", -1)

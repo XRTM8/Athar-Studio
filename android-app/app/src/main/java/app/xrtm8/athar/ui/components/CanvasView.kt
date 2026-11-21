@@ -45,6 +45,7 @@ fun CanvasView(
     val context = LocalContext.current
     val density = LocalDensity.current.density
     val haptic = LocalHapticFeedback.current
+    val currentState by rememberUpdatedState(state)
     val active = state.activeLayer
 
     var localNormX by remember(active.id) { mutableFloatStateOf(active.normOffsetX) }
@@ -82,8 +83,7 @@ fun CanvasView(
     val ratio = state.aspectRatio.ratio
 
     val canvasModifier = Modifier
-        .fillMaxSize()
-        .then(if (ratio != null) Modifier.aspectRatio(ratio, matchHeightConstraintsFirst = false) else Modifier)
+        .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.fillMaxSize())
         .clipToBounds()
         .border(0.5.dp, canvasBorder)
 
@@ -134,7 +134,7 @@ fun CanvasView(
                         },
                         onTap = { offset ->
                             if (!state.isFramingMode) {
-                                val hit = CanvasHitTester.findHitLayer(offset.x, offset.y, canvasW, canvasH, state, density)
+                                val hit = CanvasHitTester.findHitLayer(context, offset.x, offset.y, canvasW, canvasH, currentState, density)
                                 if (hit != null) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     onSelectLayer?.invoke(hit.id)
@@ -143,7 +143,7 @@ fun CanvasView(
                         },
                         onDoubleTap = { offset ->
                             if (!state.isFramingMode) {
-                                val hit = CanvasHitTester.findHitLayer(offset.x, offset.y, canvasW, canvasH, state, density)
+                                val hit = CanvasHitTester.findHitLayer(context, offset.x, offset.y, canvasW, canvasH, currentState, density)
                                 if (hit != null) onSelectLayer?.invoke(hit.id)
                             }
                             onDoubleTap?.invoke()
@@ -176,7 +176,7 @@ fun CanvasView(
                     CanvasBackgroundRenderer.drawBackground(native, rawState, canvasW, canvasH, density, bitmaps.rawBitmap, paints.bgPaint)
                 } else {
                     // AFTER MODE: Full active design
-                    CanvasBackgroundRenderer.drawBackground(native, stateForBg, canvasW, canvasH, density, bitmaps.processedBitmap, paints.bgPaint)
+                    CanvasBackgroundRenderer.drawBackground(native, stateForBg, canvasW, canvasH, density, bitmaps.processedBitmap, paints.bgPaint, bitmaps.cellBitmaps)
 
                     if (state.showGridGuides || state.isFramingMode) {
                         CanvasGuidesRenderer.drawGridGuides(native, canvasW, canvasH, paints.gridPaint)
@@ -195,11 +195,7 @@ fun CanvasView(
                             layerScale = if (isCurr) localScale else layer.scaleFactor,
                             layerRotation = if (isCurr) localRotation else layer.rotationAngle,
                             canvasWidth = canvasW, canvasHeight = canvasH, density = density,
-                            isAmoledWhite = isAmoledWhite, basePaint = paints.basePaint,
-                            shadowPaint = paints.shadowPaint, strokePaint = paints.strokePaint,
-                            selectBoxPaint = paints.selectBoxPaint, handlePaint = paints.handlePaint,
-                            handleFillPaint = paints.handleFillPaint, colorFilterCache = paints.colorFilterCache,
-                            shadowBlurFilterCache = paints.shadowBlurFilterCache, blendModeXfermode = paints.blendModeXfermode
+                            paints = paints
                         )
                     }
 

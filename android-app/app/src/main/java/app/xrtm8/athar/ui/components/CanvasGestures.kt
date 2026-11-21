@@ -84,10 +84,13 @@ suspend fun PointerInputScope.detectCanvasGestures(
         if (earlyExit == null) {
             // Held down for > 360ms without moving -> Before/After comparison!
             onHoldBeforeAfter?.invoke(true)
-            do {
-                awaitPointerEvent()
-            } while (currentEvent.changes.any { it.pressed })
-            onHoldBeforeAfter?.invoke(false)
+            try {
+                do {
+                    awaitPointerEvent()
+                } while (currentEvent.changes.any { it.pressed })
+            } finally {
+                onHoldBeforeAfter?.invoke(false)
+            }
             return@awaitEachGesture
         }
 

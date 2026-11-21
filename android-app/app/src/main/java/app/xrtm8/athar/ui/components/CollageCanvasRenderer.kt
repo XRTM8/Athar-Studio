@@ -13,11 +13,6 @@ import app.xrtm8.athar.model.CollageState
  */
 object CollageCanvasRenderer {
 
-    private val reusableSrcRect = Rect()
-    private val reusableDstRect = Rect()
-    private val clipPath = Path()
-    private val rectF = RectF()
-
     fun drawCollage(
         canvas: Canvas,
         state: CollageState,
@@ -28,6 +23,12 @@ object CollageCanvasRenderer {
         paint: Paint
     ) {
         if (!state.isEnabled) return
+
+        val reusableSrcRect = Rect()
+        val reusableDstRect = Rect()
+        val clipPath = Path()
+        val rectF = RectF()
+        paint.colorFilter = null
 
         // 1. Draw frame canvas background
         paint.color = state.frameColorLong.toInt()
@@ -66,16 +67,16 @@ object CollageCanvasRenderer {
 
                 val scale = cell.photoScale.coerceIn(0.5f, 4.0f)
                 if (bRatio > cRatio) {
-                    val newW = ((bh * cRatio) / scale).toInt().coerceIn(10, bw.toInt())
-                    val newH = (bh / scale).toInt().coerceIn(10, bh.toInt())
+                    val newW = ((bh * cRatio) / scale).toInt().coerceIn(1, bw.toInt())
+                    val newH = (bh / scale).toInt().coerceIn(1, bh.toInt())
                     val maxShiftX = (bw - newW) / 2f
                     val maxShiftY = (bh - newH) / 2f
                     val xOff = (((bw - newW) / 2f) + (cell.photoOffsetX * maxShiftX)).toInt().coerceIn(0, (bw - newW).toInt())
                     val yOff = (((bh - newH) / 2f) + (cell.photoOffsetY * maxShiftY)).toInt().coerceIn(0, (bh - newH).toInt())
                     reusableSrcRect.set(xOff, yOff, xOff + newW, yOff + newH)
                 } else {
-                    val newW = (bw / scale).toInt().coerceIn(10, bw.toInt())
-                    val newH = ((bw / cRatio) / scale).toInt().coerceIn(10, bh.toInt())
+                    val newW = (bw / scale).toInt().coerceIn(1, bw.toInt())
+                    val newH = ((bw / cRatio) / scale).toInt().coerceIn(1, bh.toInt())
                     val maxShiftX = (bw - newW) / 2f
                     val maxShiftY = (bh - newH) / 2f
                     val xOff = (((bw - newW) / 2f) + (cell.photoOffsetX * maxShiftX)).toInt().coerceIn(0, (bw - newW).toInt())

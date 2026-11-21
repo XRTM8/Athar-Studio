@@ -31,7 +31,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun AtharStudioScreen(
     updateManager: AtharUpdateManager,
-    initialProjectUri: Uri? = null,
     viewModel: AtharStudioViewModel = remember { AtharStudioViewModel() },
     onNavigateBackToHome: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -67,7 +66,7 @@ fun AtharStudioScreen(
             showProjectsSheet -> showProjectsSheet = false
             isPanelExpanded -> isPanelExpanded = false
             else -> {
-                if (canvasState.layers.any { it.displayText.isNotBlank() } || canvasState.backgroundImageUri != null) {
+                if (canvasState.layers.any { it.displayText.isNotBlank() } || canvasState.backgroundImageUri != null || canvasState.collageState.cells.any { it.imageUri != null }) {
                     viewModel.saveCurrentProject(context)
                 }
                 onNavigateBackToHome?.invoke()
@@ -83,9 +82,6 @@ fun AtharStudioScreen(
             viewModel.clearExportMessage()
         }
     }
-    LaunchedEffect(initialProjectUri) {
-        if (initialProjectUri != null) viewModel.openProjectFromUri(context, initialProjectUri)
-    }
     LaunchedEffect(Unit) { viewModel.loadCustomFonts(context) }
 
     var pendingCollageCellId by remember { mutableStateOf<String?>(null) }
@@ -97,11 +93,11 @@ fun AtharStudioScreen(
             val cellId = pendingCollageCellId
             if (cellId != null) {
                 viewModel.setCollageCellPhoto(cellId, uri)
-                pendingCollageCellId = null
             } else {
                 pendingCropImageUri = uri
             }
         }
+        pendingCollageCellId = null
     }
 
     val projectImportLauncher = rememberLauncherForActivityResult(

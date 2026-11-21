@@ -207,7 +207,7 @@ fun AtharSettingsDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = "أثر (Athar)", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
-                        Text(text = "الإصدار 2.7.1", color = CherryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "الإصدار ${app.xrtm8.athar.BuildConfig.VERSION_NAME}", color = CherryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))

@@ -2,7 +2,6 @@ package app.xrtm8.athar.ui.components
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.compose.runtime.*
 import app.xrtm8.athar.core.AtharColorMixEngine
 import app.xrtm8.athar.core.AtharImageProcessor
@@ -12,7 +11,8 @@ import kotlinx.coroutines.withContext
 
 data class CanvasBitmapHolder(
     val rawBitmap: Bitmap?,
-    val processedBitmap: Bitmap?
+    val processedBitmap: Bitmap?,
+    val cellBitmaps: Map<String, Bitmap>
 )
 
 @Composable
@@ -23,50 +23,22 @@ fun rememberCanvasBackgroundBitmap(
     var rawBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var processedBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            val p = processedBgBitmap
-            val r = rawBgBitmap
-            if (p != null && p != r && !p.isRecycled) p.recycle()
-            if (r != null && !r.isRecycled) r.recycle()
+    val cellPhotos = state.collageState.cells.mapNotNull { cell -> cell.imageUri?.let { cell.id to it } }
+    val cellBitmaps by produceState(emptyMap<String, Bitmap>(), cellPhotos) {
+        value = withContext(Dispatchers.IO) {
+            cellPhotos.mapNotNull { (id, uri) ->
+                AtharImageProcessor.decodeSampledBitmap(context, uri, 1080, 1920)?.let { id to it }
+            }.toMap()
         }
     }
 
     LaunchedEffect(state.backgroundImageUri) {
         val uri = state.backgroundImageUri
-        val oldRaw = rawBgBitmap
-        val loaded = if (uri != null) {
-            try {
-                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, opts)
-                }
-                var sample = 1
-                while ((opts.outHeight / sample) > 1920 || (opts.outWidth / sample) > 1080) {
-                    sample *= 2
-                }
-                val finalOpts = BitmapFactory.Options().apply {
-                    inSampleSize = sample
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                }
-                context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, finalOpts)
-                }
-            } catch (e: Exception) {
-                null
-            }
-        } else {
-            null
-        }
-        rawBgBitmap = loaded
-        if (oldRaw != null && oldRaw != loaded && !oldRaw.isRecycled) {
-            oldRaw.recycle()
-        }
+        rawBgBitmap = uri?.let { withContext(Dispatchers.IO) { AtharImageProcessor.decodeSampledBitmap(context, it, 1080, 1920) } }
     }
 
     LaunchedEffect(rawBgBitmap, state.backgroundBlur, state.colorMixState, state.cinematicGlowState, state.filmGrainState) {
         val base = rawBgBitmap
-        val oldProcessed = processedBgBitmap
         val next = if (base != null) {
             withContext(Dispatchers.Default) {
                 var current = if (state.backgroundBlur > 0.5f) {
@@ -105,10 +77,7 @@ fun rememberCanvasBackgroundBitmap(
             null
         }
         processedBgBitmap = next
-        if (oldProcessed != null && oldProcessed != base && oldProcessed != next && !oldProcessed.isRecycled) {
-            oldProcessed.recycle()
-        }
     }
 
-    return CanvasBitmapHolder(rawBitmap = rawBgBitmap, processedBitmap = processedBgBitmap)
+    return CanvasBitmapHolder(rawBitmap = rawBgBitmap, processedBitmap = processedBgBitmap, cellBitmaps = cellBitmaps)
 }

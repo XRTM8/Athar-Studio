@@ -14,8 +14,8 @@ android {
         applicationId = "app.xrtm8.athar"
         minSdk = 26
         targetSdk = 34
-        versionCode = 38
-        versionName = "2.7.1"
+        versionCode = 39
+        versionName = "2.7.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -34,7 +34,7 @@ android {
                 ?: rootProject.file("keystore/keystore.properties").takeIf { it.exists() }
             val keystoreProperties = Properties()
             if (keystorePropsFile != null) {
-                keystoreProperties.load(FileInputStream(keystorePropsFile))
+                FileInputStream(keystorePropsFile).use { keystoreProperties.load(it) }
             }
 
             val keystorePath = System.getenv("ATHAR_KEYSTORE_PATH")
@@ -73,9 +73,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-        }
-        debug {
-            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -116,6 +113,8 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.kotlinx.coroutines.android)
 
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")
     debugImplementation(libs.androidx.ui.tooling)

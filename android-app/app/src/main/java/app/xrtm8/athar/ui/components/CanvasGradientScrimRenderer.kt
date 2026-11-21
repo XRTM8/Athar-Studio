@@ -27,6 +27,7 @@ object CanvasGradientScrimRenderer {
     private var lastMidpoint = -1f
     private var cachedShader: Shader? = null
 
+    @Synchronized
     fun drawGradientScrim(
         canvas: Canvas,
         width: Float,

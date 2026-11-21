@@ -6,8 +6,9 @@ import android.net.Uri
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CustomFont
 import java.io.File
-import java.io.FileOutputStream
-import java.util.UUID
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.concurrent.ConcurrentHashMap
 
 object AtharFontManager {
@@ -93,15 +94,18 @@ object AtharFontManager {
             }
 
             val destFile = File(dir, fileName)
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
+            val pending = File.createTempFile("import-", ".part", dir)
+            try {
+                val stream = context.contentResolver.openInputStream(uri) ?: return null
+                stream.use { input -> pending.outputStream().use { input.copyTo(it) } }
+                val tf = Typeface.Builder(pending).build() ?: return null
+                synchronized(customTypefaceCache) {
+                    Files.move(pending.toPath(), destFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+                    customTypefaceCache[destFile.absolutePath] = tf
                 }
+            } finally {
+                pending.delete()
             }
-
-            // Verify typeface is valid
-            val tf = Typeface.createFromFile(destFile)
-            customTypefaceCache[destFile.absolutePath] = tf
 
             val displayName = destFile.nameWithoutExtension
                 .replace("_", " ")

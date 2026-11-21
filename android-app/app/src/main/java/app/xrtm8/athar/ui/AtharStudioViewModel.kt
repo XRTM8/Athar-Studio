@@ -31,7 +31,6 @@ import app.xrtm8.athar.project.AtharProjectMeta
 import app.xrtm8.athar.typography.ArabicParagraphJustifier
 import app.xrtm8.athar.typography.AtharFontManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -94,17 +93,7 @@ class AtharStudioViewModel : ViewModel() {
         } catch (_: Exception) {}
     }
 
-    private var kashidaDebounceJob: Job? = null
     private var sliderDragInitialState: CanvasState? = null
-
-    init {
-        updateKashidaInternal(
-            _canvasState.value.rawText,
-            _canvasState.value.stretchLevel,
-            _canvasState.value.kashidaMode,
-            _canvasState.value.kashidaTargetIndex
-        )
-    }
 
     private fun markSliderChange() {
         if (sliderDragInitialState == null) {
@@ -184,11 +173,10 @@ class AtharStudioViewModel : ViewModel() {
             id = UUID.randomUUID().toString(),
             name = "نص ${current.layers.size + 1}",
             rawText = initialText,
-            displayText = initialText,
             fontSize = 44f,
             normOffsetX = 0f,
             normOffsetY = (current.layers.size * 0.08f).coerceAtMost(0.35f)
-        )
+        ).withKashida()
         val newLayers = current.layers + newLayer
         pushHistory(current.copy(layers = newLayers, activeLayerId = newLayer.id))
     }
@@ -252,30 +240,30 @@ class AtharStudioViewModel : ViewModel() {
     // Active Text Layer Operations
     // ==========================================
 
+    private fun TextLayer.withKashida(): TextLayer =
+        copy(displayText = PureArabicKashidaEngine.stretchText(rawText, stretchLevel, kashidaMode, kashidaTargetIndex))
+
     fun setText(newText: String) {
-        pushActiveLayerHistory { it.copy(rawText = newText) }
-        val active = _canvasState.value.activeLayer
-        scheduleKashidaUpdate(newText, active.stretchLevel, active.kashidaMode, active.kashidaTargetIndex)
+        if (newText == _canvasState.value.rawText) return
+        pushActiveLayerHistory { it.copy(rawText = newText).withKashida() }
     }
 
     fun setStretchLevel(newLevel: Int) {
-        if (newLevel == _canvasState.value.stretchLevel) return
-        pushActiveLayerHistory { it.copy(stretchLevel = newLevel) }
-        val active = _canvasState.value.activeLayer
-        scheduleKashidaUpdate(active.rawText, newLevel, active.kashidaMode, active.kashidaTargetIndex)
+        val level = newLevel.coerceIn(0, 8)
+        if (level == _canvasState.value.stretchLevel) return
+        markSliderChange()
+        updateActiveLayer { it.copy(stretchLevel = level).withKashida() }
     }
 
     fun setKashidaMode(mode: KashidaMode) {
         if (mode == _canvasState.value.kashidaMode) return
-        pushActiveLayerHistory { it.copy(kashidaMode = mode) }
-        val active = _canvasState.value.activeLayer
-        scheduleKashidaUpdate(active.rawText, active.stretchLevel, mode, active.kashidaTargetIndex)
+        pushActiveLayerHistory { it.copy(kashidaMode = mode).withKashida() }
     }
 
     fun setKashidaTargetIndex(targetIndex: Int) {
-        pushActiveLayerHistory { it.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM) }
-        val active = _canvasState.value.activeLayer
-        scheduleKashidaUpdate(active.rawText, active.stretchLevel, KashidaMode.CUSTOM, targetIndex)
+        pushActiveLayerHistory {
+            it.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM).withKashida()
+        }
     }
 
     fun justifyActiveLayerLines(context: Context) {
@@ -286,6 +274,7 @@ class AtharStudioViewModel : ViewModel() {
             textSize = active.fontSize * 3f
             letterSpacing = active.letterSpacing
         }
+        if (!active.rawText.contains('\n')) return
         val justified = ArabicParagraphJustifier.justifyLines(active.rawText, paint)
         if (justified != active.displayText) {
             pushActiveLayerHistory { it.copy(displayText = justified) }
@@ -697,9 +686,8 @@ class AtharStudioViewModel : ViewModel() {
         val newLayer = TextLayer(
             id = "layer_primary",
             name = "نص 1",
-            rawText = initialText,
-            displayText = initialText
-        )
+            rawText = initialText
+        ).withKashida()
         val newState = CanvasState(
             layers = listOf(newLayer),
             activeLayerId = "layer_primary",
@@ -710,6 +698,7 @@ class AtharStudioViewModel : ViewModel() {
             backgroundBlur = 0f
         )
         _canvasState.value = newState
+        sliderDragInitialState = null
         undoStack.clear()
         redoStack.clear()
         _canUndo.value = false
@@ -799,6 +788,14 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    private var initialProjectOpened = false
+
+    fun openInitialProject(context: Context, uri: Uri) {
+        if (initialProjectOpened) return
+        initialProjectOpened = true
+        openProjectFromUri(context, uri)
+    }
+
     fun openProjectFromUri(context: Context, uri: Uri) {
         viewModelScope.launch {
             try {
@@ -843,11 +840,12 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun importCustomFont(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val font = AtharFontManager.importFontFromUri(context, uri)
+        val layer = _canvasState.value.activeLayer
+        viewModelScope.launch {
+            val font = withContext(Dispatchers.IO) { AtharFontManager.importFontFromUri(context, uri) }
             if (font != null) {
                 loadCustomFonts(context)
-                setCustomFont(font)
+                if (_canvasState.value.activeLayer === layer) setCustomFont(font)
                 _exportMessage.value = "تم استيراد الخط: ${font.name}"
             } else {
                 _exportMessage.value = "تعذر استيراد الخط، تأكد من صحة الملف (.ttf / .otf)"
@@ -856,14 +854,16 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun deleteCustomFont(context: Context, fontId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val success = AtharFontManager.deleteCustomFont(context, fontId)
+        viewModelScope.launch {
+            val success = withContext(Dispatchers.IO) { AtharFontManager.deleteCustomFont(context, fontId) }
             if (success) {
                 loadCustomFonts(context)
-                // If active layer was using this font, reset it
-                val active = _canvasState.value.activeLayer
-                if (active.customFontPath?.contains(fontId) == true) {
-                    setCustomFont(null)
+                _canvasState.update { state ->
+                    state.copy(layers = state.layers.map { layer ->
+                        if (layer.customFontPath?.substringAfterLast('/') == fontId)
+                            layer.copy(customFontPath = null, customFontName = null)
+                        else layer
+                    })
                 }
                 _exportMessage.value = "تم حذف الخط المخصص"
             }
@@ -927,28 +927,6 @@ class AtharStudioViewModel : ViewModel() {
             )
         }
         _exportMessage.value = "تم تطبيق التنسيق على الطبقة"
-    }
-
-    private fun scheduleKashidaUpdate(
-        text: String,
-        level: Int,
-        mode: KashidaMode,
-        targetIndex: Int
-    ) {
-        kashidaDebounceJob?.cancel()
-        kashidaDebounceJob = viewModelScope.launch(Dispatchers.Default) {
-            updateKashidaInternal(text, level, mode, targetIndex)
-        }
-    }
-
-    private fun updateKashidaInternal(
-        text: String,
-        level: Int,
-        mode: KashidaMode,
-        targetIndex: Int
-    ) {
-        val stretched = PureArabicKashidaEngine.stretchText(text, level, mode, targetIndex)
-        updateActiveLayer { it.copy(displayText = stretched) }
     }
 
     // ==========================================

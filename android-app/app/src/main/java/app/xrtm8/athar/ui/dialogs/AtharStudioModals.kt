@@ -1,9 +1,20 @@
 package app.xrtm8.athar.ui.dialogs
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
+import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.CustomFont
 import app.xrtm8.athar.project.AtharProjectMeta
@@ -51,19 +62,34 @@ fun AtharStudioModals(
         )
     }
 
+    var pendingResolution by rememberSaveable { mutableStateOf<ExportResolution?>(null) }
+    var pendingSticker by rememberSaveable { mutableStateOf(false) }
+    fun export(resolution: ExportResolution, sticker: Boolean) {
+        viewModel.exportDesign(context, resolution, sticker || canvasState.isTransparentBg, sticker)
+        onDismissExportSheet()
+    }
+    val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val resolution = pendingResolution
+        pendingResolution = null
+        if (granted && resolution != null) export(resolution, pendingSticker)
+        else if (!granted) Toast.makeText(context, "يلزم إذن التخزين لحفظ الصورة في المعرض", Toast.LENGTH_SHORT).show()
+    }
+    fun requestExport(resolution: ExportResolution, sticker: Boolean) {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingResolution = resolution
+            pendingSticker = sticker
+            storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else export(resolution, sticker)
+    }
     if (showExportSheet) {
         ExportBottomSheet(
             state = canvasState,
             isExporting = isExporting,
             onDismiss = onDismissExportSheet,
-            onExportFullCanvas = { res ->
-                viewModel.exportDesign(context, resolution = res, isTransparent = canvasState.isTransparentBg, isStickerTrimmed = false)
-                onDismissExportSheet()
-            },
-            onExportSticker = { res ->
-                viewModel.exportDesign(context, resolution = res, isTransparent = true, isStickerTrimmed = true)
-                onDismissExportSheet()
-            },
+            onExportFullCanvas = { requestExport(it, false) },
+            onExportSticker = { requestExport(it, true) },
             onSaveProject = { viewModel.saveCurrentProject(context); onDismissExportSheet() },
             onShareAtharProject = { viewModel.exportProjectAsAthar(context); onDismissExportSheet() }
         )

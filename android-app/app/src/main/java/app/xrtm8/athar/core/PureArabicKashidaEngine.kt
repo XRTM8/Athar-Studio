@@ -24,14 +24,6 @@ object PureArabicKashidaEngine {
         val isRecommended: Boolean
     )
 
-    private val TASHKEEL = setOf(
-        '\u064B', '\u064C', '\u064D', '\u064E', '\u064F', '\u0650', '\u0651', '\u0652', // Harakat & Tanween
-        '\u0653', '\u0654', '\u0655', '\u0670', // Maddah, Hamza, Dagger Alef
-        '\u06D6', '\u06D7', '\u06D8', '\u06D9', '\u06DA', '\u06DB', '\u06DC', '\u06DF',
-        '\u06E0', '\u06E1', '\u06E2', '\u06E3', '\u06E4', '\u06E7', '\u06E8', '\u06EA',
-        '\u06EB', '\u06EC', '\u06ED' // Quranic marks
-    )
-
     private val DUAL_JOINING = setOf(
         'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ',
         'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'ي', 'ئ'
@@ -41,7 +33,9 @@ object PureArabicKashidaEngine {
         'ا', 'أ', 'إ', 'آ', 'ٱ', 'د', 'ذ', 'ر', 'ز', 'و', 'ؤ', 'ة', 'ى'
     )
 
-    private fun isTashkeel(c: Char): Boolean = c in TASHKEEL
+    private fun isArabicMark(c: Char): Boolean =
+        (c in '\u0600'..'\u06FF' || c in '\u08A0'..'\u08FF') &&
+            Character.getType(c) == Character.NON_SPACING_MARK.toInt()
 
     fun getCalligraphicPriority(currChar: Char, nextChar: Char, isPreFinal: Boolean): Int {
         // Disallowed connections in Arabic calligraphy:
@@ -81,31 +75,17 @@ object PureArabicKashidaEngine {
 
     data class ArabicToken(
         val char: Char,
-        var diacritics: String = ""
+        val suffix: String = ""
     )
 
     fun tokenizeWord(word: String): List<ArabicToken> {
         val tokens = ArrayList<ArabicToken>()
         var i = 0
         while (i < word.length) {
-            val c = word[i]
-            if (isTashkeel(c)) {
-                if (tokens.isNotEmpty()) {
-                    tokens.last().diacritics += c
-                } else {
-                    tokens.add(ArabicToken(c))
-                }
-                i++
-            } else {
-                val sb = StringBuilder()
-                var j = i + 1
-                while (j < word.length && isTashkeel(word[j])) {
-                    sb.append(word[j])
-                    j++
-                }
-                tokens.add(ArabicToken(c, sb.toString()))
-                i = j
-            }
+            val base = word[i++]
+            val start = i
+            while (i < word.length && (isArabicMark(word[i]) || word[i] == 'ـ')) i++
+            tokens.add(ArabicToken(base, word.substring(start, i)))
         }
         return tokens
     }
@@ -164,10 +144,9 @@ object PureArabicKashidaEngine {
     ): String {
         if (level <= 0 || text.isEmpty()) return text
 
-        val opps = findOpportunities(text)
-        if (opps.isEmpty()) return text
-
-        val activeMode = if (mode == KashidaMode.CUSTOM && (targetGlobalIndex < 0 || targetGlobalIndex >= opps.size)) {
+        val activeMode = if (mode == KashidaMode.CUSTOM &&
+            (targetGlobalIndex < 0 || targetGlobalIndex >= findOpportunities(text).size)
+        ) {
             KashidaMode.SMART
         } else {
             mode
@@ -271,7 +250,7 @@ object PureArabicKashidaEngine {
                 val sb = StringBuilder()
                 for (idx in tokens.indices) {
                     sb.append(tokens[idx].char)
-                    sb.append(tokens[idx].diacritics)
+                    sb.append(tokens[idx].suffix)
                     if (idx in selectedTokenIndices) {
                         sb.append(tatweel)
                     }

@@ -10,6 +10,7 @@ import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.typography.CurvedTextRenderer
+import app.xrtm8.athar.ui.components.CanvasPaintPool
 import app.xrtm8.athar.ui.components.CanvasBoundingBoxRenderer
 import app.xrtm8.athar.ui.components.CanvasShaderFactory
 import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
@@ -30,29 +31,17 @@ object CanvasLayerTextRenderer {
         canvasWidth: Float,
         canvasHeight: Float,
         density: Float,
-        isAmoledWhite: Boolean,
-        basePaint: Paint,
-        shadowPaint: Paint,
-        strokePaint: Paint,
-        selectBoxPaint: Paint,
-        handlePaint: Paint,
-        handleFillPaint: Paint,
-        colorFilterCache: MutableMap<Int, ColorMatrixColorFilter>,
-        shadowBlurFilterCache: MutableMap<Int, BlurMaskFilter>,
-        blendModeXfermode: MutableMap<LayerBlendMode, PorterDuffXfermode>
+        paints: CanvasPaintPool
     ) {
         if (!layer.isVisible || layer.displayText.isEmpty()) return
 
         val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
         val canvasDensityFactor = canvasWidth / 380f
         val textSizePx = (layer.fontSize / 380f) * canvasWidth
-        val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
-        val alphaInt = (alphaFloat * 255).toInt()
-        val alphaColorFilter = if (alphaFloat >= 0.999f) null else {
-            colorFilterCache.getOrPut(alphaInt) {
-                ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })
-            }
-        }
+        val alphaInt = (layer.textOpacity.coerceIn(0f, 1f) * 255).toInt()
+        val basePaint = paints.basePaint
+        val shadowPaint = paints.shadowPaint
+        val strokePaint = paints.strokePaint
 
         basePaint.typeface = realTypeface
         shadowPaint.typeface = realTypeface
@@ -73,14 +62,6 @@ object CanvasLayerTextRenderer {
         basePaint.isUnderlineText = layer.isUnderline
         basePaint.isFakeBoldText = layer.isBold
         basePaint.textSkewX = if (layer.isItalic) -0.25f else 0f
-        basePaint.alpha = alphaInt
-        basePaint.colorFilter = alphaColorFilter
-        basePaint.xfermode = if (layer.blendMode != LayerBlendMode.NORMAL) {
-            blendModeXfermode.getOrPut(layer.blendMode) {
-                PorterDuffXfermode(layer.blendMode.porterDuffMode)
-            }
-        } else null
-
         shadowPaint.textSize = textSizePx
         shadowPaint.letterSpacing = layer.letterSpacing
         shadowPaint.textSkewX = basePaint.textSkewX
@@ -93,8 +74,6 @@ object CanvasLayerTextRenderer {
         strokePaint.isUnderlineText = layer.isUnderline
         strokePaint.isFakeBoldText = layer.isBold
         strokePaint.textSkewX = basePaint.textSkewX
-        strokePaint.alpha = alphaInt
-        strokePaint.colorFilter = alphaColorFilter
 
         val effectiveStroke = if (layer.isHollowText && layer.strokeWidth <= 0f) 2.0f else layer.strokeWidth
         if (effectiveStroke > 0f) {
@@ -132,19 +111,24 @@ object CanvasLayerTextRenderer {
         val shadowDyPx = (layer.shadowDy / 380f) * canvasWidth
         val shadowRadiusInt = ((layer.shadowRadius / 380f) * canvasWidth).toInt()
         val shadowBlurFilter = if (shadowRadiusInt > 0) {
-            shadowBlurFilterCache.getOrPut(shadowRadiusInt) {
+            paints.shadowBlurFilterCache.getOrPut(shadowRadiusInt) {
                 BlurMaskFilter(shadowRadiusInt.toFloat().coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
             }
         } else null
 
+        val composite = alphaInt < 255 || layer.blendMode != LayerBlendMode.NORMAL
+        if (composite) {
+            paints.compositePaint.alpha = alphaInt
+            paints.compositePaint.xfermode = if (layer.blendMode == LayerBlendMode.NORMAL) null else
+                paints.blendModeXfermode.getOrPut(layer.blendMode) { PorterDuffXfermode(layer.blendMode.porterDuffMode) }
+            nativeCanvas.saveLayer(null, paints.compositePaint)
+        }
         layerLayout.lines.forEachIndexed { index, line ->
             val lineY = layerLayout.startY + (index * layerLayout.lineHeight)
 
             // 1. Draw 2D Directional Shadow
             if (layer.shadowRadius > 0f) {
-                val sColor = layer.shadowColorLong.toInt()
-                val shadowAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
-                shadowPaint.color = (sColor and 0x00FFFFFF) or (shadowAlpha shl 24)
+                shadowPaint.color = layer.shadowColorLong.toInt()
                 shadowPaint.maskFilter = shadowBlurFilter
                 if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
                     CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX + shadowDxPx, lineY + shadowDyPx, shadowPaint, layer.curveAngle)
@@ -192,9 +176,7 @@ object CanvasLayerTextRenderer {
                     basePaint.shader = gradShader
                     basePaint.color = Color.WHITE
                 } else {
-                    val defaultTextColor = if (isAmoledWhite) 0xFF0F1014L else 0xFFFFFFFFL
-                    val baseColor = (layer.customTextColorLong ?: defaultTextColor).toInt()
-                    basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
+                    basePaint.color = (layer.customTextColorLong ?: 0xFFFFFFFFL).toInt()
                     basePaint.shader = null
                 }
 
@@ -206,6 +188,8 @@ object CanvasLayerTextRenderer {
             }
         }
 
+        if (composite) nativeCanvas.restore()
+
         // 4. Draw Selection Handles on active layer
         if (isCurrentActive && !isFramingMode) {
             CanvasBoundingBoxRenderer.drawBoundingBox(
@@ -214,9 +198,9 @@ object CanvasLayerTextRenderer {
                 layout = layerLayout,
                 textSizePx = textSizePx,
                 density = density,
-                selectBoxPaint = selectBoxPaint,
-                handlePaint = handlePaint,
-                handleFillPaint = handleFillPaint
+                selectBoxPaint = paints.selectBoxPaint,
+                handlePaint = paints.handlePaint,
+                handleFillPaint = paints.handleFillPaint
             )
         }
 

@@ -4,40 +4,27 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
-import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
-import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.core.FilmPresetEngine
-import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
-import app.xrtm8.athar.model.LayerBlendMode
-import app.xrtm8.athar.model.LuxuryGradientPreset
-import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
-import app.xrtm8.athar.model.VisualEffect
-import app.xrtm8.athar.typography.AtharFontManager
-import app.xrtm8.athar.typography.AtharTextLayout
-import app.xrtm8.athar.typography.CurvedTextRenderer
+import app.xrtm8.athar.ui.canvas.CanvasLayerTextRenderer
 import app.xrtm8.athar.ui.components.CanvasGradientScrimRenderer
-import app.xrtm8.athar.ui.components.CanvasShaderFactory
-import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import app.xrtm8.athar.ui.components.CanvasPaintPool
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * High-performance export engine for Athar Studio.
@@ -58,24 +45,8 @@ object AtharExportManager {
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
             val width = resolution.width
-            val height = when (state.aspectRatio) {
-                CanvasAspectRatio.STORY_9_16 -> (width * 16f / 9f).toInt()
-                CanvasAspectRatio.SQUARE_1_1 -> width
-                CanvasAspectRatio.PORTRAIT_4_5 -> (width * 5f / 4f).toInt()
-                CanvasAspectRatio.LANDSCAPE_16_9 -> (width * 9f / 16f).toInt()
-                CanvasAspectRatio.WALLPAPER_9_19_5 -> (width * 19.5f / 9f).toInt()
-                CanvasAspectRatio.FREE -> (width * 16f / 9f).toInt()
-            }
-
             val effectiveTransparent = isTransparent || state.isTransparentBg
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-
-            if (!effectiveTransparent) {
-                drawBackground(context, canvas, state, width, height)
-            }
-
-            drawLayers(context, canvas, state.layers, width, height)
+            val bitmap = renderDesign(context, state, width, effectiveTransparent)
 
             val finalBitmap = if (effectiveTransparent && isStickerTrimmed) {
                 val padding = (48f * (width / 1080f)).toInt()
@@ -90,13 +61,14 @@ object AtharExportManager {
 
             val filename = "Athar_${System.currentTimeMillis()}.${if (effectiveTransparent) "png" else "jpg"}"
 
-            saveToMediaStore(context, finalBitmap, filename, effectiveTransparent)
-
-            if (onShareRequested) {
-                shareExportedBitmap(context, finalBitmap, filename, effectiveTransparent)
+            try {
+                saveToMediaStore(context, finalBitmap, filename, effectiveTransparent)
+                if (onShareRequested) {
+                    shareExportedBitmap(context, finalBitmap, filename, effectiveTransparent)
+                }
+            } finally {
+                finalBitmap.recycle()
             }
-
-            finalBitmap.recycle()
 
             val successMsg = if (effectiveTransparent && isStickerTrimmed) {
                 "تم تصدير الملصق الشفاف المقصوص بنجاح (PNG)"
@@ -110,6 +82,20 @@ object AtharExportManager {
         }
     }
 
+    internal fun renderDesign(context: Context, state: CanvasState, width: Int, transparent: Boolean): Bitmap {
+        val height = (width / (state.aspectRatio.ratio ?: (9f / 16f))).toInt()
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            if (!transparent) drawBackground(context, canvas, state, width, height)
+            drawLayers(context, canvas, state.layers, width, height)
+            return bitmap
+        } catch (e: Exception) {
+            bitmap.recycle()
+            throw e
+        }
+    }
+
     private fun drawBackground(context: Context, canvas: Canvas, state: CanvasState, width: Int, height: Int) {
         var photoDrawn = false
 
@@ -120,7 +106,7 @@ object AtharExportManager {
                 if (uri != null) {
                     val cw = ((cell.rightNorm - cell.leftNorm) * width).toInt().coerceAtLeast(32)
                     val ch = ((cell.bottomNorm - cell.topNorm) * height).toInt().coerceAtLeast(32)
-                    val bmp = decodeSampledBitmap(context, uri, cw, ch)
+                    val bmp = AtharImageProcessor.decodeSampledBitmap(context, uri, cw, ch)
                     if (bmp != null) {
                         cellBitmaps[cell.id] = bmp
                     }
@@ -142,7 +128,7 @@ object AtharExportManager {
         } else {
             val bgUri = state.backgroundImageUri
             if (bgUri != null) {
-            var srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
+            var srcBitmap = AtharImageProcessor.decodeSampledBitmap(context, bgUri, width, height)
             if (srcBitmap != null) {
                 if (state.backgroundBlur > 0.5f) {
                     val blurR = (state.backgroundBlur * (width / 1080f)).toInt().coerceIn(1, 40)
@@ -217,16 +203,16 @@ object AtharExportManager {
                 val srcRect: Rect
 
                 if (srcRatio > dstRatio) {
-                    val newW = ((srcH * dstRatio) / scale).toInt().coerceIn(10, srcW.toInt())
-                    val newH = (srcH / scale).toInt().coerceIn(10, srcH.toInt())
+                    val newW = ((srcH * dstRatio) / scale).toInt().coerceIn(1, srcW.toInt())
+                    val newH = (srcH / scale).toInt().coerceIn(1, srcH.toInt())
                     val maxShiftX = (srcW - newW) / 2f
                     val maxShiftY = (srcH - newH) / 2f
                     val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
                     val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
                     srcRect = Rect(xOffset, yOffset, xOffset + newW, yOffset + newH)
                 } else {
-                    val newW = (srcW / scale).toInt().coerceIn(10, srcW.toInt())
-                    val newH = ((srcW / dstRatio) / scale).toInt().coerceIn(10, srcH.toInt())
+                    val newW = (srcW / scale).toInt().coerceIn(1, srcW.toInt())
+                    val newH = ((srcW / dstRatio) / scale).toInt().coerceIn(1, srcH.toInt())
                     val maxShiftX = (srcW - newW) / 2f
                     val maxShiftY = (srcH - newH) / 2f
                     val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
@@ -275,167 +261,17 @@ object AtharExportManager {
     }
 
     private fun drawLayers(context: Context, canvas: Canvas, layers: List<TextLayer>, width: Int, height: Int) {
-        val densityFactor = width / 380f
-
-        layers.forEach { layer ->
-            if (!layer.isVisible || layer.displayText.isEmpty()) return@forEach
-
-            val scaledTextSize = (layer.fontSize / 380f) * width
-            val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
-            val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
-            val alphaInt = (alphaFloat * 255).toInt()
-            val opacityFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })
-
-            val paint = Paint().apply {
-                isAntiAlias = true
-                isDither = true
-                textSize = scaledTextSize
-                letterSpacing = layer.letterSpacing
-                isUnderlineText = layer.isUnderline
-                isFakeBoldText = layer.isBold
-                textSkewX = if (layer.isItalic) -0.25f else 0f
-                alpha = alphaInt
-                colorFilter = opacityFilter
-                if (layer.blendMode != LayerBlendMode.NORMAL) {
-                    xfermode = PorterDuffXfermode(layer.blendMode.porterDuffMode)
-                }
-                textAlign = when (layer.textAlign) {
-                    TextAlignOption.RIGHT -> Paint.Align.RIGHT
-                    TextAlignOption.CENTER -> Paint.Align.CENTER
-                    TextAlignOption.LEFT -> Paint.Align.LEFT
-                }
-                typeface = realTypeface
-            }
-
-            val strokePaint = if (layer.strokeWidth > 0f || layer.isHollowText) {
-                Paint().apply {
-                    isAntiAlias = true
-                    isDither = true
-                    style = Paint.Style.STROKE
-                    strokeJoin = Paint.Join.ROUND
-                    strokeCap = Paint.Cap.ROUND
-                    val effectiveWidth = if (layer.isHollowText && layer.strokeWidth <= 0f) 2.0f else layer.strokeWidth
-                    strokeWidth = (effectiveWidth / 380f) * width
-                    color = layer.strokeColorLong.toInt()
-                    letterSpacing = layer.letterSpacing
-                    isUnderlineText = layer.isUnderline
-                    isFakeBoldText = layer.isBold
-                    textSkewX = if (layer.isItalic) -0.25f else 0f
-                    alpha = alphaInt
-                    colorFilter = opacityFilter
-                    textSize = scaledTextSize
-                    textAlign = paint.textAlign
-                    typeface = realTypeface
-                }
-            } else null
-
-            val shadowPaint = if (layer.shadowRadius > 0f) {
-                Paint().apply {
-                    isAntiAlias = true
-                    isDither = true
-                    textSize = scaledTextSize
-                    letterSpacing = layer.letterSpacing
-                    isFakeBoldText = layer.isBold
-                    textSkewX = if (layer.isItalic) -0.25f else 0f
-                    textAlign = paint.textAlign
-                    typeface = realTypeface
-                    val sColor = layer.shadowColorLong.toInt()
-                    val sAlpha = (((sColor ushr 24) and 0xFF) * alphaFloat).toInt()
-                    color = (sColor and 0x00FFFFFF) or (sAlpha shl 24)
-                    val scaledBlur = ((layer.shadowRadius / 380f) * width).coerceAtLeast(1f)
-                    maskFilter = BlurMaskFilter(scaledBlur, BlurMaskFilter.Blur.NORMAL)
-                }
-            } else null
-
-            val scaledShadowDx = (layer.shadowDx / 380f) * width
-            val scaledShadowDy = (layer.shadowDy / 380f) * width
-
-            val centerX = width * 0.5f + (width * layer.normOffsetX)
-            val centerY = height * 0.5f + (height * layer.normOffsetY)
-
-            val layout = AtharTextLayout.computeLayout(
-                text = layer.displayText,
-                paint = paint,
-                lineSpacingMultiplier = layer.lineSpacingMultiplier,
-                textAlign = layer.textAlign,
-                maxWidth = width * layer.boxWidthRatio.coerceIn(0.2f, 1.0f)
+        val density = width / 380f
+        val paints = CanvasPaintPool(density)
+        for (layer in layers) {
+            CanvasLayerTextRenderer.renderTextLayer(
+                nativeCanvas = canvas, context = context, layer = layer,
+                isCurrentActive = false, isFramingMode = false,
+                layerNormX = layer.normOffsetX, layerNormY = layer.normOffsetY,
+                layerScale = layer.scaleFactor, layerRotation = layer.rotationAngle,
+                canvasWidth = width.toFloat(), canvasHeight = height.toFloat(), density = density,
+                paints = paints
             )
-
-            canvas.save()
-            canvas.translate(centerX, centerY)
-            canvas.rotate(layer.rotationAngle)
-            canvas.scale(layer.scaleFactor, layer.scaleFactor)
-
-            // Draw Frosted Glass Plaque / Card behind text if enabled
-            TextGlassBackdropRenderer.drawGlassBackdrop(
-                canvas = canvas,
-                layer = layer,
-                layout = layout,
-                textSizePx = paint.textSize,
-                density = densityFactor
-            )
-
-            layout.lines.forEachIndexed { index, line ->
-                val lineY = layout.startY + (index * layout.lineHeight)
-
-                if (shadowPaint != null) {
-                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX + scaledShadowDx, lineY + scaledShadowDy, shadowPaint, layer.curveAngle)
-                    } else {
-                        canvas.drawText(line, layout.lineX + scaledShadowDx, lineY + scaledShadowDy, shadowPaint)
-                    }
-                }
-
-                if (strokePaint != null) {
-                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, strokePaint, layer.curveAngle)
-                    } else {
-                        canvas.drawText(line, layout.lineX, lineY, strokePaint)
-                    }
-                }
-
-                if (!layer.isHollowText) {
-                    val customColor = layer.customTextColorLong
-                    val activeGrad = if (layer.gradientPreset != LuxuryGradientPreset.NONE) {
-                        layer.gradientPreset
-                    } else if (customColor == null) {
-                        when (layer.selectedEffect) {
-                            VisualEffect.LIQUID_CHROME -> LuxuryGradientPreset.TITANIUM_CHROME
-                            VisualEffect.CYBER_NEON -> LuxuryGradientPreset.CYBER_EMERALD
-                            VisualEffect.FROSTED_GLASS -> LuxuryGradientPreset.FROSTED_PEARL
-                            VisualEffect.MINIMAL_LUXURY, VisualEffect.CINEMATIC_SHADOW -> LuxuryGradientPreset.NONE
-                            else -> LuxuryGradientPreset.ANDALUSIAN_GOLD
-                        }
-                    } else {
-                        LuxuryGradientPreset.NONE
-                    }
-
-                    if (activeGrad != LuxuryGradientPreset.NONE) {
-                        val gradShader = CanvasShaderFactory.createMultiStopGradientShader(
-                            preset = activeGrad,
-                            angle = layer.gradientAngle,
-                            isRadial = layer.isRadialGradient,
-                            centerX = layout.lineX,
-                            centerY = lineY,
-                            radiusPx = paint.textSize * 3f
-                        )
-                        paint.shader = gradShader
-                        paint.color = Color.WHITE
-                    } else {
-                        val baseColor = (customColor ?: 0xFFFFFFFFL).toInt()
-                        paint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
-                        paint.shader = null
-                    }
-
-                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                    } else {
-                        canvas.drawText(line, layout.lineX, lineY, paint)
-                    }
-                }
-            }
-
-            canvas.restore()
         }
     }
 
@@ -443,86 +279,21 @@ object AtharExportManager {
         val width = src.width
         val height = src.height
 
-        val stride = if (width > 2000 || height > 2000) 8 else 4
         val rowPixels = IntArray(width)
-
-        // 1. Find top boundary
-        var top = -1
-        for (y in 0 until height step stride) {
-            src.getPixels(rowPixels, 0, width, 0, y, width, 1)
-            var found = false
-            for (x in 0 until width step stride) {
-                if ((rowPixels[x] ushr 24) > 0) {
-                    found = true
-                    break
-                }
-            }
-            if (found) {
-                val exactStart = (y - stride + 1).coerceAtLeast(0)
-                for (refY in exactStart..y) {
-                    src.getPixels(rowPixels, 0, width, 0, refY, width, 1)
-                    for (x in 0 until width) {
-                        if ((rowPixels[x] ushr 24) > 0) {
-                            top = refY
-                            break
-                        }
-                    }
-                    if (top != -1) break
-                }
-                break
-            }
-        }
-
-        if (top == -1) return src
-
-        // 2. Find bottom boundary
-        var bottom = -1
-        for (y in height - 1 downTo top step stride) {
-            src.getPixels(rowPixels, 0, width, 0, y, width, 1)
-            var found = false
-            for (x in 0 until width step stride) {
-                if ((rowPixels[x] ushr 24) > 0) {
-                    found = true
-                    break
-                }
-            }
-            if (found) {
-                val exactEnd = (y + stride - 1).coerceAtMost(height - 1)
-                for (refY in exactEnd downTo y) {
-                    src.getPixels(rowPixels, 0, width, 0, refY, width, 1)
-                    for (x in 0 until width) {
-                        if ((rowPixels[x] ushr 24) > 0) {
-                            bottom = refY
-                            break
-                        }
-                    }
-                    if (bottom != -1) break
-                }
-                break
-            }
-        }
-        if (bottom == -1) bottom = top
-
-        // 3. Scan between top and bottom to find left and right bounds
         var left = width
-        var right = 0
-        for (y in top..bottom) {
+        var right = -1
+        var top = height
+        var bottom = -1
+        for (y in 0 until height) {
             src.getPixels(rowPixels, 0, width, 0, y, width, 1)
-            for (x in 0 until left) {
-                if ((rowPixels[x] ushr 24) > 0) {
-                    left = x
-                    break
-                }
-            }
-            for (x in width - 1 downTo kotlin.math.max(right, left)) {
-                if ((rowPixels[x] ushr 24) > 0) {
-                    right = x
-                    break
-                }
-            }
+            val first = rowPixels.indexOfFirst { (it ushr 24) != 0 }
+            if (first < 0) continue
+            left = minOf(left, first)
+            right = maxOf(right, rowPixels.indexOfLast { (it ushr 24) != 0 })
+            top = minOf(top, y)
+            bottom = y
         }
-
-        if (left > right) return src
+        if (right < 0) return src
 
         val minX = (left - paddingPx).coerceAtLeast(0)
         val minY = (top - paddingPx).coerceAtLeast(0)
@@ -533,30 +304,6 @@ object AtharExportManager {
         val cropH = maxY - minY + 1
 
         return Bitmap.createBitmap(src, minX, minY, cropW, cropH)
-    }
-
-    private fun decodeSampledBitmap(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
-        return try {
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, options)
-            }
-            var inSampleSize = 1
-            while ((options.outHeight / inSampleSize) > reqHeight * 1.5 ||
-                (options.outWidth / inSampleSize) > reqWidth * 1.5
-            ) {
-                inSampleSize *= 2
-            }
-            val finalOptions = BitmapFactory.Options().apply {
-                this.inSampleSize = inSampleSize
-                inPreferredConfig = Bitmap.Config.ARGB_8888
-            }
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, finalOptions)
-            }
-        } catch (e: Exception) {
-            null
-        }
     }
 
     private fun saveToMediaStore(context: Context, bitmap: Bitmap, filename: String, isTransparent: Boolean) {
@@ -576,14 +323,17 @@ object AtharExportManager {
         val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             ?: throw IllegalStateException("Failed to create MediaStore entry")
 
-        context.contentResolver.openOutputStream(uri)?.use { out ->
-            bitmap.compress(format, quality, out)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            values.clear()
-            values.put(MediaStore.Images.Media.IS_PENDING, 0)
-            context.contentResolver.update(uri, values, null, null)
+        try {
+            val output = checkNotNull(context.contentResolver.openOutputStream(uri)) { "تعذر فتح ملف الصورة" }
+            output.use { check(bitmap.compress(format, quality, it)) { "تعذرت كتابة الصورة" } }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                check(context.contentResolver.update(uri, values, null, null) == 1) { "تعذر إتمام الحفظ في المعرض" }
+            }
+        } catch (e: Exception) {
+            runCatching { context.contentResolver.delete(uri, null, null) }
+            throw e
         }
     }
 
@@ -594,7 +344,7 @@ object AtharExportManager {
         val quality = if (isTransparent) 100 else 98
 
         FileOutputStream(shareFile).use { out ->
-            bitmap.compress(format, quality, out)
+            check(bitmap.compress(format, quality, out)) { "تعذرت كتابة الصورة" }
         }
 
         val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", shareFile)

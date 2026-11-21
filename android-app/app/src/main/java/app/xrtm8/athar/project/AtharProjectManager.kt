@@ -12,6 +12,11 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.util.UUID
+import java.util.zip.ZipFile
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -53,7 +58,7 @@ object AtharProjectManager {
         state: CanvasState,
         projectTitle: String? = null
     ): AtharProjectMeta = withContext(Dispatchers.IO) {
-        val projId = "athar_${System.currentTimeMillis()}"
+        val projId = "athar_${UUID.randomUUID()}"
         val title = (projectTitle ?: state.rawText.trim().replace("\n", " ").take(25)).ifBlank { "مشروع بدون عنوان" }
 
         val projectsDir = getProjectsDir(context)
@@ -69,7 +74,6 @@ object AtharProjectManager {
             baos.toByteArray()
         }
         thumbBitmap.recycle()
-        FileOutputStream(thumbFile).use { it.write(thumbBytes) }
 
         // 2. Determine if background image is present
         val hasBg = state.backgroundImageUri != null
@@ -83,30 +87,36 @@ object AtharProjectManager {
             put("canvas", AtharProjectSerializer.serializeCanvasState(state, hasBg))
         }
 
-        // 4. Bundle into ZIP Archive (.athar) using direct streaming (Zero OOM)
-        ZipOutputStream(FileOutputStream(projectFile)).use { zos ->
-            // Write project.json
-            zos.putNextEntry(ZipEntry(MANIFEST_ENTRY_NAME))
-            zos.write(json.toString(2).toByteArray(Charsets.UTF_8))
-            zos.closeEntry()
-
-            // Write thumbnail.png
-            zos.putNextEntry(ZipEntry(THUMBNAIL_ENTRY_NAME))
-            zos.write(thumbBytes)
-            zos.closeEntry()
-
-            // Stream background image directly if present
-            if (state.backgroundImageUri != null) {
-                try {
-                    context.contentResolver.openInputStream(state.backgroundImageUri)?.use { input ->
-                        zos.putNextEntry(ZipEntry(BACKGROUND_ENTRY_NAME))
-                        input.copyTo(zos, bufferSize = 64 * 1024)
-                        zos.closeEntry()
+        val pending = File.createTempFile("save-", ".part", projectsDir)
+        try {
+            ZipOutputStream(pending.outputStream()).use { archive ->
+                fun writeEntry(name: String, bytes: ByteArray) {
+                    archive.putNextEntry(ZipEntry(name))
+                    archive.write(bytes)
+                    archive.closeEntry()
+                }
+                fun writePhoto(name: String, uri: Uri) {
+                    val stream = checkNotNull(context.contentResolver.openInputStream(uri)) { "تعذرت قراءة صورة المشروع" }
+                    stream.use {
+                        archive.putNextEntry(ZipEntry(name))
+                        it.copyTo(archive, bufferSize = 64 * 1024)
+                        archive.closeEntry()
                     }
-                } catch (_: Exception) {
-                    // Safe fallback if stream unavailable
+                }
+                writeEntry(MANIFEST_ENTRY_NAME, json.toString(2).toByteArray(Charsets.UTF_8))
+                writeEntry(THUMBNAIL_ENTRY_NAME, thumbBytes)
+                state.backgroundImageUri?.let { writePhoto(BACKGROUND_ENTRY_NAME, it) }
+                state.collageState.cells.forEachIndexed { index, cell ->
+                    cell.imageUri?.let { writePhoto("collage/$index", it) }
                 }
             }
+            thumbFile.writeBytes(thumbBytes)
+            Files.move(pending.toPath(), projectFile.toPath(), ATOMIC_MOVE)
+        } catch (e: Exception) {
+            thumbFile.delete()
+            throw e
+        } finally {
+            pending.delete()
         }
 
         AtharProjectMeta(
@@ -133,19 +143,17 @@ object AtharProjectManager {
                 var title = projId
                 var createdAt = file.lastModified()
 
-                // Inspect Zip Header without extracting everything
-                ZipInputStream(FileInputStream(file)).use { zis ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        if (entry.name == MANIFEST_ENTRY_NAME) {
-                            val jsonStr = zis.bufferedReader(Charsets.UTF_8).readText()
-                            val json = JSONObject(jsonStr)
-                            title = json.optString("title", title)
-                            createdAt = json.optLong("created_at", createdAt)
-                        } else if (entry.name == THUMBNAIL_ENTRY_NAME && !thumbFile.exists()) {
-                            FileOutputStream(thumbFile).use { out -> zis.copyTo(out) }
+                ZipFile(file).use { archive ->
+                    val manifest = archive.getEntry(MANIFEST_ENTRY_NAME) ?: return@mapNotNull null
+                    val json = archive.getInputStream(manifest).bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
+                    title = json.optString("title", title)
+                    createdAt = json.optLong("created_at", createdAt)
+                    if (!thumbFile.exists()) {
+                        archive.getEntry(THUMBNAIL_ENTRY_NAME)?.let { thumbnail ->
+                            archive.getInputStream(thumbnail).use { input ->
+                                thumbFile.outputStream().use { input.copyTo(it) }
+                            }
                         }
-                        entry = zis.nextEntry
                     }
                 }
 
@@ -163,37 +171,36 @@ object AtharProjectManager {
     }
 
     suspend fun loadProjectFromStream(context: Context, inputStream: InputStream): CanvasState = withContext(Dispatchers.IO) {
-        var jsonStr: String? = null
-        var extractedBgUri: Uri? = null
-
-        ZipInputStream(inputStream).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                when (entry.name) {
-                    MANIFEST_ENTRY_NAME -> {
-                        jsonStr = zis.bufferedReader(Charsets.UTF_8).readText()
+        var manifest: JSONObject? = null
+        val photos = mutableMapOf<String, File>()
+        try {
+            ZipInputStream(inputStream).use { archive ->
+                var entry = archive.nextEntry
+                while (entry != null) {
+                    val name = entry.name
+                    if (name == MANIFEST_ENTRY_NAME) {
+                        manifest = JSONObject(archive.bufferedReader(Charsets.UTF_8).readText())
+                    } else if (name == BACKGROUND_ENTRY_NAME || name.matches(Regex("collage/[0-9]+"))) {
+                        require(name !in photos) { "صورة مكررة في المشروع" }
+                        val photo = File.createTempFile("photo-", ".img", getAssetsDir(context))
+                        photos[name] = photo
+                        photo.outputStream().use { archive.copyTo(it) }
                     }
-                    BACKGROUND_ENTRY_NAME -> {
-                        val assetsDir = getAssetsDir(context)
-                        val bgFile = File(assetsDir, "bg_${System.currentTimeMillis()}.png")
-                        
-                        // Zip Slip Security Prevention
-                        if (!bgFile.canonicalPath.startsWith(assetsDir.canonicalPath + File.separator)) {
-                            throw SecurityException("محاولة اختراق تراجعي للمسار: ${entry.name}")
-                        }
-                        
-                        FileOutputStream(bgFile).use { out -> zis.copyTo(out) }
-                        extractedBgUri = Uri.fromFile(bgFile)
-                    }
+                    entry = archive.nextEntry
                 }
-                entry = zis.nextEntry
             }
+            val canvas = requireNotNull(manifest) { "الملف المختار ليس مشروع أثر صالحًا" }.getJSONObject("canvas")
+            val cells = canvas.optJSONArray("collage_cells")
+            if (cells != null) {
+                for (index in 0 until cells.length()) {
+                    photos["collage/$index"]?.let { cells.getJSONObject(index).put("uri", Uri.fromFile(it).toString()) }
+                }
+            }
+            AtharProjectSerializer.deserializeCanvasState(canvas, photos[BACKGROUND_ENTRY_NAME]?.let { Uri.fromFile(it) })
+        } catch (e: Exception) {
+            photos.values.forEach { it.delete() }
+            throw e
         }
-
-        val validJsonStr = jsonStr ?: throw IllegalArgumentException("الملف المختار ليس مشروع أَثَــر صالح")
-        val json = JSONObject(validJsonStr)
-        val c = json.getJSONObject("canvas")
-        AtharProjectSerializer.deserializeCanvasState(c, extractedBgUri)
     }
 
     suspend fun loadProjectById(context: Context, projectId: String): CanvasState {
@@ -223,37 +230,35 @@ object AtharProjectManager {
             if (!file.exists()) return@withContext false
 
             val cleanTitle = newTitle.trim().take(40).ifBlank { "مشروع بدون عنوان" }
-            val tempFile = File(projectsDir, "${projectId}_temp.athar")
-
-            var updated = false
-            ZipInputStream(FileInputStream(file)).use { zis ->
-                ZipOutputStream(FileOutputStream(tempFile)).use { zos ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        if (entry.name == MANIFEST_ENTRY_NAME) {
-                            val jsonStr = zis.bufferedReader(Charsets.UTF_8).readText()
-                            val json = JSONObject(jsonStr)
-                            json.put("title", cleanTitle)
-                            zos.putNextEntry(ZipEntry(MANIFEST_ENTRY_NAME))
-                            zos.write(json.toString(2).toByteArray(Charsets.UTF_8))
-                            zos.closeEntry()
-                            updated = true
-                        } else {
-                            zos.putNextEntry(ZipEntry(entry.name))
-                            zis.copyTo(zos)
-                            zos.closeEntry()
+            val tempFile = File.createTempFile("rename-", ".part", projectsDir)
+            try {
+                var updated = false
+                ZipInputStream(FileInputStream(file)).use { zis ->
+                    ZipOutputStream(FileOutputStream(tempFile)).use { zos ->
+                        var entry = zis.nextEntry
+                        while (entry != null) {
+                            if (entry.name == MANIFEST_ENTRY_NAME) {
+                                val jsonStr = zis.bufferedReader(Charsets.UTF_8).readText()
+                                val json = JSONObject(jsonStr)
+                                json.put("title", cleanTitle)
+                                zos.putNextEntry(ZipEntry(MANIFEST_ENTRY_NAME))
+                                zos.write(json.toString(2).toByteArray(Charsets.UTF_8))
+                                zos.closeEntry()
+                                updated = true
+                            } else {
+                                zos.putNextEntry(ZipEntry(entry.name))
+                                zis.copyTo(zos)
+                                zos.closeEntry()
+                            }
+                            entry = zis.nextEntry
                         }
-                        entry = zis.nextEntry
                     }
                 }
-            }
 
-            if (updated && tempFile.exists()) {
-                file.delete()
-                tempFile.renameTo(file)
-            } else {
+                if (updated) Files.move(tempFile.toPath(), file.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+                updated
+            } finally {
                 tempFile.delete()
-                false
             }
         } catch (_: Exception) {
             false

@@ -69,7 +69,6 @@ fun TypographyKashidaSection(
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onStretchLevelChange(0)
-                        onTargetIndexChange(-1)
                         onSliderChangeFinished?.invoke()
                     }
                     .padding(horizontal = 8.dp, vertical = 3.dp),

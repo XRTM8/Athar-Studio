@@ -78,6 +78,10 @@ class MainActivity : ComponentActivity() {
 
         val initialProjectUri = if (intent?.action == Intent.ACTION_VIEW) intent.data else null
 
+        if (initialProjectUri != null) {
+            studioViewModel.openInitialProject(this, initialProjectUri)
+        }
+
         setContent {
             val isAmoledWhite by studioViewModel.isAmoledWhite.collectAsState()
 
@@ -99,7 +103,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = if (isAmoledWhite) AmoledWhite else AmoledBlack
                     ) {
-                        var currentScreen by remember {
+                        var currentScreen by androidx.compose.runtime.saveable.rememberSaveable {
                             mutableStateOf(
                                 if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.HOME
                             )
@@ -120,7 +124,6 @@ class MainActivity : ComponentActivity() {
                                 AtharScreen.STUDIO -> {
                                     AtharStudioScreen(
                                         updateManager = updateManager,
-                                        initialProjectUri = initialProjectUri,
                                         viewModel = studioViewModel,
                                         onNavigateBackToHome = { currentScreen = AtharScreen.HOME }
                                     )

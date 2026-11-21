@@ -11,6 +11,8 @@
 
 ---
 
+[خطة إصدار LTS ونتائج اختبار 2.7.2](LTS.md)
+
 ## 🌟 الميزات الجوهرية والمعمارية (Core Architectural Features)
 
 1. **محرك الكشيدة العربي السياقي الأصيل (Authentic Arabic Kashida Engine):**

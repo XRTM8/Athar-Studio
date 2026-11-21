@@ -1,7 +1,6 @@
 package app.xrtm8.athar.ui.components
 
 import android.graphics.BlurMaskFilter
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.PorterDuffXfermode
 import androidx.compose.runtime.Composable
@@ -9,6 +8,7 @@ import androidx.compose.runtime.remember
 import app.xrtm8.athar.model.LayerBlendMode
 
 class CanvasPaintPool(density: Float) {
+    val compositePaint = Paint()
     val basePaint = Paint().apply { isAntiAlias = true; isDither = true }
     val shadowPaint = Paint().apply { isAntiAlias = true; isDither = true }
     val strokePaint = Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE }
@@ -18,7 +18,6 @@ class CanvasPaintPool(density: Float) {
     val handlePaint = Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0xFFE02447.toInt(); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND }
     val handleFillPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = 0xFFE02447.toInt() }
     val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
-    val colorFilterCache = mutableMapOf<Int, ColorMatrixColorFilter>()
     val shadowBlurFilterCache = mutableMapOf<Int, BlurMaskFilter>()
     val blendModeXfermode = mutableMapOf<LayerBlendMode, PorterDuffXfermode>()
 }

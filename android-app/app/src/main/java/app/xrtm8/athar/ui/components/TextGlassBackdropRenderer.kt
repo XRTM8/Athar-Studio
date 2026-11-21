@@ -84,6 +84,7 @@ object TextGlassBackdropRenderer {
         )
     }
 
+    @Synchronized
     fun drawGlassBackdrop(
         canvas: Canvas,
         enableGlassBackdrop: Boolean,

@@ -24,24 +24,22 @@ jobs:
           distribution: 'temurin'
 
       - name: Prepare Signing Keystore
+        env:
+          ATHAR_KEYSTORE_BASE64: ${{ secrets.ATHAR_KEYSTORE_BASE64 }}
         run: |
           mkdir -p keystore
-          if [ -n "${{ secrets.ATHAR_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ATHAR_KEYSTORE_BASE64 }}" | base64 --decode > keystore/athar-release.jks
-          else
-            echo "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" | base64 --decode > keystore/athar-release.jks
-          fi
+          printf '%s' "${ATHAR_KEYSTORE_BASE64:?Missing signing secret}" | base64 --decode > keystore/athar-release.jks
 
       - name: Run Unit Tests
         run: |
           cd android-app
           chmod +x gradlew || true
-          ./gradlew testReleaseUnitTest
+          ./gradlew testReleaseUnitTest lintRelease
 
       - name: Build Signed Release APK
         env:
-          ATHAR_KEYSTORE_PASSWORD: ${{ secrets.ATHAR_KEYSTORE_PASSWORD || 'AtharRelease2026SecureKey' }}
-          ATHAR_KEY_PASSWORD: ${{ secrets.ATHAR_KEY_PASSWORD || 'AtharRelease2026SecureKey' }}
+          ATHAR_KEYSTORE_PASSWORD: ${{ secrets.ATHAR_KEYSTORE_PASSWORD }}
+          ATHAR_KEY_PASSWORD: ${{ secrets.ATHAR_KEY_PASSWORD }}
           ATHAR_KEY_ALIAS: ${{ secrets.ATHAR_KEY_ALIAS || 'athar_release' }}
           ATHAR_KEYSTORE_PATH: ${{ github.workspace }}/keystore/athar-release.jks
         run: |
@@ -51,7 +49,6 @@ jobs:
       - name: Prepare Single Release APK
         run: |
           mkdir -p release
-          cp android-app/app/build/outputs/apk/release/app-release.apk release/athar-${{ github.ref_name }}-arm64.apk
           cp android-app/app/build/outputs/apk/release/app-release.apk release/athar-${{ github.ref_name }}-universal.apk
 
       - name: Upload Release Asset
@@ -60,7 +57,6 @@ jobs:
         with:
           name: "Athar Studio ${{ github.ref_name }}"
           files: |
-            release/athar-${{ github.ref_name }}-arm64.apk
             release/athar-${{ github.ref_name }}-universal.apk
           generate_release_notes: true
         env:

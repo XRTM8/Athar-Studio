@@ -97,16 +97,16 @@ object CanvasBackgroundRenderer {
             val scale = state.bgPhotoScale.coerceIn(0.5f, 4.0f)
 
             if (srcRatio > dstRatio) {
-                val newW = ((srcH * dstRatio) / scale).toInt().coerceIn(10, srcW.toInt())
-                val newH = (srcH / scale).toInt().coerceIn(10, srcH.toInt())
+                val newW = ((srcH * dstRatio) / scale).toInt().coerceIn(1, srcW.toInt())
+                val newH = (srcH / scale).toInt().coerceIn(1, srcH.toInt())
                 val maxShiftX = (srcW - newW) / 2f
                 val maxShiftY = (srcH - newH) / 2f
                 val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
                 val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
                 reusableSrcRect.set(xOffset, yOffset, xOffset + newW, yOffset + newH)
             } else {
-                val newW = (srcW / scale).toInt().coerceIn(10, srcW.toInt())
-                val newH = ((srcW / dstRatio) / scale).toInt().coerceIn(10, srcH.toInt())
+                val newW = (srcW / scale).toInt().coerceIn(1, srcW.toInt())
+                val newH = ((srcW / dstRatio) / scale).toInt().coerceIn(1, srcH.toInt())
                 val maxShiftX = (srcW - newW) / 2f
                 val maxShiftY = (srcH - newH) / 2f
                 val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())

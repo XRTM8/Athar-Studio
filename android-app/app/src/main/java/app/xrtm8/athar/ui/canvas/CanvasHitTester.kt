@@ -1,8 +1,10 @@
 package app.xrtm8.athar.ui.canvas
 
+import android.content.Context
 import android.graphics.Paint
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextLayer
+import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.typography.AtharTextLayout
 import kotlin.math.abs
 
@@ -13,6 +15,7 @@ object CanvasHitTester {
      * Accounts for canvas offset, scaling, rotation angle, and finger touch targets.
      */
     fun findHitLayer(
+        context: Context,
         touchX: Float,
         touchY: Float,
         canvasW: Float,
@@ -30,7 +33,10 @@ object CanvasHitTester {
             val scale = layer.scaleFactor.coerceAtLeast(0.1f)
 
             val scaledTextSize = (layer.fontSize / 380f) * canvasW
-            val testPaint = Paint().apply {
+            val testPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
+                isFakeBoldText = layer.isBold
+                textSkewX = if (layer.isItalic) -0.25f else 0f
                 textSize = scaledTextSize
                 letterSpacing = layer.letterSpacing
             }

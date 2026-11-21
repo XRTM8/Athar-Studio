@@ -5,7 +5,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import kotlin.math.abs
-import kotlin.math.max
 
 /**
  * Curved and Circular Path Arabic Typography Renderer.
@@ -33,64 +32,29 @@ object CurvedTextRenderer {
             return
         }
 
-        val textWidth = max(paint.measureText(text), 10f)
-        val sweepAngle = abs(curveAngle).coerceIn(10f, 350f)
-        val sweepRad = Math.toRadians(sweepAngle.toDouble())
-        val radius = (textWidth / sweepRad).toFloat().coerceAtLeast(textWidth * 0.35f)
-
-        // Detect if text is Arabic / RTL to preserve natural reading direction along path
-        val isRtl = text.any { 
-            it in '\u0600'..'\u06FF' || 
-            it in '\u0750'..'\u077F' || 
-            it in '\u08A0'..'\u08FF' || 
-            it in '\uFB50'..'\uFDFF' || 
-            it in '\uFE70'..'\uFEFF' 
+        val textWidth = paint.measureText(text)
+        if (textWidth <= 0f) return
+        val sweep = curveAngle.coerceIn(-350f, 350f)
+        val radius = (textWidth / Math.toRadians(abs(sweep).toDouble())).toFloat()
+        val centerX = when (paint.textAlign) {
+            Paint.Align.LEFT -> x + textWidth / 2f
+            Paint.Align.RIGHT -> x - textWidth / 2f
+            else -> x
         }
-
-        val cachedPath = threadPath.get() ?: Path()
-        val cachedRect = threadRect.get() ?: RectF()
-
-        cachedPath.reset()
-
-        if (curveAngle > 0f) {
-            // Convex Arc (Arched Upward like a dome)
-            val top = y - radius * 2f
-            val bottom = y
-            val left = x - radius
-            val right = x + radius
-            cachedRect.set(left, top, right, bottom + radius)
-
-            if (isRtl) {
-                // For RTL Arabic: start from top-right and sweep counter-clockwise to top-left
-                val startAngle = 270f + (sweepAngle / 2f)
-                cachedPath.addArc(cachedRect, startAngle, -sweepAngle)
-            } else {
-                // For LTR English: start from top-left and sweep clockwise to top-right
-                val startAngle = 270f - (sweepAngle / 2f)
-                cachedPath.addArc(cachedRect, startAngle, sweepAngle)
-            }
-        } else {
-            // Concave Arc (Arched Downward like a bowl)
-            val top = y - radius
-            val bottom = y + radius
-            val left = x - radius
-            val right = x + radius
-            cachedRect.set(left, top, right, bottom)
-
-            if (isRtl) {
-                // For RTL Arabic: start from bottom-right (less than 90°) and sweep clockwise to bottom-left
-                val startAngle = 90f - (sweepAngle / 2f)
-                cachedPath.addArc(cachedRect, startAngle, sweepAngle)
-            } else {
-                // For LTR English: start from bottom-left and sweep counter-clockwise to bottom-right
-                val startAngle = 90f + (sweepAngle / 2f)
-                cachedPath.addArc(cachedRect, startAngle, -sweepAngle)
-            }
+        val centerY = if (sweep > 0) y + radius else y - radius
+        val middleAngle = if (sweep > 0) 270f else 90f
+        val path = threadPath.get()!!
+        val rect = threadRect.get()!!
+        rect.set(centerX - radius, centerY - radius, centerX + radius, centerY + radius)
+        path.reset()
+        // Android shapes the RTL run. Both arcs need a left-to-right tangent for upright glyphs.
+        path.addArc(rect, middleAngle - sweep / 2f, sweep)
+        val align = paint.textAlign
+        try {
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawTextOnPath(text, path, 0f, 0f, paint)
+        } finally {
+            paint.textAlign = align
         }
-
-        val pathLength = (sweepRad * radius).toFloat()
-        val hOffset = max(0f, (pathLength - textWidth) / 2f)
-
-        canvas.drawTextOnPath(text, cachedPath, hOffset, 0f, paint)
     }
 }

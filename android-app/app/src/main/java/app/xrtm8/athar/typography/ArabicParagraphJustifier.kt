@@ -163,7 +163,7 @@ object ArabicParagraphJustifier {
             val sb = StringBuilder()
             for (i in tokens.indices) {
                 sb.append(tokens[i].char)
-                sb.append(tokens[i].diacritics)
+                sb.append(tokens[i].suffix)
 
                 if (i < tokens.size - 1) {
                     if (oppCounter < opps.size &&

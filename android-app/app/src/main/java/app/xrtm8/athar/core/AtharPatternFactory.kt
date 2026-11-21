@@ -23,7 +23,6 @@ object AtharPatternFactory {
 
     private var cachedKey: String? = null
     private var cachedPaint: Paint? = null
-    private var cachedTileBitmap: Bitmap? = null
 
     private fun getCacheKey(state: PatternState, density: Float): String {
         return "${state.type.name}_${state.scale}_${state.isLightTint}_$density"
@@ -106,6 +105,7 @@ object AtharPatternFactory {
         }
     }
 
+    @Synchronized
     fun drawPattern(
         canvas: Canvas,
         width: Float,
@@ -118,12 +118,7 @@ object AtharPatternFactory {
         val key = getCacheKey(state, density)
         var paint = cachedPaint
         if (paint == null || cachedKey != key) {
-            val oldBmp = cachedTileBitmap
-            if (oldBmp != null && !oldBmp.isRecycled) {
-                oldBmp.recycle()
-            }
             val tileBmp = createTile(state, density)
-            cachedTileBitmap = tileBmp
             val shader = BitmapShader(tileBmp, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
             paint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
                 this.shader = shader
