@@ -62,32 +62,10 @@ object AtharProjectSerializer {
                     put("is_curved", layer.isCurved)
                     put("curve_angle", layer.curveAngle.toDouble())
                     put("is_behind_subject", layer.isBehindSubject)
-                    // v2.1.0 Next-Gen Pillars
-                    put("texture_preset", layer.texturePreset.name)
-                    put("custom_texture_uri", layer.customTextureUri ?: "")
-                    put("texture_scale", layer.textureScale.toDouble())
-                    put("texture_offset_x", layer.textureOffsetX.toDouble())
-                    put("texture_offset_y", layer.textureOffsetY.toDouble())
                     put("gradient_preset", layer.gradientPreset.name)
                     put("gradient_angle", layer.gradientAngle.toDouble())
                     put("is_radial_gradient", layer.isRadialGradient)
                     put("is_hollow_text", layer.isHollowText)
-                    put("retro_extrusion_depth", layer.retroExtrusionDepth.toDouble())
-                    put("retro_extrusion_angle", layer.retroExtrusionAngle.toDouble())
-                    put("retro_extrusion_color", layer.retroExtrusionColorLong)
-                    val tArr = JSONArray()
-                    layer.tashkeelItems.forEach { t ->
-                        val tObj = JSONObject().apply {
-                            put("id", t.id)
-                            put("symbol", t.symbol)
-                            put("norm_x", t.normX.toDouble())
-                            put("norm_y", t.normY.toDouble())
-                            put("scale", t.scale.toDouble())
-                            put("color", t.colorLong ?: 0L)
-                        }
-                        tArr.put(tObj)
-                    }
-                    put("tashkeel_items", tArr)
                 }
                 layersArray.put(lObj)
             }
@@ -162,14 +140,8 @@ object AtharProjectSerializer {
             // Depth & Optical FX
             put("is_text_behind_subject", state.isTextBehindSubject)
             put("subject_depth_sensitivity", state.subjectDepthSensitivity.toDouble())
-            put("film_grain_intensity", state.filmGrainIntensity.toDouble())
-            put("lens_flare_enabled", state.lensFlareEnabled)
-            put("lens_flare_x", state.lensFlareX.toDouble())
-            put("lens_flare_y", state.lensFlareY.toDouble())
-            put("lens_flare_intensity", state.lensFlareIntensity.toDouble())
-            put("lens_flare_color", state.lensFlareColorLong)
 
-            // v2.1.0 3-Way Color Wheels Grading
+            // 3-Way Color Wheels Grading
             put("color_grading_enabled", state.colorGradingEnabled)
             put("lift_red", state.liftRed.toDouble())
             put("lift_green", state.liftGreen.toDouble())
@@ -231,42 +203,12 @@ object AtharProjectSerializer {
                 val curveAngle = lObj.optDouble("curve_angle", 0.0).toFloat()
                 val isBehindSubject = lObj.optBoolean("is_behind_subject", false)
 
-                // v2.1.0 Next-Gen Pillars
-                val texPresetStr = lObj.optString("texture_preset", TextureMaskPreset.NONE.name)
-                val texPreset = try { TextureMaskPreset.valueOf(texPresetStr) } catch (e: Exception) { TextureMaskPreset.NONE }
-                val customTex = lObj.optString("custom_texture_uri", "").takeIf { it.isNotEmpty() }
-                val texScale = lObj.optDouble("texture_scale", 1.0).toFloat()
-                val texOffX = lObj.optDouble("texture_offset_x", 0.0).toFloat()
-                val texOffY = lObj.optDouble("texture_offset_y", 0.0).toFloat()
-
+                // Luxury Gradients & Hollow Vector Style
                 val gradPresetStr = lObj.optString("gradient_preset", LuxuryGradientPreset.NONE.name)
                 val gradPreset = try { LuxuryGradientPreset.valueOf(gradPresetStr) } catch (e: Exception) { LuxuryGradientPreset.NONE }
                 val gradAngle = lObj.optDouble("gradient_angle", 90.0).toFloat()
                 val isRadialGrad = lObj.optBoolean("is_radial_gradient", false)
-
                 val isHollow = lObj.optBoolean("is_hollow_text", false)
-                val retroDepth = lObj.optDouble("retro_extrusion_depth", 0.0).toFloat()
-                val retroAngle = lObj.optDouble("retro_extrusion_angle", 135.0).toFloat()
-                val retroColor = lObj.optLong("retro_extrusion_color", 0xFF000000)
-
-                val tItems = ArrayList<TashkeelItem>()
-                if (lObj.has("tashkeel_items")) {
-                    val tArr = lObj.getJSONArray("tashkeel_items")
-                    for (ti in 0 until tArr.length()) {
-                        val to = tArr.getJSONObject(ti)
-                        val tColor = to.optLong("color", 0L)
-                        tItems.add(
-                            TashkeelItem(
-                                id = to.optString("id", java.util.UUID.randomUUID().toString()),
-                                symbol = to.optString("symbol", "َ"),
-                                normX = to.optDouble("norm_x", 0.0).toFloat(),
-                                normY = to.optDouble("norm_y", -0.35).toFloat(),
-                                scale = to.optDouble("scale", 1.0).toFloat(),
-                                colorLong = if (tColor != 0L) tColor else null
-                            )
-                        )
-                    }
-                }
 
                 layers.add(
                     TextLayer(
@@ -310,19 +252,10 @@ object AtharProjectSerializer {
                         isCurved = isCurved,
                         curveAngle = curveAngle,
                         isBehindSubject = isBehindSubject,
-                        tashkeelItems = tItems,
-                        texturePreset = texPreset,
-                        customTextureUri = customTex,
-                        textureScale = texScale,
-                        textureOffsetX = texOffX,
-                        textureOffsetY = texOffY,
                         gradientPreset = gradPreset,
                         gradientAngle = gradAngle,
                         isRadialGradient = isRadialGrad,
-                        isHollowText = isHollow,
-                        retroExtrusionDepth = retroDepth,
-                        retroExtrusionAngle = retroAngle,
-                        retroExtrusionColorLong = retroColor
+                        isHollowText = isHollow
                     )
                 )
             }
@@ -410,12 +343,6 @@ object AtharProjectSerializer {
             bgPhotoScale = c.optDouble("bg_photo_scale", 1.0).toFloat(),
             isTextBehindSubject = c.optBoolean("is_text_behind_subject", false),
             subjectDepthSensitivity = c.optDouble("subject_depth_sensitivity", 0.5).toFloat(),
-            filmGrainIntensity = c.optDouble("film_grain_intensity", 0.0).toFloat(),
-            lensFlareEnabled = c.optBoolean("lens_flare_enabled", false),
-            lensFlareX = c.optDouble("lens_flare_x", 0.5).toFloat(),
-            lensFlareY = c.optDouble("lens_flare_y", 0.2).toFloat(),
-            lensFlareIntensity = c.optDouble("lens_flare_intensity", 0.7).toFloat(),
-            lensFlareColorLong = c.optLong("lens_flare_color", 0xFFFFE082),
             colorGradingEnabled = c.optBoolean("color_grading_enabled", false),
             liftRed = c.optDouble("lift_red", 0.0).toFloat(),
             liftGreen = c.optDouble("lift_green", 0.0).toFloat(),

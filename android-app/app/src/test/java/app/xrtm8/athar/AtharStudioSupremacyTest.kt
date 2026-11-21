@@ -1,9 +1,8 @@
 package app.xrtm8.athar
 
-import app.xrtm8.athar.core.FreeTashkeelEngine
-import app.xrtm8.athar.core.IslamicManuscriptEngine
 import app.xrtm8.athar.model.*
 import app.xrtm8.athar.project.AtharProjectSerializer
+import app.xrtm8.athar.ui.components.STUDIO_DOCK_TABS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -13,63 +12,16 @@ import org.junit.Test
 class AtharStudioSupremacyTest {
 
     @Test
-    fun testFreeTashkeelEngineOperations() {
-        var layer = TextLayer(rawText = "أثر", displayText = "أثر")
-        assertEquals(0, layer.tashkeelItems.size)
-
-        // 1. Add Fatha
-        layer = FreeTashkeelEngine.addMark(layer, "َ")
-        assertEquals(1, layer.tashkeelItems.size)
-        val fatha = layer.tashkeelItems.first()
-        assertEquals("َ", fatha.symbol)
-
-        // 2. Add Shadda
-        layer = FreeTashkeelEngine.addMark(layer, "ّ")
-        assertEquals(2, layer.tashkeelItems.size)
-
-        // 3. Nudge Fatha
-        layer = FreeTashkeelEngine.nudgeMark(layer, fatha.id, 0.1f, -0.05f)
-        val nudgedFatha = layer.tashkeelItems.find { it.id == fatha.id }!!
-        assertEquals(0.1f, nudgedFatha.normX, 0.001f)
-        assertEquals(-0.40f, nudgedFatha.normY, 0.001f)
-
-        // 4. Update Scale & Color
-        layer = FreeTashkeelEngine.updateMark(layer, nudgedFatha.copy(scale = 1.5f, colorLong = 0xFFFFD700))
-        val updatedFatha = layer.tashkeelItems.find { it.id == fatha.id }!!
-        assertEquals(1.5f, updatedFatha.scale, 0.001f)
-        assertEquals(0xFFFFD700, updatedFatha.colorLong)
-
-        // 5. Remove Mark
-        layer = FreeTashkeelEngine.removeMark(layer, fatha.id)
-        assertEquals(1, layer.tashkeelItems.size)
-        assertEquals("ّ", layer.tashkeelItems.first().symbol)
-    }
-
-    @Test
-    fun testIslamicManuscriptEngine() {
-        val manuscripts = IslamicManuscriptEngine.MANUSCRIPTS
-        assertTrue("Manuscript library should contain curated entries", manuscripts.size >= 15)
-
-        // Verify categories exist
-        val categories = IslamicManuscriptEngine.ManuscriptCategory.values()
-        categories.forEach { cat ->
-            val inCat = manuscripts.filter { it.category == cat }
-            assertTrue("Category ${cat.name} should have entries", inCat.isNotEmpty())
-        }
-
-        // Test layer generation from entry
-        val bismillah = manuscripts.find { it.id == "bismillah_ruqaa" }!!
-        val layer = IslamicManuscriptEngine.createLayerFromManuscript(bismillah)
-
-        assertEquals(bismillah.fullText, layer.rawText)
-        assertEquals(bismillah.recommendedFont, layer.selectedFont)
-        assertEquals(bismillah.recommendedEffect, layer.selectedEffect)
-        assertTrue(layer.displayText.isNotEmpty())
+    fun testStudioDockFourCoreTabs() {
+        assertEquals("Studio Dock must be streamlined to exactly 4 tools", 4, STUDIO_DOCK_TABS.size)
+        assertEquals("الخط والنص", STUDIO_DOCK_TABS[0].title)
+        assertEquals("المظهر", STUDIO_DOCK_TABS[1].title)
+        assertEquals("الخلفية", STUDIO_DOCK_TABS[2].title)
+        assertEquals("الموضع", STUDIO_DOCK_TABS[3].title)
     }
 
     @Test
     fun testBlendModesAndCurvedTextSerializationRoundTrip() {
-        val tItem = FreeTashkeelEngine.createMark("ُ", normX = 0.05f, normY = -0.38f, scale = 1.25f, colorLong = 0xFFFFD700)
         val layer = TextLayer(
             id = "layer_curved",
             name = "نص مقوس",
@@ -78,8 +30,7 @@ class AtharStudioSupremacyTest {
             blendMode = LayerBlendMode.SCREEN,
             isCurved = true,
             curveAngle = 65f,
-            isBehindSubject = true,
-            tashkeelItems = listOf(tItem)
+            isBehindSubject = true
         )
 
         val state = CanvasState(
@@ -87,13 +38,7 @@ class AtharStudioSupremacyTest {
             activeLayerId = "layer_curved",
             aspectRatio = CanvasAspectRatio.LANDSCAPE_16_9,
             isTextBehindSubject = true,
-            subjectDepthSensitivity = 0.65f,
-            filmGrainIntensity = 0.35f,
-            lensFlareEnabled = true,
-            lensFlareX = 0.8f,
-            lensFlareY = 0.15f,
-            lensFlareIntensity = 0.9f,
-            lensFlareColorLong = 0xFF80D8FF
+            subjectDepthSensitivity = 0.65f
         )
 
         val json = AtharProjectSerializer.serializeCanvasState(state, false)
@@ -102,12 +47,6 @@ class AtharStudioSupremacyTest {
         assertEquals(CanvasAspectRatio.LANDSCAPE_16_9, restored.aspectRatio)
         assertTrue(restored.isTextBehindSubject)
         assertEquals(0.65f, restored.subjectDepthSensitivity, 0.001f)
-        assertEquals(0.35f, restored.filmGrainIntensity, 0.001f)
-        assertTrue(restored.lensFlareEnabled)
-        assertEquals(0.8f, restored.lensFlareX, 0.001f)
-        assertEquals(0.15f, restored.lensFlareY, 0.001f)
-        assertEquals(0.9f, restored.lensFlareIntensity, 0.001f)
-        assertEquals(0xFF80D8FF, restored.lensFlareColorLong)
 
         assertEquals(1, restored.layers.size)
         val restoredLayer = restored.layers.first()
@@ -115,14 +54,6 @@ class AtharStudioSupremacyTest {
         assertTrue(restoredLayer.isCurved)
         assertEquals(65f, restoredLayer.curveAngle, 0.001f)
         assertTrue(restoredLayer.isBehindSubject)
-
-        assertEquals(1, restoredLayer.tashkeelItems.size)
-        val restoredT = restoredLayer.tashkeelItems.first()
-        assertEquals("ُ", restoredT.symbol)
-        assertEquals(0.05f, restoredT.normX, 0.001f)
-        assertEquals(-0.38f, restoredT.normY, 0.001f)
-        assertEquals(1.25f, restoredT.scale, 0.001f)
-        assertEquals(0xFFFFD700, restoredT.colorLong)
     }
 
     @Test
@@ -249,17 +180,10 @@ class AtharStudioSupremacyTest {
             name = "نص ملكي",
             rawText = "أَثَــر الخُلود",
             displayText = "أَثَـــر الخُلود",
-            texturePreset = TextureMaskPreset.GOLD_LEAF,
-            textureScale = 1.75f,
-            textureOffsetX = 12f,
-            textureOffsetY = -8f,
             gradientPreset = LuxuryGradientPreset.ANDALUSIAN_GOLD,
             gradientAngle = 45f,
             isRadialGradient = true,
-            isHollowText = true,
-            retroExtrusionDepth = 18f,
-            retroExtrusionAngle = 135f,
-            retroExtrusionColorLong = 0xFF3E2723
+            isHollowText = true
         )
 
         val state = CanvasState(
@@ -281,17 +205,10 @@ class AtharStudioSupremacyTest {
         val restored = AtharProjectSerializer.deserializeCanvasState(json)
 
         val rLayer = restored.activeLayer
-        assertEquals(TextureMaskPreset.GOLD_LEAF, rLayer.texturePreset)
-        assertEquals(1.75f, rLayer.textureScale, 0.001f)
-        assertEquals(12f, rLayer.textureOffsetX, 0.001f)
-        assertEquals(-8f, rLayer.textureOffsetY, 0.001f)
         assertEquals(LuxuryGradientPreset.ANDALUSIAN_GOLD, rLayer.gradientPreset)
         assertEquals(45f, rLayer.gradientAngle, 0.001f)
         assertTrue(rLayer.isRadialGradient)
         assertTrue(rLayer.isHollowText)
-        assertEquals(18f, rLayer.retroExtrusionDepth, 0.001f)
-        assertEquals(135f, rLayer.retroExtrusionAngle, 0.001f)
-        assertEquals(0xFF3E2723, rLayer.retroExtrusionColorLong)
 
         assertTrue(restored.colorGradingEnabled)
         assertEquals(0.15f, restored.liftRed, 0.001f)
@@ -310,10 +227,8 @@ class AtharStudioSupremacyTest {
         val rLayer = restored.activeLayer
 
         assertEquals("تصميم قديم", rLayer.rawText)
-        assertEquals(TextureMaskPreset.NONE, rLayer.texturePreset)
         assertEquals(LuxuryGradientPreset.NONE, rLayer.gradientPreset)
         assertFalse(rLayer.isHollowText)
-        assertEquals(0f, rLayer.retroExtrusionDepth, 0.001f)
         assertFalse(restored.colorGradingEnabled)
     }
 }

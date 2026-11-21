@@ -24,8 +24,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.ui.components.FontPickerCarousel
+import app.xrtm8.athar.ui.components.KashidaModeSelector
+import app.xrtm8.athar.ui.components.KashidaOpportunityChips
 import app.xrtm8.athar.ui.components.StudioSlider
 import app.xrtm8.athar.ui.theme.*
 import java.util.Locale
@@ -50,6 +53,9 @@ fun TypographyPanel(
     onLetterSpacingChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onTextAlignChange: (TextAlignOption) -> Unit,
+    onStretchLevelChange: (Int) -> Unit = {},
+    onKashidaModeChange: (KashidaMode) -> Unit = {},
+    onTargetIndexChange: (Int) -> Unit = {},
     onToggleCurvedText: (Boolean) -> Unit = {},
     onCurveAngleChange: (Float) -> Unit = {},
     onAutoBalanceBlock: (() -> Unit)? = null,
@@ -338,8 +344,145 @@ fun TypographyPanel(
         }
 
         Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // 6. Typographic Spacing Sliders
+        // 6. Kashida & Calligraphic Elongation (المد والتطويل الكاليغرافي)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.LinearScale,
+                    contentDescription = null,
+                    tint = GoldAccent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "المد والتطويل الكاليغرافي",
+                    color = PureWhite,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(GlassSurface)
+                    .border(0.5.dp, GlassBorder, RoundedCornerShape(6.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onStretchLevelChange(0)
+                        onTargetIndexChange(-1)
+                        onSliderChangeFinished?.invoke()
+                    }
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "إلغاء المد",
+                    color = SubtleGray,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        StudioSlider(
+            title = "مستوى المد",
+            value = state.stretchLevel.toFloat(),
+            onValueChange = { onStretchLevelChange(it.toInt()) },
+            onValueChangeFinished = onSliderChangeFinished,
+            valueRange = 0f..8f,
+            step = 1f,
+            steps = 7,
+            valueDisplay = "${state.stretchLevel}x",
+            icon = Icons.Default.LinearScale
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                0 to "بدون",
+                2 to "2x",
+                4 to "4x",
+                6 to "6x",
+                8 to "8x"
+            ).forEach { (lvl, title) ->
+                val isSelected = state.stretchLevel == lvl
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) GoldAccent else GlassSurface)
+                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onStretchLevelChange(lvl)
+                            onSliderChangeFinished?.invoke()
+                        }
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        color = if (isSelected) AmoledBlack else PureWhite,
+                        fontSize = 10.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "نمط توزيع المد:",
+            color = MutedWhite,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        KashidaModeSelector(
+            selectedMode = state.kashidaMode,
+            onSelectMode = onKashidaModeChange
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(13.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "تمديد حرف محدد:",
+                color = MutedWhite,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        KashidaOpportunityChips(
+            rawText = state.rawText,
+            currentMode = state.kashidaMode,
+            targetIndex = state.kashidaTargetIndex,
+            onSelectOpportunity = onTargetIndexChange
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 7. Typographic Spacing Sliders
         StudioSlider(
             title = "تباعد الأسطر",
             value = state.lineSpacingMultiplier,

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasGradientDirection
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.LUXURY_BG_PRESETS
 import app.xrtm8.athar.ui.components.PhotoAdjustmentsPanel
 import app.xrtm8.athar.ui.components.StudioSlider
@@ -80,6 +81,12 @@ fun CanvasBackgroundPanel(
     onGradientScrimMidpointChange: (Float) -> Unit,
     onToggleTextBehindSubject: (Boolean) -> Unit = {},
     onSubjectDepthSensitivityChange: (Float) -> Unit = {},
+    onSelectFilmPreset: (FilmPreset) -> Unit = {},
+    onToggleColorGrading: ((Boolean) -> Unit)? = null,
+    onLiftChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
+    onGammaChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
+    onGainChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
+    onResetColorGrading: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -100,7 +107,8 @@ fun CanvasBackgroundPanel(
             listOf(
                 0 to ("الكانفاس" to Icons.Default.AspectRatio),
                 1 to ("تعديل الصورة" to Icons.Default.Tune),
-                2 to ("الظل المتدرج" to Icons.Default.Gradient)
+                2 to ("الظل المتدرج" to Icons.Default.Gradient),
+                3 to ("الفلاتر والألوان" to Icons.Default.PhotoFilter)
             ).forEach { (idx, item) ->
                 val (title, icon) = item
                 val isSelected = subSection == idx
@@ -623,6 +631,17 @@ fun CanvasBackgroundPanel(
                         )
                     }
                 }
+
+                else -> FilmFilterPanel(
+                    state = state,
+                    onSelectFilmPreset = onSelectFilmPreset,
+                    onToggleColorGrading = onToggleColorGrading,
+                    onLiftChange = onLiftChange,
+                    onGammaChange = onGammaChange,
+                    onGainChange = onGainChange,
+                    onResetColorGrading = onResetColorGrading,
+                    onSliderChangeFinished = onSliderChangeFinished
+                )
             }
         }
     }

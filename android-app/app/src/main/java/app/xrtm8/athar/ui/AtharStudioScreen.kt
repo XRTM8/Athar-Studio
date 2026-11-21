@@ -102,25 +102,6 @@ fun AtharStudioScreen(
         }
     }
 
-    fun sharePresetQrCard(bitmap: Bitmap) {
-        try {
-            val cacheDir = File(context.cacheDir, "presets").apply { mkdirs() }
-            val shareFile = File(cacheDir, "Athar_Preset_${System.currentTimeMillis()}.png")
-            FileOutputStream(shareFile).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", shareFile)
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "image/png"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-            }
-            context.startActivity(Intent.createChooser(intent, "مشاركة باركود الفلتر من أثر"))
-        } catch (e: Exception) {
-            Toast.makeText(context, "فشل تصدير كود الباركود: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = AmoledBlack
@@ -220,18 +201,6 @@ fun AtharStudioScreen(
                     onClosePanel = { isPanelExpanded = false },
                     onOpenTextEditor = { showTextDialog = true },
                     onOpenFontBrowser = { showFontBrowser = true },
-                    onExportQrCard = {
-                        val card = viewModel.exportFilterRecipeQrCard(canvasState.filmPreset.titleAr)
-                        sharePresetQrCard(card)
-                    },
-                    onImportQrRecipe = { bmp ->
-                        val success = viewModel.importFilterRecipeFromQr(bmp)
-                        if (success) {
-                            Toast.makeText(context, "تم تطبيق الفلتر بنجاح من الباركود!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "تعذر قراءة باركود فلتر صالح", Toast.LENGTH_SHORT).show()
-                        }
-                    },
                     onPickImage = {
                         photoPickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)

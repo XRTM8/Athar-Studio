@@ -31,18 +31,14 @@ data class DockTabItem(
 )
 
 val STUDIO_DOCK_TABS = listOf(
-    DockTabItem(0, "الخط", Icons.Default.TextFields),
-    DockTabItem(1, "المخطوطات", Icons.Default.HistoryEdu),
-    DockTabItem(2, "المدّ", Icons.Default.LinearScale),
-    DockTabItem(3, "المظهر", Icons.Default.AutoAwesome),
-    DockTabItem(4, "المؤثرات", Icons.Default.Flare),
-    DockTabItem(5, "الفلاتر", Icons.Default.PhotoFilter),
-    DockTabItem(6, "الكانفاس", Icons.Default.AspectRatio),
-    DockTabItem(7, "الموضع", Icons.Default.OpenWith)
+    DockTabItem(0, "الخط والنص", Icons.Default.TextFields),
+    DockTabItem(1, "المظهر", Icons.Default.AutoAwesome),
+    DockTabItem(2, "الخلفية", Icons.Default.AspectRatio),
+    DockTabItem(3, "الموضع", Icons.Default.OpenWith)
 )
 
 /**
- * 8-Tool Ergonomic Studio Dock with haptic micro-interactions and gold highlight indicators.
+ * 4-Tool Ergonomic Studio Dock with haptic micro-interactions and gold highlight indicators.
  */
 @Composable
 fun StudioDock(

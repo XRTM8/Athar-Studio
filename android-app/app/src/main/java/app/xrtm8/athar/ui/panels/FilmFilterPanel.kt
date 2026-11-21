@@ -1,9 +1,5 @@
 package app.xrtm8.athar.ui.panels
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,8 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,18 +28,16 @@ import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * Professional Film Camera Presets & QR Code Sharing Panel.
+ * Professional Film Camera Presets & 3-Way Color Grading Panel.
  * Includes:
  * - Emulation of Fujifilm, Kodak, Leica, and Hollywood Cinematic color stocks
  * - Favorites management
- * - Polarr & Lightroom style QR Code card export and QR scanner import
+ * - Lift / Gamma / Gain color wheels
  */
 @Composable
 fun FilmFilterPanel(
     state: CanvasState,
     onSelectFilmPreset: (FilmPreset) -> Unit,
-    onExportQrCard: () -> Unit,
-    onImportQrRecipe: (Bitmap) -> Unit,
     onToggleColorGrading: ((Boolean) -> Unit)? = null,
     onLiftChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
     onGammaChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
@@ -60,23 +52,6 @@ fun FilmFilterPanel(
     var mainFilterSubTab by remember { mutableIntStateOf(0) }
     var selectedCategory by remember { mutableStateOf("الكل") }
     var favoriteFilters by remember { mutableStateOf(AtharFavoritesManager.getFavoriteFilters(context)) }
-
-    val qrPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            try {
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    val bmp = BitmapFactory.decodeStream(stream)
-                    if (bmp != null) {
-                        onImportQrRecipe(bmp)
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore
-            }
-        }
-    }
 
     val categories = listOf("الكل", "المفضلة", "كاميرات كلاسيكية", "أبيض وأسود", "سينمائي")
 
@@ -142,65 +117,7 @@ fun FilmFilterPanel(
                 onSliderChangeFinished = onSliderChangeFinished
             )
         } else {
-            // QR Code Sharing & Scanning Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-            Button(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onExportQrCard()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorderActive),
-                modifier = Modifier.weight(1f).height(42.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.QrCode,
-                    contentDescription = null,
-                    tint = GoldAccent,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "مشاركة كود QR",
-                    color = PureWhite,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Button(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    qrPickerLauncher.launch("image/*")
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder),
-                modifier = Modifier.weight(1f).height(42.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.QrCodeScanner,
-                    contentDescription = null,
-                    tint = GoldAccent,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "مسح باركود فلتر",
-                    color = PureWhite,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Category Chips
+            // Category Chips
         Row(
             modifier = Modifier
                 .fillMaxWidth()

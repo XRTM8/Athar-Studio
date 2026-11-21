@@ -19,8 +19,6 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import app.xrtm8.athar.core.AtharImageProcessor
-import app.xrtm8.athar.core.CinematicOpticalEngine
-import app.xrtm8.athar.core.FilmGrainEngine
 import app.xrtm8.athar.core.FilmPresetEngine
 import app.xrtm8.athar.core.SubjectDepthEngine
 import app.xrtm8.athar.model.CanvasAspectRatio
@@ -98,29 +96,6 @@ object AtharExportManager {
                 }
             } else {
                 drawLayers(context, canvas, state.layers, width, height)
-            }
-
-            // Lens Flare Overlay
-            if (state.lensFlareEnabled) {
-                CinematicOpticalEngine.drawLensFlare(
-                    canvas = canvas,
-                    width = width.toFloat(),
-                    height = height.toFloat(),
-                    normX = state.lensFlareX,
-                    normY = state.lensFlareY,
-                    intensity = state.lensFlareIntensity,
-                    colorLong = state.lensFlareColorLong
-                )
-            }
-
-            // 35mm Analog Film Grain Overlay
-            if (state.filmGrainIntensity > 0f) {
-                FilmGrainEngine.drawFilmGrain(
-                    canvas = canvas,
-                    width = width.toFloat(),
-                    height = height.toFloat(),
-                    intensity = state.filmGrainIntensity
-                )
             }
 
             val finalBitmap = if (effectiveTransparent && isStickerTrimmed) {
@@ -340,21 +315,6 @@ object AtharExportManager {
                 }
             } else null
 
-            val extrusionPaint = if (layer.retroExtrusionDepth > 0f) {
-                Paint().apply {
-                    isAntiAlias = true
-                    isDither = true
-                    textSize = scaledTextSize
-                    letterSpacing = layer.letterSpacing
-                    isFakeBoldText = layer.isBold
-                    textSkewX = if (layer.isItalic) -0.25f else 0f
-                    textAlign = paint.textAlign
-                    typeface = realTypeface
-                    val extColor = layer.retroExtrusionColorLong.toInt()
-                    color = (extColor and 0x00FFFFFF) or (alphaInt shl 24)
-                }
-            } else null
-
             val shadowPaint = if (layer.shadowRadius > 0f) {
                 Paint().apply {
                     isAntiAlias = true
@@ -403,24 +363,6 @@ object AtharExportManager {
             layout.lines.forEachIndexed { index, line ->
                 val lineY = layout.startY + (index * layout.lineHeight)
 
-                if (extrusionPaint != null) {
-                    val extRad = Math.toRadians(layer.retroExtrusionAngle.toDouble())
-                    val extTotalPx = (layer.retroExtrusionDepth / 380f) * width
-                    val cosA = kotlin.math.cos(extRad).toFloat()
-                    val sinA = kotlin.math.sin(extRad).toFloat()
-                    val steps = (extTotalPx / (width / 720f)).toInt().coerceIn(1, 50)
-                    for (s in 1..steps) {
-                        val progress = (s.toFloat() / steps) * extTotalPx
-                        val ex = layout.lineX + (cosA * progress)
-                        val ey = lineY + (sinA * progress)
-                        if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                            CurvedTextRenderer.drawCurvedText(canvas, line, ex, ey, extrusionPaint, layer.curveAngle)
-                        } else {
-                            canvas.drawText(line, ex, ey, extrusionPaint)
-                        }
-                    }
-                }
-
                 if (shadowPaint != null) {
                     if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
                         CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX + scaledShadowDx, lineY + scaledShadowDy, shadowPaint, layer.curveAngle)
@@ -439,24 +381,7 @@ object AtharExportManager {
 
                 if (!layer.isHollowText) {
                     val customColor = layer.customTextColorLong
-                    val texBmp = if (layer.texturePreset != app.xrtm8.athar.model.TextureMaskPreset.NONE) {
-                        app.xrtm8.athar.core.AtharTextureMaskEngine.getTexture(context, layer.texturePreset, layer.customTextureUri)
-                    } else null
-
-                    if (texBmp != null) {
-                        paint.shader = CanvasShaderFactory.createTextureShader(
-                            texBmp,
-                            layer.textureScale,
-                            (layer.textureOffsetX / 380f) * width,
-                            (layer.textureOffsetY / 380f) * width
-                        )
-                        paint.color = Color.WHITE
-                        if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                            CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                        } else {
-                            canvas.drawText(line, layout.lineX, lineY, paint)
-                        }
-                    } else if (layer.gradientPreset != app.xrtm8.athar.model.LuxuryGradientPreset.NONE) {
+                    if (layer.gradientPreset != app.xrtm8.athar.model.LuxuryGradientPreset.NONE) {
                         val gradShader = CanvasShaderFactory.createMultiStopGradientShader(
                             preset = layer.gradientPreset,
                             angle = layer.gradientAngle,
@@ -529,24 +454,6 @@ object AtharExportManager {
                             }
                         }
                     }
-                }
-            }
-
-            // Draw Free Tashkeel Items
-            if (layer.tashkeelItems.isNotEmpty()) {
-                val tashkeelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    isDither = true
-                    textAlign = Paint.Align.CENTER
-                    typeface = realTypeface
-                }
-                layer.tashkeelItems.forEach { tItem ->
-                    tashkeelPaint.textSize = paint.textSize * 0.75f * tItem.scale
-                    val tColor = tItem.colorLong ?: layer.customTextColorLong ?: 0xFFFFFFFF
-                    val baseC = tColor.toInt()
-                    tashkeelPaint.color = (baseC and 0x00FFFFFF) or (alphaInt shl 24)
-                    val tx = layout.lineX + (tItem.normX * paint.textSize * 2f)
-                    val ty = layout.startY + (tItem.normY * paint.textSize * 2f)
-                    canvas.drawText(tItem.symbol, tx, ty, tashkeelPaint)
                 }
             }
 

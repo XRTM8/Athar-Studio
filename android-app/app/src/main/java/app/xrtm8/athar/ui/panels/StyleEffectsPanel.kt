@@ -63,16 +63,10 @@ fun StyleEffectsPanel(
     onHarmonizeWithBackground: (() -> Unit)? = null,
     onAutoLegibility: (() -> Unit)? = null,
     extractedPalette: app.xrtm8.athar.core.SmartColorHarmonizer.ExtractedPalette? = null,
-    // v2.1.0 Next-Gen Pillars
-    onSelectTexturePreset: ((TextureMaskPreset) -> Unit)? = null,
-    onTextureScaleChange: ((Float) -> Unit)? = null,
     onSelectGradientPreset: ((LuxuryGradientPreset) -> Unit)? = null,
     onGradientAngleChange: ((Float) -> Unit)? = null,
     onToggleRadialGradient: ((Boolean) -> Unit)? = null,
     onToggleHollowText: ((Boolean) -> Unit)? = null,
-    onRetroExtrusionDepthChange: ((Float) -> Unit)? = null,
-    onRetroExtrusionAngleChange: ((Float) -> Unit)? = null,
-    onRetroExtrusionColorChange: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -145,62 +139,7 @@ fun StyleEffectsPanel(
         ) { currentSubTab ->
             when (currentSubTab) {
                 0 -> Column(modifier = Modifier.fillMaxWidth()) {
-                    // v2.1.0 Clipping Masks / Texture Presets
-                    if (onSelectTexturePreset != null) {
-                        Text(text = "خامات القص المتجهي (Clipping Masks):", color = MutedWhite, fontSize = 11.5.sp)
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            TextureMaskPreset.entries.forEach { tex ->
-                                val isSelected = state.texturePreset == tex
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(if (isSelected) GoldAccent else GlassSurface)
-                                        .border(
-                                            width = if (isSelected) 1.5.dp else 0.5.dp,
-                                            color = if (isSelected) GoldAccent else GlassBorder,
-                                            shape = RoundedCornerShape(10.dp)
-                                        )
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            onSelectTexturePreset(tex)
-                                        }
-                                        .padding(horizontal = 10.dp, vertical = 7.dp)
-                                ) {
-                                    Text(
-                                        text = tex.labelAr,
-                                        color = if (isSelected) AmoledBlack else PureWhite,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-
-                        if (state.texturePreset != TextureMaskPreset.NONE && onTextureScaleChange != null) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            StudioSlider(
-                                title = "حجم ملمس الخامة (Texture Scale)",
-                                value = state.textureScale,
-                                onValueChange = onTextureScaleChange,
-                                onValueChangeFinished = onSliderChangeFinished,
-                                valueRange = 0.2f..4.0f,
-                                step = 0.1f,
-                                valueDisplay = "${(state.textureScale * 100).toInt()}%",
-                                icon = Icons.Default.Texture
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-
-                    // v2.1.0 Multi-Stop Luxury Gradients
+                    // Multi-Stop Luxury Gradients
                     if (onSelectGradientPreset != null) {
                         Text(text = "التدرجات متعددة المحطات (Multi-Stop Gradients):", color = MutedWhite, fontSize = 11.5.sp)
                         Spacer(modifier = Modifier.height(6.dp))
@@ -581,72 +520,6 @@ fun StyleEffectsPanel(
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
-
-                    // v2.1.0 Retro Extruded 3D Shadow
-                    if (onRetroExtrusionDepthChange != null) {
-                        StudioSlider(
-                            title = "البروز ثلاثي الأبعاد الكلاسيكي (Retro 3D Extrusion)",
-                            value = state.retroExtrusionDepth,
-                            onValueChange = onRetroExtrusionDepthChange,
-                            onValueChangeFinished = onSliderChangeFinished,
-                            valueRange = 0f..30f,
-                            step = 1f,
-                            valueDisplay = "${state.retroExtrusionDepth.toInt()} px",
-                            icon = Icons.Default.Layers
-                        )
-
-                        if (state.retroExtrusionDepth > 0f) {
-                            if (onRetroExtrusionAngleChange != null) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                StudioSlider(
-                                    title = "زاوية سحب البروز",
-                                    value = state.retroExtrusionAngle,
-                                    onValueChange = onRetroExtrusionAngleChange,
-                                    onValueChangeFinished = onSliderChangeFinished,
-                                    valueRange = 0f..360f,
-                                    step = 15f,
-                                    valueDisplay = "${state.retroExtrusionAngle.toInt()}°"
-                                )
-                            }
-                            if (onRetroExtrusionColorChange != null) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    listOf(
-                                        0xFF000000 to "أسود بارز",
-                                        0xFF3E2723 to "بني عتيق",
-                                        0xFF1A237E to "كحلي عميق",
-                                        0xFF5D4037 to "نحاس داكن"
-                                    ).forEach { (cLong, name) ->
-                                        val isSelected = state.retroExtrusionColorLong == cLong
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (isSelected) GoldAccent else GlassSurface)
-                                                .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                onRetroExtrusionColorChange(cLong)
-                                            }
-                                            .padding(vertical = 5.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = name,
-                                                color = if (isSelected) AmoledBlack else PureWhite,
-                                                fontSize = 10.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
 
                     // Shadow Blur Radius Slider
                     StudioSlider(

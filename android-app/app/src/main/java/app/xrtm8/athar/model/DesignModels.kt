@@ -14,16 +14,6 @@ enum class VisualEffect(val arabicName: String, val description: String) {
     MINIMAL_LUXURY("أبيض ناصع", "بساطة مطلقة بأسلوب التصميم المعاصر")
 }
 
-enum class TextureMaskPreset(val labelAr: String, val description: String) {
-    NONE("بدون خامة", "لون أو تدرج قياسي بدون ملمس مفرغ"),
-    GOLD_LEAF("ورق الذهب الملكي 24K", "بريق الذهب العتيق مع نسيج معدني متدرج"),
-    CARRARA_MARBLE("رخام كرارا الفاخر", "عروق رخامية رمادية على أرضية بيضاء ناصعة"),
-    DAMASCUS_PARCHMENT("ورق دمشقي عتيق", "ملمس المخطوطات والورق المصنوع يدوياً"),
-    EMERALD_MALACHITE("عروق الملاكيت الزمردي", "خطوط معدنية خضراء داكنة وفاتحة"),
-    BRUSHED_TITANIUM("تيتانيوم مصقول", "خطوط معدنية أفقية دقيقة فائقة العصرية"),
-    CUSTOM_PHOTO("خامة صورة مخصصة", "قص محتوى صورة من المعرض داخل النص مباشرة")
-}
-
 enum class LuxuryGradientPreset(val labelAr: String, val colors: List<Long>, val stops: List<Float>) {
     NONE("تلقائي", emptyList(), emptyList()),
     ANDALUSIAN_GOLD(
@@ -70,15 +60,6 @@ enum class LayerBlendMode(val labelAr: String, val porterDuffMode: PorterDuff.Mo
     LIGHTEN("إنارة ساطعة", PorterDuff.Mode.LIGHTEN),
     DARKEN("تغميق عميق", PorterDuff.Mode.DARKEN)
 }
-
-data class TashkeelItem(
-    val id: String = UUID.randomUUID().toString(),
-    val symbol: String = "َ",
-    val normX: Float = 0f,
-    val normY: Float = -0.35f,
-    val scale: Float = 1.0f,
-    val colorLong: Long? = null
-)
 
 enum class ArabicFontFamily(
     val fontName: String,
@@ -255,20 +236,10 @@ data class TextLayer(
     val isCurved: Boolean = false,
     val curveAngle: Float = 0f,
     val isBehindSubject: Boolean = false,
-    val tashkeelItems: List<TashkeelItem> = emptyList(),
-    // v2.1.0 Next-Gen Pillars
-    val texturePreset: TextureMaskPreset = TextureMaskPreset.NONE,
-    val customTextureUri: String? = null,
-    val textureScale: Float = 1.0f,
-    val textureOffsetX: Float = 0f,
-    val textureOffsetY: Float = 0f,
     val gradientPreset: LuxuryGradientPreset = LuxuryGradientPreset.NONE,
     val gradientAngle: Float = 90f,
     val isRadialGradient: Boolean = false,
-    val isHollowText: Boolean = false,
-    val retroExtrusionDepth: Float = 0f,
-    val retroExtrusionAngle: Float = 135f,
-    val retroExtrusionColorLong: Long = 0xFF000000
+    val isHollowText: Boolean = false
 )
 
 data class CanvasState(
@@ -290,17 +261,11 @@ data class CanvasState(
     val isTransparentBg: Boolean = false,
     val gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
     val filmPreset: FilmPreset = FilmPreset.NONE,
-    val filmGrainIntensity: Float = 0f,
-    val lensFlareEnabled: Boolean = false,
-    val lensFlareX: Float = 0.5f,
-    val lensFlareY: Float = 0.2f,
-    val lensFlareIntensity: Float = 0.7f,
-    val lensFlareColorLong: Long = 0xFFFFE082,
     val bgPhotoOffsetX: Float = 0f,
     val bgPhotoOffsetY: Float = 0f,
     val bgPhotoScale: Float = 1.0f,
     val isFramingMode: Boolean = false,
-    // v2.1.0 3-Way Color Wheels Grading (Lift / Gamma / Gain)
+    // 3-Way Color Wheels Grading (Lift / Gamma / Gain)
     val colorGradingEnabled: Boolean = false,
     val liftRed: Float = 0f,
     val liftGreen: Float = 0f,
@@ -354,19 +319,10 @@ data class CanvasState(
     val isCurved: Boolean get() = activeLayer.isCurved
     val curveAngle: Float get() = activeLayer.curveAngle
     val isBehindSubject: Boolean get() = activeLayer.isBehindSubject
-    val tashkeelItems: List<TashkeelItem> get() = activeLayer.tashkeelItems
-    val texturePreset: TextureMaskPreset get() = activeLayer.texturePreset
-    val customTextureUri: String? get() = activeLayer.customTextureUri
-    val textureScale: Float get() = activeLayer.textureScale
-    val textureOffsetX: Float get() = activeLayer.textureOffsetX
-    val textureOffsetY: Float get() = activeLayer.textureOffsetY
     val gradientPreset: LuxuryGradientPreset get() = activeLayer.gradientPreset
     val gradientAngle: Float get() = activeLayer.gradientAngle
     val isRadialGradient: Boolean get() = activeLayer.isRadialGradient
     val isHollowText: Boolean get() = activeLayer.isHollowText
-    val retroExtrusionDepth: Float get() = activeLayer.retroExtrusionDepth
-    val retroExtrusionAngle: Float get() = activeLayer.retroExtrusionAngle
-    val retroExtrusionColorLong: Long get() = activeLayer.retroExtrusionColorLong
 
     // Convenience constructor for legacy / single-layer callers
     constructor(
@@ -420,12 +376,6 @@ data class CanvasState(
         isTransparentBg: Boolean = false,
         gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
         filmPreset: FilmPreset = FilmPreset.NONE,
-        filmGrainIntensity: Float = 0f,
-        lensFlareEnabled: Boolean = false,
-        lensFlareX: Float = 0.5f,
-        lensFlareY: Float = 0.2f,
-        lensFlareIntensity: Float = 0.7f,
-        lensFlareColorLong: Long = 0xFFFFE082,
         bgPhotoOffsetX: Float = 0f,
         bgPhotoOffsetY: Float = 0f,
         bgPhotoScale: Float = 1.0f,
@@ -433,8 +383,7 @@ data class CanvasState(
         blendMode: LayerBlendMode = LayerBlendMode.NORMAL,
         isCurved: Boolean = false,
         curveAngle: Float = 0f,
-        isBehindSubject: Boolean = false,
-        tashkeelItems: List<TashkeelItem> = emptyList()
+        isBehindSubject: Boolean = false
     ) : this(
         layers = listOf(
             TextLayer(
@@ -477,8 +426,7 @@ data class CanvasState(
                 blendMode = blendMode,
                 isCurved = isCurved,
                 curveAngle = curveAngle,
-                isBehindSubject = isBehindSubject,
-                tashkeelItems = tashkeelItems
+                isBehindSubject = isBehindSubject
             )
         ),
         activeLayerId = "layer_primary",
@@ -498,12 +446,6 @@ data class CanvasState(
         isTransparentBg = isTransparentBg,
         gradientScrim = gradientScrim,
         filmPreset = filmPreset,
-        filmGrainIntensity = filmGrainIntensity,
-        lensFlareEnabled = lensFlareEnabled,
-        lensFlareX = lensFlareX,
-        lensFlareY = lensFlareY,
-        lensFlareIntensity = lensFlareIntensity,
-        lensFlareColorLong = lensFlareColorLong,
         bgPhotoOffsetX = bgPhotoOffsetX,
         bgPhotoOffsetY = bgPhotoOffsetY,
         bgPhotoScale = bgPhotoScale,

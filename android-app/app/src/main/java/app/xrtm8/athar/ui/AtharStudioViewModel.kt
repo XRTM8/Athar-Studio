@@ -9,11 +9,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.xrtm8.athar.core.AtharFilterRecipe
 import app.xrtm8.athar.core.AtharNativeEngine
-import app.xrtm8.athar.core.AtharPresetQRCodeManager
-import app.xrtm8.athar.core.FreeTashkeelEngine
-import app.xrtm8.athar.core.IslamicManuscriptEngine
 import app.xrtm8.athar.core.OpticalLegibilityEngine
 import app.xrtm8.athar.core.SmartColorHarmonizer
 import app.xrtm8.athar.core.SmartFocalPlacementEngine
@@ -28,7 +24,6 @@ import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.GlassBackdropPreset
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.LayerBlendMode
-import app.xrtm8.athar.model.TashkeelItem
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
@@ -556,56 +551,11 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     // ==========================================
-    // Film Camera Presets & QR Code Operations
+    // Film Camera Presets Operations
     // ==========================================
 
     fun setFilmPreset(preset: FilmPreset) {
         pushHistory(_canvasState.value.copy(filmPreset = preset))
-    }
-
-    fun exportFilterRecipeQrCard(name: String): Bitmap {
-        val state = _canvasState.value
-        val recipe = AtharFilterRecipe(
-            name = name,
-            filmPresetId = state.filmPreset.id,
-            brightness = state.backgroundBrightness,
-            contrast = state.backgroundContrast,
-            saturation = state.backgroundSaturation,
-            vignette = state.backgroundVignette,
-            blur = state.backgroundBlur,
-            scrimEnabled = state.gradientScrim.isEnabled,
-            scrimDirection = state.gradientScrim.direction.name,
-            scrimColorLong = state.gradientScrim.colorLong,
-            scrimOpacity = state.gradientScrim.opacity
-        )
-        return AtharPresetQRCodeManager.generatePresetCardBitmap(recipe)
-    }
-
-    fun importFilterRecipeFromQr(bitmap: Bitmap): Boolean {
-        val recipe = AtharPresetQRCodeManager.decodeRecipeFromBitmap(bitmap) ?: return false
-        val matchedFilm = FilmPreset.entries.find { it.id == recipe.filmPresetId } ?: FilmPreset.NONE
-        val matchedDirection = try {
-            CanvasGradientDirection.valueOf(recipe.scrimDirection)
-        } catch (e: Exception) {
-            CanvasGradientDirection.BOTTOM_TO_TOP
-        }
-        pushHistory(
-            _canvasState.value.copy(
-                filmPreset = matchedFilm,
-                backgroundBrightness = recipe.brightness,
-                backgroundContrast = recipe.contrast,
-                backgroundSaturation = recipe.saturation,
-                backgroundVignette = recipe.vignette,
-                backgroundBlur = recipe.blur,
-                gradientScrim = CanvasGradientScrim(
-                    isEnabled = recipe.scrimEnabled,
-                    direction = matchedDirection,
-                    colorLong = recipe.scrimColorLong,
-                    opacity = recipe.scrimOpacity
-                )
-            )
-        )
-        return true
     }
 
     // ==========================================
@@ -627,35 +577,6 @@ class AtharStudioViewModel : ViewModel() {
 
     fun toggleActiveLayerBehindSubject() {
         pushActiveLayerHistory { it.copy(isBehindSubject = !it.isBehindSubject) }
-    }
-
-    // ==========================================
-    // Free Tashkeel Operations
-    // ==========================================
-
-    fun addTashkeelMark(symbol: String) {
-        pushActiveLayerHistory { FreeTashkeelEngine.addMark(it, symbol) }
-    }
-
-    fun removeTashkeelMark(markId: String) {
-        pushActiveLayerHistory { FreeTashkeelEngine.removeMark(it, markId) }
-    }
-
-    fun updateTashkeelMark(updated: TashkeelItem) {
-        updateActiveLayer { FreeTashkeelEngine.updateMark(it, updated) }
-    }
-
-    fun nudgeTashkeelMark(markId: String, dx: Float, dy: Float) {
-        updateActiveLayer { FreeTashkeelEngine.nudgeMark(it, markId, dx, dy) }
-    }
-
-    // ==========================================
-    // Islamic Manuscripts Operations
-    // ==========================================
-
-    fun addManuscriptLayer(layer: TextLayer) {
-        val newLayers = _canvasState.value.layers + layer
-        pushHistory(_canvasState.value.copy(layers = newLayers, activeLayerId = layer.id))
     }
 
     // ==========================================
@@ -775,29 +696,6 @@ class AtharStudioViewModel : ViewModel() {
     fun setSubjectDepthSensitivity(sensitivity: Float) {
         markSliderChange()
         _canvasState.update { it.copy(subjectDepthSensitivity = sensitivity.coerceIn(0.1f, 0.9f)) }
-    }
-
-    fun setFilmGrainIntensity(intensity: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(filmGrainIntensity = intensity.coerceIn(0f, 1f)) }
-    }
-
-    fun toggleLensFlare(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(lensFlareEnabled = enabled))
-    }
-
-    fun setLensFlareIntensity(intensity: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(lensFlareIntensity = intensity.coerceIn(0.1f, 1.0f)) }
-    }
-
-    fun setLensFlarePosition(x: Float, y: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(lensFlareX = x.coerceIn(0f, 1f), lensFlareY = y.coerceIn(0f, 1f)) }
-    }
-
-    fun setLensFlareColor(colorLong: Long) {
-        pushHistory(_canvasState.value.copy(lensFlareColorLong = colorLong))
     }
 
     // ==========================================
@@ -920,22 +818,8 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     // ==========================================
-    // v2.1.0 Next-Gen Pillars: Clipping Mask, Multi-Stop Gradients, Hollow Text, Retro Extrusion, 3-Way Color Grading
+    // Multi-Stop Gradients, Hollow Text, 3-Way Color Grading
     // ==========================================
-
-    fun setTexturePreset(preset: app.xrtm8.athar.model.TextureMaskPreset, customUri: String? = null) {
-        pushActiveLayerHistory { it.copy(texturePreset = preset, customTextureUri = customUri) }
-    }
-
-    fun setTextureScale(scale: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(textureScale = scale.coerceIn(0.2f, 5.0f)) }
-    }
-
-    fun setTextureOffset(offsetX: Float, offsetY: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(textureOffsetX = offsetX, textureOffsetY = offsetY) }
-    }
 
     fun setLuxuryGradient(preset: app.xrtm8.athar.model.LuxuryGradientPreset) {
         pushActiveLayerHistory { it.copy(gradientPreset = preset, customTextColorLong = null) }
@@ -952,20 +836,6 @@ class AtharStudioViewModel : ViewModel() {
 
     fun setHollowText(isHollow: Boolean) {
         pushActiveLayerHistory { it.copy(isHollowText = isHollow) }
-    }
-
-    fun setRetroExtrusionDepth(depth: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(retroExtrusionDepth = depth.coerceIn(0f, 35f)) }
-    }
-
-    fun setRetroExtrusionAngle(angle: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(retroExtrusionAngle = angle % 360f) }
-    }
-
-    fun setRetroExtrusionColor(colorLong: Long) {
-        pushActiveLayerHistory { it.copy(retroExtrusionColorLong = colorLong) }
     }
 
     fun setColorGradingEnabled(enabled: Boolean) {

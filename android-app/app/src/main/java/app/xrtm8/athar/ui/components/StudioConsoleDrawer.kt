@@ -1,6 +1,5 @@
 package app.xrtm8.athar.ui.components
 
-import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -48,10 +47,6 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.panels.CanvasBackgroundPanel
-import app.xrtm8.athar.ui.panels.FilmFilterPanel
-import app.xrtm8.athar.ui.panels.KashidaPanel
-import app.xrtm8.athar.ui.panels.ManuscriptAndTashkeelPanel
-import app.xrtm8.athar.ui.panels.OpticalAndGrainPanel
 import app.xrtm8.athar.ui.panels.StyleEffectsPanel
 import app.xrtm8.athar.ui.panels.TransformPositionPanel
 import app.xrtm8.athar.ui.panels.TypographyPanel
@@ -70,8 +65,6 @@ fun StudioConsoleDrawer(
     onClosePanel: () -> Unit,
     onOpenTextEditor: () -> Unit,
     onOpenFontBrowser: () -> Unit,
-    onExportQrCard: () -> Unit,
-    onImportQrRecipe: (Bitmap) -> Unit,
     onPickImage: () -> Unit,
     onRemoveImage: () -> Unit,
     modifier: Modifier = Modifier
@@ -170,30 +163,16 @@ fun StudioConsoleDrawer(
                             onLetterSpacingChange = { viewModel.setLetterSpacing(it) },
                             onLineSpacingChange = { viewModel.setLineSpacing(it) },
                             onTextAlignChange = { viewModel.setTextAlign(it) },
+                            onStretchLevelChange = { viewModel.setStretchLevel(it) },
+                            onKashidaModeChange = { viewModel.setKashidaMode(it) },
+                            onTargetIndexChange = { viewModel.setKashidaTargetIndex(it) },
                             onToggleCurvedText = { viewModel.toggleCurvedText(it) },
                             onCurveAngleChange = { viewModel.setCurveAngle(it) },
                             onAutoBalanceBlock = { viewModel.autoBalanceTypographicBlock() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
-                        1 -> ManuscriptAndTashkeelPanel(
-                            state = canvasState,
-                            onAddManuscriptLayer = { viewModel.addManuscriptLayer(it) },
-                            onAddTashkeelMark = { viewModel.addTashkeelMark(it) },
-                            onRemoveTashkeelMark = { viewModel.removeTashkeelMark(it) },
-                            onUpdateTashkeelMark = { viewModel.updateTashkeelMark(it) },
-                            onNudgeTashkeelMark = { id, dx, dy -> viewModel.nudgeTashkeelMark(id, dx, dy) }
-                        )
-
-                        2 -> KashidaPanel(
-                            state = canvasState,
-                            onStretchLevelChange = { viewModel.setStretchLevel(it) },
-                            onKashidaModeChange = { viewModel.setKashidaMode(it) },
-                            onTargetIndexChange = { viewModel.setKashidaTargetIndex(it) },
-                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
-                        )
-
-                        3 -> StyleEffectsPanel(
+                        1 -> StyleEffectsPanel(
                             state = canvasState,
                             onSelectEffect = { viewModel.setEffect(it) },
                             onSelectCustomColor = { viewModel.setCustomColor(it) },
@@ -212,43 +191,14 @@ fun StudioConsoleDrawer(
                             onHarmonizeWithBackground = { viewModel.harmonizeWithBackgroundImage(context) },
                             onAutoLegibility = { viewModel.autoAdjustContrastAndLegibility(context) },
                             extractedPalette = extractedPalette,
-                            onSelectTexturePreset = { viewModel.setTexturePreset(it) },
-                            onTextureScaleChange = { viewModel.setTextureScale(it) },
                             onSelectGradientPreset = { viewModel.setLuxuryGradient(it) },
                             onGradientAngleChange = { viewModel.setGradientAngle(it) },
                             onToggleRadialGradient = { viewModel.setGradientRadial(it) },
                             onToggleHollowText = { viewModel.setHollowText(it) },
-                            onRetroExtrusionDepthChange = { viewModel.setRetroExtrusionDepth(it) },
-                            onRetroExtrusionAngleChange = { viewModel.setRetroExtrusionAngle(it) },
-                            onRetroExtrusionColorChange = { viewModel.setRetroExtrusionColor(it) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
-                        4 -> OpticalAndGrainPanel(
-                            state = canvasState,
-                            onFilmGrainIntensityChange = { viewModel.setFilmGrainIntensity(it) },
-                            onToggleLensFlare = { viewModel.toggleLensFlare(it) },
-                            onLensFlareIntensityChange = { viewModel.setLensFlareIntensity(it) },
-                            onLensFlareXChange = { viewModel.setLensFlarePosition(it, canvasState.lensFlareY) },
-                            onLensFlareYChange = { viewModel.setLensFlarePosition(canvasState.lensFlareX, it) },
-                            onLensFlareColorChange = { viewModel.setLensFlareColor(it) },
-                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
-                        )
-
-                        5 -> FilmFilterPanel(
-                            state = canvasState,
-                            onSelectFilmPreset = { viewModel.setFilmPreset(it) },
-                            onExportQrCard = onExportQrCard,
-                            onImportQrRecipe = onImportQrRecipe,
-                            onToggleColorGrading = { viewModel.setColorGradingEnabled(it) },
-                            onLiftChange = { r, g, b -> viewModel.setColorGradingLift(r, g, b) },
-                            onGammaChange = { r, g, b -> viewModel.setColorGradingGamma(r, g, b) },
-                            onGainChange = { r, g, b -> viewModel.setColorGradingGain(r, g, b) },
-                            onResetColorGrading = { viewModel.resetColorGrading() },
-                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
-                        )
-
-                        6 -> CanvasBackgroundPanel(
+                        2 -> CanvasBackgroundPanel(
                             state = canvasState,
                             onToggleTransparent = { viewModel.setTransparentBg(it) },
                             onSelectSolidBgColor = { viewModel.setSolidBgColor(it) },
@@ -281,6 +231,12 @@ fun StudioConsoleDrawer(
                             onGradientScrimMidpointChange = { viewModel.setGradientScrimMidpoint(it) },
                             onToggleTextBehindSubject = { viewModel.setTextBehindSubject(it) },
                             onSubjectDepthSensitivityChange = { viewModel.setSubjectDepthSensitivity(it) },
+                            onSelectFilmPreset = { viewModel.setFilmPreset(it) },
+                            onToggleColorGrading = { viewModel.setColorGradingEnabled(it) },
+                            onLiftChange = { r, g, b -> viewModel.setColorGradingLift(r, g, b) },
+                            onGammaChange = { r, g, b -> viewModel.setColorGradingGamma(r, g, b) },
+                            onGainChange = { r, g, b -> viewModel.setColorGradingGain(r, g, b) },
+                            onResetColorGrading = { viewModel.resetColorGrading() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
