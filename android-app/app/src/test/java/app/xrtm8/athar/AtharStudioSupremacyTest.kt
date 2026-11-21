@@ -214,4 +214,106 @@ class AtharStudioSupremacyTest {
         val single = listOf(app.xrtm8.athar.updater.AtharUpdateManager.Companion.ReleaseAsset("athar-latest.apk", "https://download/single"))
         assertEquals("https://download/single", app.xrtm8.athar.updater.AtharUpdateManager.selectBestApkAsset(single))
     }
+
+    @Test
+    fun testColorGradingEngineMath() {
+        val array = app.xrtm8.athar.core.AtharColorGradingEngine.computeColorGradingArray(
+            liftR = 0.2f, liftG = -0.1f, liftB = 0f,
+            gammaR = 0.1f, gammaG = 0f, gammaB = -0.1f,
+            gainR = 0.3f, gainG = 0f, gainB = -0.2f
+        )
+        assertEquals(20, array.size)
+        // Check scale and offset for Red channel
+        assertTrue("Red scale should be greater than 1.0 due to positive gain and gamma", array[0] > 1.0f)
+        assertTrue("Red offset should be positive due to positive lift", array[4] > 0f)
+        // Check Alpha channel identity preserved
+        assertEquals(1f, array[18], 0.001f)
+    }
+
+    @Test
+    fun testLuxuryGradientPresetsValidity() {
+        LuxuryGradientPreset.entries.forEach { preset ->
+            if (preset != LuxuryGradientPreset.NONE) {
+                assertTrue("Preset ${preset.name} should have at least 2 colors", preset.colors.size >= 2)
+                assertEquals("Preset ${preset.name} colors and stops must match in size", preset.colors.size, preset.stops.size)
+                assertEquals(0.0f, preset.stops.first(), 0.001f)
+                assertEquals(1.0f, preset.stops.last(), 0.001f)
+            }
+        }
+    }
+
+    @Test
+    fun testV210PillarsSerializationRoundTrip() {
+        val layer = TextLayer(
+            id = "layer_v210",
+            name = "نص ملكي",
+            rawText = "أَثَــر الخُلود",
+            displayText = "أَثَـــر الخُلود",
+            texturePreset = TextureMaskPreset.GOLD_LEAF,
+            textureScale = 1.75f,
+            textureOffsetX = 12f,
+            textureOffsetY = -8f,
+            gradientPreset = LuxuryGradientPreset.ANDALUSIAN_GOLD,
+            gradientAngle = 45f,
+            isRadialGradient = true,
+            isHollowText = true,
+            retroExtrusionDepth = 18f,
+            retroExtrusionAngle = 135f,
+            retroExtrusionColorLong = 0xFF3E2723
+        )
+
+        val state = CanvasState(
+            layers = listOf(layer),
+            activeLayerId = "layer_v210",
+            colorGradingEnabled = true,
+            liftRed = 0.15f,
+            liftGreen = -0.05f,
+            liftBlue = 0.02f,
+            gammaRed = 0.10f,
+            gammaGreen = 0.04f,
+            gammaBlue = -0.08f,
+            gainRed = 0.25f,
+            gainGreen = 0.12f,
+            gainBlue = -0.15f
+        )
+
+        val json = AtharProjectSerializer.serializeCanvasState(state, false)
+        val restored = AtharProjectSerializer.deserializeCanvasState(json)
+
+        val rLayer = restored.activeLayer
+        assertEquals(TextureMaskPreset.GOLD_LEAF, rLayer.texturePreset)
+        assertEquals(1.75f, rLayer.textureScale, 0.001f)
+        assertEquals(12f, rLayer.textureOffsetX, 0.001f)
+        assertEquals(-8f, rLayer.textureOffsetY, 0.001f)
+        assertEquals(LuxuryGradientPreset.ANDALUSIAN_GOLD, rLayer.gradientPreset)
+        assertEquals(45f, rLayer.gradientAngle, 0.001f)
+        assertTrue(rLayer.isRadialGradient)
+        assertTrue(rLayer.isHollowText)
+        assertEquals(18f, rLayer.retroExtrusionDepth, 0.001f)
+        assertEquals(135f, rLayer.retroExtrusionAngle, 0.001f)
+        assertEquals(0xFF3E2723, rLayer.retroExtrusionColorLong)
+
+        assertTrue(restored.colorGradingEnabled)
+        assertEquals(0.15f, restored.liftRed, 0.001f)
+        assertEquals(0.25f, restored.gainRed, 0.001f)
+    }
+
+    @Test
+    fun testV210BackwardCompatibilityOldJson() {
+        // Minimal JSON from early v1.0 / v2.0
+        val legacyJson = org.json.JSONObject().apply {
+            put("raw_text", "تصميم قديم")
+            put("display_text", "تصميم قديم")
+            put("font_size", 48.0)
+        }
+        val restored = AtharProjectSerializer.deserializeCanvasState(legacyJson)
+        val rLayer = restored.activeLayer
+
+        assertEquals("تصميم قديم", rLayer.rawText)
+        assertEquals(TextureMaskPreset.NONE, rLayer.texturePreset)
+        assertEquals(LuxuryGradientPreset.NONE, rLayer.gradientPreset)
+        assertFalse(rLayer.isHollowText)
+        assertEquals(0f, rLayer.retroExtrusionDepth, 0.001f)
+        assertFalse(restored.colorGradingEnabled)
+    }
 }

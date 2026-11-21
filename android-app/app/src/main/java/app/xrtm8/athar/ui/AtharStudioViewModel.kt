@@ -97,7 +97,7 @@ class AtharStudioViewModel : ViewModel() {
         val current = _canvasState.value
         if (initial != null && initial != current) {
             undoStack.addLast(initial)
-            if (undoStack.size > 25) undoStack.removeFirst()
+            if (undoStack.size > 100) undoStack.removeFirst()
             redoStack.clear()
             _canUndo.value = true
             _canRedo.value = false
@@ -108,7 +108,7 @@ class AtharStudioViewModel : ViewModel() {
     private fun pushHistory(newState: CanvasState) {
         if (_canvasState.value != newState) {
             undoStack.addLast(_canvasState.value)
-            if (undoStack.size > 25) undoStack.removeFirst()
+            if (undoStack.size > 100) undoStack.removeFirst()
             redoStack.clear()
             _canUndo.value = true
             _canRedo.value = false
@@ -917,6 +917,82 @@ class AtharStudioViewModel : ViewModel() {
     ) {
         val stretched = AtharNativeEngine.applyKashida(text, level, mode, targetIndex)
         updateActiveLayer { it.copy(displayText = stretched) }
+    }
+
+    // ==========================================
+    // v2.1.0 Next-Gen Pillars: Clipping Mask, Multi-Stop Gradients, Hollow Text, Retro Extrusion, 3-Way Color Grading
+    // ==========================================
+
+    fun setTexturePreset(preset: app.xrtm8.athar.model.TextureMaskPreset, customUri: String? = null) {
+        pushActiveLayerHistory { it.copy(texturePreset = preset, customTextureUri = customUri) }
+    }
+
+    fun setTextureScale(scale: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(textureScale = scale.coerceIn(0.2f, 5.0f)) }
+    }
+
+    fun setTextureOffset(offsetX: Float, offsetY: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(textureOffsetX = offsetX, textureOffsetY = offsetY) }
+    }
+
+    fun setLuxuryGradient(preset: app.xrtm8.athar.model.LuxuryGradientPreset) {
+        pushActiveLayerHistory { it.copy(gradientPreset = preset, customTextColorLong = null) }
+    }
+
+    fun setGradientAngle(angle: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(gradientAngle = angle % 360f) }
+    }
+
+    fun setGradientRadial(isRadial: Boolean) {
+        pushActiveLayerHistory { it.copy(isRadialGradient = isRadial) }
+    }
+
+    fun setHollowText(isHollow: Boolean) {
+        pushActiveLayerHistory { it.copy(isHollowText = isHollow) }
+    }
+
+    fun setRetroExtrusionDepth(depth: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(retroExtrusionDepth = depth.coerceIn(0f, 35f)) }
+    }
+
+    fun setRetroExtrusionAngle(angle: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(retroExtrusionAngle = angle % 360f) }
+    }
+
+    fun setRetroExtrusionColor(colorLong: Long) {
+        pushActiveLayerHistory { it.copy(retroExtrusionColorLong = colorLong) }
+    }
+
+    fun setColorGradingEnabled(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(colorGradingEnabled = enabled))
+    }
+
+    fun setColorGradingLift(r: Float, g: Float, b: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(liftRed = r.coerceIn(-0.5f, 0.5f), liftGreen = g.coerceIn(-0.5f, 0.5f), liftBlue = b.coerceIn(-0.5f, 0.5f)) }
+    }
+
+    fun setColorGradingGamma(r: Float, g: Float, b: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(gammaRed = r.coerceIn(-0.5f, 0.5f), gammaGreen = g.coerceIn(-0.5f, 0.5f), gammaBlue = b.coerceIn(-0.5f, 0.5f)) }
+    }
+
+    fun setColorGradingGain(r: Float, g: Float, b: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(gainRed = r.coerceIn(-0.5f, 0.5f), gainGreen = g.coerceIn(-0.5f, 0.5f), gainBlue = b.coerceIn(-0.5f, 0.5f)) }
+    }
+
+    fun resetColorGrading() {
+        pushHistory(_canvasState.value.copy(
+            liftRed = 0f, liftGreen = 0f, liftBlue = 0f,
+            gammaRed = 0f, gammaGreen = 0f, gammaBlue = 0f,
+            gainRed = 0f, gainGreen = 0f, gainBlue = 0f
+        ))
     }
 
     fun exportDesign(

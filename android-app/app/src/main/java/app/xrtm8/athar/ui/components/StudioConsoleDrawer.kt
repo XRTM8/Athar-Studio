@@ -212,6 +212,15 @@ fun StudioConsoleDrawer(
                             onHarmonizeWithBackground = { viewModel.harmonizeWithBackgroundImage(context) },
                             onAutoLegibility = { viewModel.autoAdjustContrastAndLegibility(context) },
                             extractedPalette = extractedPalette,
+                            onSelectTexturePreset = { viewModel.setTexturePreset(it) },
+                            onTextureScaleChange = { viewModel.setTextureScale(it) },
+                            onSelectGradientPreset = { viewModel.setLuxuryGradient(it) },
+                            onGradientAngleChange = { viewModel.setGradientAngle(it) },
+                            onToggleRadialGradient = { viewModel.setGradientRadial(it) },
+                            onToggleHollowText = { viewModel.setHollowText(it) },
+                            onRetroExtrusionDepthChange = { viewModel.setRetroExtrusionDepth(it) },
+                            onRetroExtrusionAngleChange = { viewModel.setRetroExtrusionAngle(it) },
+                            onRetroExtrusionColorChange = { viewModel.setRetroExtrusionColor(it) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
@@ -230,7 +239,13 @@ fun StudioConsoleDrawer(
                             state = canvasState,
                             onSelectFilmPreset = { viewModel.setFilmPreset(it) },
                             onExportQrCard = onExportQrCard,
-                            onImportQrRecipe = onImportQrRecipe
+                            onImportQrRecipe = onImportQrRecipe,
+                            onToggleColorGrading = { viewModel.setColorGradingEnabled(it) },
+                            onLiftChange = { r, g, b -> viewModel.setColorGradingLift(r, g, b) },
+                            onGammaChange = { r, g, b -> viewModel.setColorGradingGamma(r, g, b) },
+                            onGainChange = { r, g, b -> viewModel.setColorGradingGain(r, g, b) },
+                            onResetColorGrading = { viewModel.resetColorGrading() },
+                            onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 
                         6 -> CanvasBackgroundPanel(

@@ -46,11 +46,18 @@ fun FilmFilterPanel(
     onSelectFilmPreset: (FilmPreset) -> Unit,
     onExportQrCard: () -> Unit,
     onImportQrRecipe: (Bitmap) -> Unit,
+    onToggleColorGrading: ((Boolean) -> Unit)? = null,
+    onLiftChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
+    onGammaChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
+    onGainChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
+    onResetColorGrading: (() -> Unit)? = null,
+    onSliderChangeFinished: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
+    var mainFilterSubTab by remember { mutableIntStateOf(0) }
     var selectedCategory by remember { mutableStateOf("الكل") }
     var favoriteFilters by remember { mutableStateOf(AtharFavoritesManager.getFavoriteFilters(context)) }
 
@@ -85,11 +92,61 @@ fun FilmFilterPanel(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // QR Code Sharing & Scanning Action Buttons
+        // Sub-segment switcher: Film Presets vs 3-Way Color Wheels
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(GlassSurface)
+                .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp))
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            listOf(
+                0 to "فلاتر الأفلام والوصفات",
+                1 to "عجلات التدريج اللوني (3-Way)"
+            ).forEach { (idx, title) ->
+                val isSelected = mainFilterSubTab == idx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(if (isSelected) GoldAccent else Color.Transparent)
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            mainFilterSubTab = idx
+                        }
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        color = if (isSelected) AmoledBlack else MutedWhite,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        if (mainFilterSubTab == 1 && onToggleColorGrading != null && onLiftChange != null && onGammaChange != null && onGainChange != null && onResetColorGrading != null) {
+            app.xrtm8.athar.ui.components.ColorGradingWheelsPanel(
+                state = state,
+                onToggleColorGrading = onToggleColorGrading,
+                onLiftChange = onLiftChange,
+                onGammaChange = onGammaChange,
+                onGainChange = onGainChange,
+                onResetColorGrading = onResetColorGrading,
+                onSliderChangeFinished = onSliderChangeFinished
+            )
+        } else {
+            // QR Code Sharing & Scanning Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -257,4 +314,5 @@ fun FilmFilterPanel(
             }
         }
     }
+}
 }

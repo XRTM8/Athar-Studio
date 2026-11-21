@@ -151,13 +151,27 @@ object FilmPresetEngine {
         brightness: Float,
         contrast: Float,
         saturation: Float,
-        isGrayscale: Boolean
+        isGrayscale: Boolean,
+        colorGradingEnabled: Boolean = false,
+        liftR: Float = 0f, liftG: Float = 0f, liftB: Float = 0f,
+        gammaR: Float = 0f, gammaG: Float = 0f, gammaB: Float = 0f,
+        gainR: Float = 0f, gainG: Float = 0f, gainB: Float = 0f
     ): ColorMatrixColorFilter {
         val composite = ColorMatrix()
 
         // 1. Film preset matrix
         val filmMatrix = getFilmColorMatrix(preset)
         composite.postConcat(filmMatrix)
+
+        // 1.5 3-Way Color Wheels Grading (Lift / Gamma / Gain)
+        if (colorGradingEnabled) {
+            val gradingMatrix = AtharColorGradingEngine.createColorGradingMatrix(
+                liftR, liftG, liftB,
+                gammaR, gammaG, gammaB,
+                gainR, gainG, gainB
+            )
+            composite.postConcat(gradingMatrix)
+        }
 
         // 2. Saturation
         val effectiveSat = if (isGrayscale) 0f else saturation.coerceIn(0f, 2.5f)

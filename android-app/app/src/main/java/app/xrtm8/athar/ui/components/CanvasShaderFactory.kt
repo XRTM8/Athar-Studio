@@ -1,11 +1,19 @@
 package app.xrtm8.athar.ui.components
 
+import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.LinearGradient
+import android.graphics.Matrix
+import android.graphics.RadialGradient
 import android.graphics.Shader
+import app.xrtm8.athar.model.LuxuryGradientPreset
 import app.xrtm8.athar.model.VisualEffect
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
 
 /**
- * High-performance Skia shader generator for metallic and luxury visual effects.
+ * High-performance Skia shader generator for metallic, luxury, and multi-stop vector gradients.
  * Pre-compiled ARGB integer color tables eliminate all string parsing and array allocation churn at 120Hz.
  */
 object CanvasShaderFactory {
@@ -72,5 +80,59 @@ object CanvasShaderFactory {
 
             else -> null
         }
+    }
+
+    /**
+     * Generates a 360° rotatable multi-stop vector gradient shader.
+     */
+    fun createMultiStopGradientShader(
+        preset: LuxuryGradientPreset,
+        angle: Float,
+        isRadial: Boolean,
+        centerX: Float,
+        centerY: Float,
+        radiusPx: Float
+    ): Shader? {
+        if (preset == LuxuryGradientPreset.NONE || preset.colors.isEmpty()) return null
+
+        val colors = IntArray(preset.colors.size) { i -> preset.colors[i].toInt() }
+        val stops = preset.stops.toFloatArray()
+
+        return if (isRadial) {
+            RadialGradient(
+                centerX, centerY,
+                radiusPx.coerceAtLeast(10f),
+                colors, stops,
+                Shader.TileMode.CLAMP
+            )
+        } else {
+            val rad = Math.toRadians(angle.toDouble())
+            val dx = (cos(rad) * radiusPx).toFloat()
+            val dy = (sin(rad) * radiusPx).toFloat()
+            LinearGradient(
+                centerX - dx, centerY - dy,
+                centerX + dx, centerY + dy,
+                colors, stops,
+                Shader.TileMode.CLAMP
+            )
+        }
+    }
+
+    /**
+     * Generates a GPU hardware-accelerated clipping texture shader.
+     */
+    fun createTextureShader(
+        textureBitmap: Bitmap,
+        scale: Float,
+        offsetX: Float,
+        offsetY: Float
+    ): Shader {
+        val shader = BitmapShader(textureBitmap, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        val matrix = Matrix().apply {
+            postScale(scale.coerceIn(0.1f, 10f), scale.coerceIn(0.1f, 10f))
+            postTranslate(offsetX, offsetY)
+        }
+        shader.setLocalMatrix(matrix)
+        return shader
     }
 }

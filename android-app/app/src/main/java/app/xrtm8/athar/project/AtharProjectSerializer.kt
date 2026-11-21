@@ -62,6 +62,19 @@ object AtharProjectSerializer {
                     put("is_curved", layer.isCurved)
                     put("curve_angle", layer.curveAngle.toDouble())
                     put("is_behind_subject", layer.isBehindSubject)
+                    // v2.1.0 Next-Gen Pillars
+                    put("texture_preset", layer.texturePreset.name)
+                    put("custom_texture_uri", layer.customTextureUri ?: "")
+                    put("texture_scale", layer.textureScale.toDouble())
+                    put("texture_offset_x", layer.textureOffsetX.toDouble())
+                    put("texture_offset_y", layer.textureOffsetY.toDouble())
+                    put("gradient_preset", layer.gradientPreset.name)
+                    put("gradient_angle", layer.gradientAngle.toDouble())
+                    put("is_radial_gradient", layer.isRadialGradient)
+                    put("is_hollow_text", layer.isHollowText)
+                    put("retro_extrusion_depth", layer.retroExtrusionDepth.toDouble())
+                    put("retro_extrusion_angle", layer.retroExtrusionAngle.toDouble())
+                    put("retro_extrusion_color", layer.retroExtrusionColorLong)
                     val tArr = JSONArray()
                     layer.tashkeelItems.forEach { t ->
                         val tObj = JSONObject().apply {
@@ -155,6 +168,18 @@ object AtharProjectSerializer {
             put("lens_flare_y", state.lensFlareY.toDouble())
             put("lens_flare_intensity", state.lensFlareIntensity.toDouble())
             put("lens_flare_color", state.lensFlareColorLong)
+
+            // v2.1.0 3-Way Color Wheels Grading
+            put("color_grading_enabled", state.colorGradingEnabled)
+            put("lift_red", state.liftRed.toDouble())
+            put("lift_green", state.liftGreen.toDouble())
+            put("lift_blue", state.liftBlue.toDouble())
+            put("gamma_red", state.gammaRed.toDouble())
+            put("gamma_green", state.gammaGreen.toDouble())
+            put("gamma_blue", state.gammaBlue.toDouble())
+            put("gain_red", state.gainRed.toDouble())
+            put("gain_green", state.gainGreen.toDouble())
+            put("gain_blue", state.gainBlue.toDouble())
         }
     }
 
@@ -205,6 +230,25 @@ object AtharProjectSerializer {
                 val isCurved = lObj.optBoolean("is_curved", false)
                 val curveAngle = lObj.optDouble("curve_angle", 0.0).toFloat()
                 val isBehindSubject = lObj.optBoolean("is_behind_subject", false)
+
+                // v2.1.0 Next-Gen Pillars
+                val texPresetStr = lObj.optString("texture_preset", TextureMaskPreset.NONE.name)
+                val texPreset = try { TextureMaskPreset.valueOf(texPresetStr) } catch (e: Exception) { TextureMaskPreset.NONE }
+                val customTex = lObj.optString("custom_texture_uri", "").takeIf { it.isNotEmpty() }
+                val texScale = lObj.optDouble("texture_scale", 1.0).toFloat()
+                val texOffX = lObj.optDouble("texture_offset_x", 0.0).toFloat()
+                val texOffY = lObj.optDouble("texture_offset_y", 0.0).toFloat()
+
+                val gradPresetStr = lObj.optString("gradient_preset", LuxuryGradientPreset.NONE.name)
+                val gradPreset = try { LuxuryGradientPreset.valueOf(gradPresetStr) } catch (e: Exception) { LuxuryGradientPreset.NONE }
+                val gradAngle = lObj.optDouble("gradient_angle", 90.0).toFloat()
+                val isRadialGrad = lObj.optBoolean("is_radial_gradient", false)
+
+                val isHollow = lObj.optBoolean("is_hollow_text", false)
+                val retroDepth = lObj.optDouble("retro_extrusion_depth", 0.0).toFloat()
+                val retroAngle = lObj.optDouble("retro_extrusion_angle", 135.0).toFloat()
+                val retroColor = lObj.optLong("retro_extrusion_color", 0xFF000000)
+
                 val tItems = ArrayList<TashkeelItem>()
                 if (lObj.has("tashkeel_items")) {
                     val tArr = lObj.getJSONArray("tashkeel_items")
@@ -266,7 +310,19 @@ object AtharProjectSerializer {
                         isCurved = isCurved,
                         curveAngle = curveAngle,
                         isBehindSubject = isBehindSubject,
-                        tashkeelItems = tItems
+                        tashkeelItems = tItems,
+                        texturePreset = texPreset,
+                        customTextureUri = customTex,
+                        textureScale = texScale,
+                        textureOffsetX = texOffX,
+                        textureOffsetY = texOffY,
+                        gradientPreset = gradPreset,
+                        gradientAngle = gradAngle,
+                        isRadialGradient = isRadialGrad,
+                        isHollowText = isHollow,
+                        retroExtrusionDepth = retroDepth,
+                        retroExtrusionAngle = retroAngle,
+                        retroExtrusionColorLong = retroColor
                     )
                 )
             }
@@ -359,7 +415,17 @@ object AtharProjectSerializer {
             lensFlareX = c.optDouble("lens_flare_x", 0.5).toFloat(),
             lensFlareY = c.optDouble("lens_flare_y", 0.2).toFloat(),
             lensFlareIntensity = c.optDouble("lens_flare_intensity", 0.7).toFloat(),
-            lensFlareColorLong = c.optLong("lens_flare_color", 0xFFFFE082)
+            lensFlareColorLong = c.optLong("lens_flare_color", 0xFFFFE082),
+            colorGradingEnabled = c.optBoolean("color_grading_enabled", false),
+            liftRed = c.optDouble("lift_red", 0.0).toFloat(),
+            liftGreen = c.optDouble("lift_green", 0.0).toFloat(),
+            liftBlue = c.optDouble("lift_blue", 0.0).toFloat(),
+            gammaRed = c.optDouble("gamma_red", 0.0).toFloat(),
+            gammaGreen = c.optDouble("gamma_green", 0.0).toFloat(),
+            gammaBlue = c.optDouble("gamma_blue", 0.0).toFloat(),
+            gainRed = c.optDouble("gain_red", 0.0).toFloat(),
+            gainGreen = c.optDouble("gain_green", 0.0).toFloat(),
+            gainBlue = c.optDouble("gain_blue", 0.0).toFloat()
         )
     }
 }

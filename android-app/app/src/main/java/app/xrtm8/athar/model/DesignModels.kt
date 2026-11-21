@@ -14,6 +14,45 @@ enum class VisualEffect(val arabicName: String, val description: String) {
     MINIMAL_LUXURY("أبيض ناصع", "بساطة مطلقة بأسلوب التصميم المعاصر")
 }
 
+enum class TextureMaskPreset(val labelAr: String, val description: String) {
+    NONE("بدون خامة", "لون أو تدرج قياسي بدون ملمس مفرغ"),
+    GOLD_LEAF("ورق الذهب الملكي 24K", "بريق الذهب العتيق مع نسيج معدني متدرج"),
+    CARRARA_MARBLE("رخام كرارا الفاخر", "عروق رخامية رمادية على أرضية بيضاء ناصعة"),
+    DAMASCUS_PARCHMENT("ورق دمشقي عتيق", "ملمس المخطوطات والورق المصنوع يدوياً"),
+    EMERALD_MALACHITE("عروق الملاكيت الزمردي", "خطوط معدنية خضراء داكنة وفاتحة"),
+    BRUSHED_TITANIUM("تيتانيوم مصقول", "خطوط معدنية أفقية دقيقة فائقة العصرية"),
+    CUSTOM_PHOTO("خامة صورة مخصصة", "قص محتوى صورة من المعرض داخل النص مباشرة")
+}
+
+enum class LuxuryGradientPreset(val labelAr: String, val colors: List<Long>, val stops: List<Float>) {
+    NONE("تلقائي", emptyList(), emptyList()),
+    ANDALUSIAN_GOLD(
+        "ذهب أندلسي ملكي",
+        listOf(0xFF4A3500, 0xFFD4AF37, 0xFFFFF2A3, 0xFFD4AF37, 0xFF785100),
+        listOf(0.0f, 0.25f, 0.50f, 0.75f, 1.0f)
+    ),
+    PERSIAN_TURQUOISE(
+        "فيروز نيسابوري",
+        listOf(0xFF0B2545, 0xFF134074, 0xFF00A896, 0xFF8ECAE6),
+        listOf(0.0f, 0.35f, 0.70f, 1.0f)
+    ),
+    ROYAL_AMETHYST(
+        "جمشت أرجواني فاخر",
+        listOf(0xFF240046, 0xFF5A189A, 0xFF9D4EDD, 0xFFE0AAFF),
+        listOf(0.0f, 0.30f, 0.65f, 1.0f)
+    ),
+    DESERT_ROSE(
+        "وردة الصحراء المذهبة",
+        listOf(0xFF4A0E17, 0xFF8B263E, 0xFFE0A996, 0xFFFBF2E9),
+        listOf(0.0f, 0.30f, 0.70f, 1.0f)
+    ),
+    TITANIUM_CHROME(
+        "تيتانيوم وكروم عاكس",
+        listOf(0xFF1F2421, 0xFF495057, 0xFFCED4DA, 0xFFFFFFFF, 0xFF343A40),
+        listOf(0.0f, 0.20f, 0.50f, 0.75f, 1.0f)
+    )
+}
+
 enum class CanvasAspectRatio(val label: String, val ratio: Float?) {
     STORY_9_16("ستوري 9:16", 9f / 16f),
     SQUARE_1_1("مربع 1:1", 1f),
@@ -216,7 +255,20 @@ data class TextLayer(
     val isCurved: Boolean = false,
     val curveAngle: Float = 0f,
     val isBehindSubject: Boolean = false,
-    val tashkeelItems: List<TashkeelItem> = emptyList()
+    val tashkeelItems: List<TashkeelItem> = emptyList(),
+    // v2.1.0 Next-Gen Pillars
+    val texturePreset: TextureMaskPreset = TextureMaskPreset.NONE,
+    val customTextureUri: String? = null,
+    val textureScale: Float = 1.0f,
+    val textureOffsetX: Float = 0f,
+    val textureOffsetY: Float = 0f,
+    val gradientPreset: LuxuryGradientPreset = LuxuryGradientPreset.NONE,
+    val gradientAngle: Float = 90f,
+    val isRadialGradient: Boolean = false,
+    val isHollowText: Boolean = false,
+    val retroExtrusionDepth: Float = 0f,
+    val retroExtrusionAngle: Float = 135f,
+    val retroExtrusionColorLong: Long = 0xFF000000
 )
 
 data class CanvasState(
@@ -247,7 +299,18 @@ data class CanvasState(
     val bgPhotoOffsetX: Float = 0f,
     val bgPhotoOffsetY: Float = 0f,
     val bgPhotoScale: Float = 1.0f,
-    val isFramingMode: Boolean = false
+    val isFramingMode: Boolean = false,
+    // v2.1.0 3-Way Color Wheels Grading (Lift / Gamma / Gain)
+    val colorGradingEnabled: Boolean = false,
+    val liftRed: Float = 0f,
+    val liftGreen: Float = 0f,
+    val liftBlue: Float = 0f,
+    val gammaRed: Float = 0f,
+    val gammaGreen: Float = 0f,
+    val gammaBlue: Float = 0f,
+    val gainRed: Float = 0f,
+    val gainGreen: Float = 0f,
+    val gainBlue: Float = 0f
 ) {
     val activeLayer: TextLayer
         get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()
@@ -292,6 +355,18 @@ data class CanvasState(
     val curveAngle: Float get() = activeLayer.curveAngle
     val isBehindSubject: Boolean get() = activeLayer.isBehindSubject
     val tashkeelItems: List<TashkeelItem> get() = activeLayer.tashkeelItems
+    val texturePreset: TextureMaskPreset get() = activeLayer.texturePreset
+    val customTextureUri: String? get() = activeLayer.customTextureUri
+    val textureScale: Float get() = activeLayer.textureScale
+    val textureOffsetX: Float get() = activeLayer.textureOffsetX
+    val textureOffsetY: Float get() = activeLayer.textureOffsetY
+    val gradientPreset: LuxuryGradientPreset get() = activeLayer.gradientPreset
+    val gradientAngle: Float get() = activeLayer.gradientAngle
+    val isRadialGradient: Boolean get() = activeLayer.isRadialGradient
+    val isHollowText: Boolean get() = activeLayer.isHollowText
+    val retroExtrusionDepth: Float get() = activeLayer.retroExtrusionDepth
+    val retroExtrusionAngle: Float get() = activeLayer.retroExtrusionAngle
+    val retroExtrusionColorLong: Long get() = activeLayer.retroExtrusionColorLong
 
     // Convenience constructor for legacy / single-layer callers
     constructor(
