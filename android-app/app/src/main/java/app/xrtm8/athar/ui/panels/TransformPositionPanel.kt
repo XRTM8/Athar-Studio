@@ -145,7 +145,7 @@ fun TransformPositionPanel(
                     ) {
                         Text(
                             text = label,
-                            color = if (isSelected) AmoledBlack else PureWhite,
+                            color = if (isSelected) PureWhite else MutedWhite,
                             fontSize = 10.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

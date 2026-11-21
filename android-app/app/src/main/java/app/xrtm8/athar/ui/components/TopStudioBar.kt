@@ -23,9 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.ui.theme.*
 
-/**
- * Top Studio Header: Brand mark, Project switcher, Quick studio controls pill, Theme toggle, and Cherry Export CTA.
- */
 @Composable
 fun TopStudioBar(
     canUndo: Boolean,
@@ -39,6 +36,7 @@ fun TopStudioBar(
     onToggleLock: () -> Unit,
     onResetTransform: () -> Unit,
     onExportClick: () -> Unit,
+    onTogglePreview: () -> Unit,
     onBackToHome: (() -> Unit)? = null,
     onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -68,7 +66,7 @@ fun TopStudioBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Right: Back to Home, Logo & Project Library Button
+            // Right: Back to Home, Brand Name & Project Switcher
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onBackToHome != null) {
                     Box(
@@ -86,7 +84,7 @@ fun TopStudioBar(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "العودة للرئيسية",
-                            tint = CherryAccent,
+                            tint = BurgundyAccent,
                             modifier = Modifier.size(17.dp)
                         )
                     }
@@ -111,8 +109,8 @@ fun TopStudioBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.FolderOpen,
-                        contentDescription = "مشاريعي ومسوداتي",
-                        tint = CherryAccent,
+                        contentDescription = "مشاريعي",
+                        tint = BurgundyAccent,
                         modifier = Modifier.size(19.dp)
                     )
                 }
@@ -128,128 +126,82 @@ fun TopStudioBar(
                         Icon(
                             imageVector = if (isAmoledWhite) Icons.Default.DarkMode else Icons.Default.LightMode,
                             contentDescription = "تبديل الثيم",
-                            tint = if (isAmoledWhite) DarkText else CherryAccent,
+                            tint = if (isAmoledWhite) DarkText else BurgundyAccent,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
 
-            // Center: Studio Quick Controls Pill (Undo, Redo, Grid, Lock, Reset)
+            // Center: Studio Quick Controls Pill (Undo, Redo, Preview, Grid, Lock, Reset)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .background(pillBackground)
                     .border(0.5.dp, pillBorder, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                    .padding(horizontal = 3.dp, vertical = 2.dp)
             ) {
                 IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onUndo()
-                    },
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onUndo() },
                     enabled = canUndo,
-                    modifier = Modifier.size(30.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Undo,
-                        contentDescription = "تراجع",
-                        tint = if (canUndo) primaryText else subtleIcon,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "تراجع", tint = if (canUndo) primaryText else subtleIcon, modifier = Modifier.size(15.dp))
                 }
 
                 IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onRedo()
-                    },
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onRedo() },
                     enabled = canRedo,
-                    modifier = Modifier.size(30.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Redo,
-                        contentDescription = "إعادة",
-                        tint = if (canRedo) primaryText else subtleIcon,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "إعادة", tint = if (canRedo) primaryText else subtleIcon, modifier = Modifier.size(15.dp))
                 }
 
-                // Grid Guide Toggle
                 IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onToggleGrid()
-                    },
-                    modifier = Modifier.size(30.dp)
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onTogglePreview() },
+                    modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(
-                        imageVector = if (showGrid) Icons.Default.GridOn else Icons.Default.GridOff,
-                        contentDescription = "الشبكة",
-                        tint = if (showGrid) CherryAccent else subtleIcon,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.Default.Visibility, contentDescription = "معاينة التصميم", tint = BurgundyAccent, modifier = Modifier.size(16.dp))
                 }
 
-                // Lock Canvas Toggle
                 IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onToggleLock()
-                    },
-                    modifier = Modifier.size(30.dp)
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleGrid() },
+                    modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                        contentDescription = "قفل",
-                        tint = if (isLocked) CherryAccent else subtleIcon,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(if (showGrid) Icons.Default.GridOn else Icons.Default.GridOff, contentDescription = "الشبكة", tint = if (showGrid) BurgundyAccent else subtleIcon, modifier = Modifier.size(15.dp))
                 }
 
-                // Center/Reset Canvas Transform
                 IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onResetTransform()
-                    },
-                    modifier = Modifier.size(30.dp)
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onToggleLock() },
+                    modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.FilterCenterFocus,
-                        contentDescription = "توسيط التصميم",
-                        tint = secondaryText,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen, contentDescription = "قفل", tint = if (isLocked) BurgundyAccent else subtleIcon, modifier = Modifier.size(15.dp))
+                }
+
+                IconButton(
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onResetTransform() },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(Icons.Default.FilterCenterFocus, contentDescription = "توسيط", tint = secondaryText, modifier = Modifier.size(15.dp))
                 }
             }
 
-            // Left: High-Contrast Luxury Cherry Export CTA
+            // Left: High-Contrast Velvet Burgundy Export CTA
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onExportClick()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
+                colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),
                 shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                contentPadding = PaddingValues(horizontal = 13.dp, vertical = 6.dp),
                 modifier = Modifier.height(34.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = null,
-                        tint = PureWhite,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "تصدير",
-                        color = PureWhite,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Icon(Icons.Default.Share, contentDescription = null, tint = PureWhite, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "تصدير", color = PureWhite, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

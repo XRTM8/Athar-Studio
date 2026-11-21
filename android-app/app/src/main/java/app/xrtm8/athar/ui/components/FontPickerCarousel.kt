@@ -62,7 +62,7 @@ fun FontPickerCarousel(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = font.specimen,
-                            color = if (isSelected) AmoledBlack else CherryAccent,
+                            color = if (isSelected) PureWhite else CherryAccent,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp,
                             maxLines = 1
@@ -70,7 +70,7 @@ fun FontPickerCarousel(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = font.fontName,
-                            color = if (isSelected) AmoledBlack else PureWhite,
+                            color = if (isSelected) PureWhite else MutedWhite,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 10.5.sp
                         )

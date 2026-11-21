@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +22,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FormatClear
 import androidx.compose.material3.Button
@@ -48,6 +52,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -116,7 +121,10 @@ fun ArabicTextEditorDialog(
                     fontSize = 17.sp
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     // Strip Tashkeel Button
                     TextButton(
                         onClick = {
@@ -124,11 +132,11 @@ fun ArabicTextEditorDialog(
                             val stripped = stripArabicDiacritics(textFieldValue.text)
                             textFieldValue = TextFieldValue(text = stripped, selection = TextRange(stripped.length))
                         },
-                        colors = ButtonDefaults.textButtonColors(contentColor = CherryAccent)
+                        colors = ButtonDefaults.textButtonColors(contentColor = subtleTextColor)
                     ) {
-                        Icon(Icons.Default.FormatClear, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("تجريد الحركات", fontSize = 11.5.sp)
+                        Icon(Icons.Default.FormatClear, contentDescription = null, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("تجريد", fontSize = 11.sp)
                     }
 
                     // Clear Text Button
@@ -139,9 +147,28 @@ fun ArabicTextEditorDialog(
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = subtleTextColor)
                     ) {
-                        Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("مسح", fontSize = 11.sp)
+                    }
+
+                    // Direct One-Tap Apply Button (visible right here without closing keyboard!)
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (textFieldValue.text.isNotBlank()) {
+                                onApplyText(textFieldValue.text)
+                            }
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = PureWhite, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("مسح", fontSize = 11.5.sp)
+                        Text("تطبيق", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             }
@@ -152,18 +179,30 @@ fun ArabicTextEditorDialog(
             OutlinedTextField(
                 value = textFieldValue,
                 onValueChange = { textFieldValue = it },
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (textFieldValue.text.isNotBlank()) {
+                            onApplyText(textFieldValue.text)
+                        }
+                        onDismiss()
+                    }
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 90.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GoldAccent,
-                    unfocusedBorderColor = GlassBorderActive,
-                    focusedTextColor = PureWhite,
-                    unfocusedTextColor = PureWhite,
-                    focusedContainerColor = GlassSurface,
-                    unfocusedContainerColor = GlassSurface,
-                    cursorColor = GoldAccent
+                    focusedBorderColor = BurgundyAccent,
+                    unfocusedBorderColor = if (isAmoledWhite) WhiteBorder else GlassBorderActive,
+                    focusedTextColor = primaryTextColor,
+                    unfocusedTextColor = primaryTextColor,
+                    focusedContainerColor = cardBg,
+                    unfocusedContainerColor = cardBg,
+                    cursorColor = BurgundyAccent
                 ),
                 textStyle = TextStyle(
                     fontSize = 22.sp,
@@ -313,7 +352,7 @@ fun ArabicTextEditorDialog(
                         }
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
+                    colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.weight(1f).height(48.dp)
                 ) {

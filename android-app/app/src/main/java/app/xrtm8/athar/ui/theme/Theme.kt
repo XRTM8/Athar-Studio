@@ -40,20 +40,26 @@ val DarkTextMuted = Color(0xFF5A606E)             // Secondary dark labels
 val DarkTextSubtle = Color(0xFF8B92A0)            // Tertiary hints
 
 // ==========================================
-// 3. CHERRY RED LUXURY ACCENT
+// 3. BURGUNDY (عنابي فاخر ومريح للعين) LUXURY ACCENT
 // ==========================================
 
-// Rich Cherry / Crimson Palette (Replacing Gold/Yellow)
-val CherryAccent = Color(0xFFE02447)              // Vibrant cherry red
-val CherryWarm = Color(0xFFD81B60)                // Velvet crimson cherry
-val CherryDeep = Color(0xFF9C1030)                // Deep imperial cherry
-val CherryMuted = Color(0x26E02447)               // 15% cherry tint for active chips/tabs
-val CherryBorderActive = Color(0x66E02447)        // Cherry focus outline
+// Velvet Burgundy Palette (Soothing & High-Contrast for Eyes)
+val BurgundyAccent = Color(0xFF9E1B42)             // Velvet Burgundy (Comfortable on AMOLED Dark)
+val BurgundyDeep = Color(0xFF72142B)               // Deep Royal Burgundy (Crisp on AMOLED White)
+val BurgundyWarm = Color(0xFF8B1538)               // Warm Burgundy tone
+val BurgundyMuted = Color(0x249E1B42)              // 14% Burgundy tint for active chips/tabs
+val BurgundyBorderActive = Color(0x669E1B42)       // Burgundy focus outline
 
-// Backward-compatible aliases mapped 1:1 to Cherry
-val GoldAccent = CherryAccent
-val GoldWarm = CherryWarm
-val GoldMuted = CherryMuted
+// Backward-compatible aliases mapped 1:1 to Burgundy
+val CherryAccent = BurgundyAccent
+val CherryWarm = BurgundyWarm
+val CherryDeep = BurgundyDeep
+val CherryMuted = BurgundyMuted
+val CherryBorderActive = BurgundyBorderActive
+
+val GoldAccent = BurgundyAccent
+val GoldWarm = BurgundyWarm
+val GoldMuted = BurgundyMuted
 
 // ==========================================
 // 4. BORDERS & GLASS TOKENS
@@ -62,12 +68,12 @@ val GoldMuted = CherryMuted
 // Dark theme borders
 val StudioBorder = Color(0x14FFFFFF)              // Crisp hairline border (8%)
 val StudioBorderSubtle = Color(0x24FFFFFF)        // Interactive container outline (14%)
-val StudioBorderActive = CherryBorderActive
+val StudioBorderActive = BurgundyBorderActive
 
 // White theme borders
 val WhiteBorder = Color(0x1F000000)               // Hairline dark border on white
 val WhiteBorderSubtle = Color(0x14000000)
-val WhiteBorderActive = CherryBorderActive
+val WhiteBorderActive = BurgundyBorderActive
 
 // Glass surface tokens
 val GlassBackground = Color(0xD90A0B0E)
@@ -76,7 +82,7 @@ val GlassSurface = StudioSurface
 val GlassCard = StudioSurface
 val GlassSurfaceHover = StudioSurfaceElevated
 val GlassBorder = StudioBorder
-val GlassBorderActive = CherryBorderActive
+val GlassBorderActive = BurgundyBorderActive
 
 // CompositionLocal for immediate reactive access across composables
 val LocalAmoledWhite = staticCompositionLocalOf { false }
@@ -86,21 +92,21 @@ val LocalAmoledWhite = staticCompositionLocalOf { false }
 // ==========================================
 
 private val DarkAtharColorScheme = darkColorScheme(
-    primary = CherryAccent,
-    secondary = CherryWarm,
+    primary = BurgundyAccent,
+    secondary = BurgundyWarm,
     background = AmoledBlack,
     surface = StudioSurface,
     surfaceVariant = StudioSurfaceElevated,
-    onPrimary = AmoledBlack,
-    onSecondary = AmoledBlack,
+    onPrimary = PureWhite,
+    onSecondary = PureWhite,
     onBackground = PureWhite,
     onSurface = PureWhite,
     onSurfaceVariant = PureWhite
 )
 
 private val LightAtharColorScheme = lightColorScheme(
-    primary = CherryWarm,
-    secondary = CherryDeep,
+    primary = BurgundyDeep,
+    secondary = BurgundyWarm,
     background = AmoledWhite,
     surface = WhiteSurface,
     surfaceVariant = WhiteSurfaceElevated,

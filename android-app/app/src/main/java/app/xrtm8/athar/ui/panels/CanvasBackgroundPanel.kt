@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Gradient
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhotoFilter
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -33,9 +34,11 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasGradientDirection
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.ColorMixChannel
 import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.ui.components.PhotoAdjustmentsPanel
 import app.xrtm8.athar.ui.panels.background.CanvasFramingSection
+import app.xrtm8.athar.ui.panels.background.ColorMixPanel
 import app.xrtm8.athar.ui.panels.background.GradientScrimSection
 import app.xrtm8.athar.ui.theme.*
 
@@ -78,6 +81,11 @@ fun CanvasBackgroundPanel(
     onGammaChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
     onGainChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
     onResetColorGrading: (() -> Unit)? = null,
+    onColorMixAdjust: ((ColorMixChannel, Float, Float, Float) -> Unit)? = null,
+    onIsolateColorChannel: ((ColorMixChannel?) -> Unit)? = null,
+    onMonochromeColorChannel: ((ColorMixChannel?) -> Unit)? = null,
+    onResetColorMixChannel: ((ColorMixChannel) -> Unit)? = null,
+    onResetAllColorMix: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -93,13 +101,14 @@ fun CanvasBackgroundPanel(
                 .background(GlassSurface)
                 .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp))
                 .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             listOf(
                 0 to ("الكانفاس" to Icons.Default.AspectRatio),
-                1 to ("تعديل الصورة" to Icons.Default.Tune),
-                2 to ("الظل المتدرج" to Icons.Default.Gradient),
-                3 to ("الفلاتر والألوان" to Icons.Default.PhotoFilter)
+                1 to ("الضبط" to Icons.Default.Tune),
+                2 to ("خلط الألوان" to Icons.Default.Palette),
+                3 to ("الظل" to Icons.Default.Gradient),
+                4 to ("الفلاتر" to Icons.Default.PhotoFilter)
             ).forEach { (idx, item) ->
                 val (title, icon) = item
                 val isSelected = subSection == idx
@@ -107,7 +116,7 @@ fun CanvasBackgroundPanel(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(9.dp))
-                        .background(if (isSelected) CherryAccent else Color.Transparent)
+                        .background(if (isSelected) BurgundyAccent else Color.Transparent)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             subSection = idx
@@ -119,14 +128,14 @@ fun CanvasBackgroundPanel(
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = if (isSelected) AmoledBlack else MutedWhite,
-                            modifier = Modifier.size(14.dp)
+                            tint = if (isSelected) PureWhite else MutedWhite,
+                            modifier = Modifier.size(13.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = title,
-                            color = if (isSelected) AmoledBlack else PureWhite,
-                            fontSize = 11.sp,
+                            color = if (isSelected) PureWhite else MutedWhite,
+                            fontSize = 10.5.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
@@ -177,7 +186,17 @@ fun CanvasBackgroundPanel(
                     onSliderChangeFinished = onSliderChangeFinished
                 )
 
-                2 -> GradientScrimSection(
+                2 -> ColorMixPanel(
+                    state = state.colorMixState,
+                    onChannelAdjust = { ch, h, s, l -> onColorMixAdjust?.invoke(ch, h, s, l) },
+                    onIsolateChannel = { onIsolateColorChannel?.invoke(it) },
+                    onMonochromeChannel = { onMonochromeColorChannel?.invoke(it) },
+                    onResetChannel = { onResetColorMixChannel?.invoke(it) },
+                    onResetAll = { onResetAllColorMix?.invoke() },
+                    onSliderChangeFinished = onSliderChangeFinished
+                )
+
+                3 -> GradientScrimSection(
                     state = state,
                     onToggleGradientScrim = onToggleGradientScrim,
                     onGradientScrimDirectionChange = onGradientScrimDirectionChange,

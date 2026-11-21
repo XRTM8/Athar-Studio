@@ -34,7 +34,8 @@ data class CanvasState(
     val gammaBlue: Float = 0f,
     val gainRed: Float = 0f,
     val gainGreen: Float = 0f,
-    val gainBlue: Float = 0f
+    val gainBlue: Float = 0f,
+    val colorMixState: ColorMixState = ColorMixState()
 ) {
     val activeLayer: TextLayer
         get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()

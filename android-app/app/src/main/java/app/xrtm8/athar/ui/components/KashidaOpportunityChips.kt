@@ -73,7 +73,7 @@ fun KashidaOpportunityChips(
             ) {
                 Text(
                     text = opp.displayLabel,
-                    color = if (isSelected) AmoledBlack else PureWhite,
+                    color = if (isSelected) PureWhite else PureWhite,
                     fontSize = 10.5.sp,
                     fontWeight = if (isSelected || opp.isRecommended) FontWeight.Bold else FontWeight.Normal
                 )

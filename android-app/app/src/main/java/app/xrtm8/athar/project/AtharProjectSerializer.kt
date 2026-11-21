@@ -153,6 +153,24 @@ object AtharProjectSerializer {
             put("gain_red", state.gainRed.toDouble())
             put("gain_green", state.gainGreen.toDouble())
             put("gain_blue", state.gainBlue.toDouble())
+
+            // 8-Channel Lightroom Color Mix
+            val cm = state.colorMixState
+            put("color_mix_enabled", cm.isEnabled)
+            if (cm.isolatedChannel != null) put("color_mix_isolated", cm.isolatedChannel.name)
+            if (cm.monochromeChannel != null) put("color_mix_monochrome", cm.monochromeChannel.name)
+            val cmObj = JSONObject()
+            cm.channelAdjustments.forEach { (ch, adj) ->
+                if (!adj.isDefault) {
+                    val aObj = JSONObject().apply {
+                        put("h", adj.hueShift.toDouble())
+                        put("s", adj.satShift.toDouble())
+                        put("l", adj.lumShift.toDouble())
+                    }
+                    cmObj.put(ch.name, aObj)
+                }
+            }
+            put("color_mix_channels", cmObj)
         }
     }
 
@@ -330,6 +348,32 @@ object AtharProjectSerializer {
 
         val activeLayerId = c.optString("active_layer_id", layers.firstOrNull()?.id ?: "layer_primary")
 
+        val cmEnabled = c.optBoolean("color_mix_enabled", false)
+        val cmIsoStr = c.optString("color_mix_isolated", "")
+        val cmIso = if (cmIsoStr.isNotBlank()) try { ColorMixChannel.valueOf(cmIsoStr) } catch (e: Exception) { null } else null
+        val cmMonoStr = c.optString("color_mix_monochrome", "")
+        val cmMono = if (cmMonoStr.isNotBlank()) try { ColorMixChannel.valueOf(cmMonoStr) } catch (e: Exception) { null } else null
+        val cmMap = mutableMapOf<ColorMixChannel, ChannelAdjustment>()
+        if (c.has("color_mix_channels")) {
+            val cmObj = c.getJSONObject("color_mix_channels")
+            ColorMixChannel.values().forEach { ch ->
+                if (cmObj.has(ch.name)) {
+                    val aObj = cmObj.getJSONObject(ch.name)
+                    cmMap[ch] = ChannelAdjustment(
+                        hueShift = aObj.optDouble("h", 0.0).toFloat(),
+                        satShift = aObj.optDouble("s", 0.0).toFloat(),
+                        lumShift = aObj.optDouble("l", 0.0).toFloat()
+                    )
+                }
+            }
+        }
+        val deserializedColorMix = ColorMixState(
+            isEnabled = cmEnabled,
+            channelAdjustments = cmMap,
+            isolatedChannel = cmIso,
+            monochromeChannel = cmMono
+        )
+
         return CanvasState(
             layers = if (layers.isNotEmpty()) layers else listOf(TextLayer()),
             activeLayerId = activeLayerId,
@@ -359,7 +403,8 @@ object AtharProjectSerializer {
             gammaBlue = c.optDouble("gamma_blue", 0.0).toFloat(),
             gainRed = c.optDouble("gain_red", 0.0).toFloat(),
             gainGreen = c.optDouble("gain_green", 0.0).toFloat(),
-            gainBlue = c.optDouble("gain_blue", 0.0).toFloat()
+            gainBlue = c.optDouble("gain_blue", 0.0).toFloat(),
+            colorMixState = deserializedColorMix
         )
     }
 }

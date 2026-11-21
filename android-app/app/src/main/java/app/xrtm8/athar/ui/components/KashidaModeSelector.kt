@@ -82,7 +82,7 @@ fun KashidaModeSelector(
                 ) {
                     Text(
                         text = mode.label,
-                        color = if (isSelected) AmoledBlack else PureWhite,
+                        color = if (isSelected) PureWhite else MutedWhite,
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )

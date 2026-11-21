@@ -102,13 +102,13 @@ fun StyleEffectsPanel(
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = if (isSelected) AmoledBlack else MutedWhite,
+                            tint = if (isSelected) PureWhite else MutedWhite,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = title,
-                            color = if (isSelected) AmoledBlack else PureWhite,
+                            color = if (isSelected) PureWhite else MutedWhite,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )

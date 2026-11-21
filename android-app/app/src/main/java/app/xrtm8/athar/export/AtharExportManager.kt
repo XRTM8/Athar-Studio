@@ -141,6 +141,14 @@ object AtharExportManager {
                     }
                 }
 
+                if (state.colorMixState.isEnabled && !state.colorMixState.isDefault) {
+                    val mixed = app.xrtm8.athar.core.AtharColorMixEngine.processBitmap(srcBitmap, state.colorMixState)
+                    if (mixed != srcBitmap) {
+                        srcBitmap.recycle()
+                        srcBitmap = mixed
+                    }
+                }
+
                 val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
                     colorFilter = FilmPresetEngine.createCompositeFilter(
                         preset = state.filmPreset,

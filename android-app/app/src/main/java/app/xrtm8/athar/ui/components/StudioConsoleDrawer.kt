@@ -75,8 +75,8 @@ fun StudioConsoleDrawer(
 
     AnimatedVisibility(
         visible = isPanelExpanded,
-        enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
-        exit = fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) + shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow)),
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
         modifier = modifier
     ) {
         Box(
@@ -137,15 +137,7 @@ fun StudioConsoleDrawer(
 
                 AnimatedContent(
                     targetState = selectedTab,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeIn() togetherWith
-                                    slideOutHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeOut()
-                        } else {
-                            slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> -width } + fadeIn() togetherWith
-                                    slideOutHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { width -> width } + fadeOut()
-                        }
-                    },
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
                     label = "StudioConsoleTabs"
                 ) { currentTab ->
                     when (currentTab) {
@@ -209,14 +201,7 @@ fun StudioConsoleDrawer(
                             onContrastChange = { viewModel.setBackgroundContrast(it) },
                             onSaturationChange = { viewModel.setBackgroundSaturation(it) },
                             onVignetteChange = { viewModel.setBackgroundVignette(it) },
-                            onResetPhotoAdjustments = {
-                                viewModel.setBackgroundBlur(0f)
-                                viewModel.setBackgroundBrightness(0f)
-                                viewModel.setBackgroundContrast(1.0f)
-                                viewModel.setBackgroundSaturation(1.0f)
-                                viewModel.setBackgroundVignette(0f)
-                                viewModel.setBackgroundDim(0.25f)
-                            },
+                            onResetPhotoAdjustments = { viewModel.resetPhotoAdjustments() },
                             onAspectRatioChange = { viewModel.setAspectRatio(it) },
                             onToggleGridGuides = { viewModel.toggleGridGuides() },
                             onToggleFramingMode = { viewModel.toggleFramingMode(it) },
@@ -234,6 +219,11 @@ fun StudioConsoleDrawer(
                             onGammaChange = { r, g, b -> viewModel.setColorGradingGamma(r, g, b) },
                             onGainChange = { r, g, b -> viewModel.setColorGradingGain(r, g, b) },
                             onResetColorGrading = { viewModel.resetColorGrading() },
+                            onColorMixAdjust = { ch, h, s, l -> viewModel.setColorMixChannel(ch, h, s, l) },
+                            onIsolateColorChannel = { viewModel.setIsolatedColorChannel(it) },
+                            onMonochromeColorChannel = { viewModel.setMonochromeColorChannel(it) },
+                            onResetColorMixChannel = { viewModel.resetColorMixChannel(it) },
+                            onResetAllColorMix = { viewModel.resetAllColorMix() },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 

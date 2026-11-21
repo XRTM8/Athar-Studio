@@ -78,7 +78,7 @@ fun CanvasFramingSection(
                 ) {
                     Text(
                         text = ratio.label,
-                        color = if (isSelected) AmoledBlack else PureWhite,
+                        color = if (isSelected) PureWhite else MutedWhite,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 11.sp
                     )
@@ -330,7 +330,7 @@ fun CanvasFramingSection(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = bg.name,
-                            color = if (isSelected) AmoledBlack else PureWhite,
+                            color = if (isSelected) PureWhite else MutedWhite,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

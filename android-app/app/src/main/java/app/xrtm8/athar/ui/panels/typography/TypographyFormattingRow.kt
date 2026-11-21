@@ -94,7 +94,7 @@ fun TypographyFormattingRow(
                     Icon(
                         Icons.Default.FormatBold,
                         contentDescription = "عريض",
-                        tint = if (isBold) AmoledBlack else PureWhite,
+                        tint = if (isBold) PureWhite else MutedWhite,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -114,7 +114,7 @@ fun TypographyFormattingRow(
                     Icon(
                         Icons.Default.FormatItalic,
                         contentDescription = "مائل",
-                        tint = if (isItalic) AmoledBlack else PureWhite,
+                        tint = if (isItalic) PureWhite else MutedWhite,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -134,7 +134,7 @@ fun TypographyFormattingRow(
                     Icon(
                         Icons.Default.FormatUnderlined,
                         contentDescription = "تسطير",
-                        tint = if (isUnderline) AmoledBlack else PureWhite,
+                        tint = if (isUnderline) PureWhite else MutedWhite,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -169,7 +169,7 @@ fun TypographyFormattingRow(
                         Icon(
                             icon,
                             contentDescription = align.label,
-                            tint = if (isSelected) AmoledBlack else SubtleGray,
+                            tint = if (isSelected) PureWhite else SubtleGray,
                             modifier = Modifier.size(16.dp)
                         )
                     }

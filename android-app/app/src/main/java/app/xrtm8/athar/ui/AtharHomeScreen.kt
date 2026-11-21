@@ -1,6 +1,7 @@
 package app.xrtm8.athar.ui
 
 import android.app.Activity
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,9 +19,6 @@ import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.project.AtharProjectMeta
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
-import app.xrtm8.athar.ui.dialogs.AtharSettingsDialog
-import app.xrtm8.athar.ui.dialogs.DeleteProjectConfirmDialog
-import app.xrtm8.athar.ui.dialogs.RenameProjectDialog
 import app.xrtm8.athar.ui.home.*
 import app.xrtm8.athar.ui.theme.*
 import app.xrtm8.athar.updater.AtharUpdateManager
@@ -64,6 +62,7 @@ fun AtharHomeScreen(
     var projectToDelete by remember { mutableStateOf<AtharProjectMeta?>(null) }
     var projectToRename by remember { mutableStateOf<AtharProjectMeta?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var pendingCropImageUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadProjectsList(context)
@@ -73,9 +72,7 @@ fun AtharHomeScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            viewModel.createNewProjectWithImage(context, uri, selectedAspectRatio)
-            onNavigateToStudio()
+            pendingCropImageUri = uri
         }
     }
 
@@ -214,34 +211,14 @@ fun AtharHomeScreen(
             }
         }
 
-        if (projectToDelete != null) {
-            val proj = projectToDelete!!
-            DeleteProjectConfirmDialog(
-                projectTitle = proj.title,
-                onConfirmDelete = {
-                    viewModel.deleteProject(context, proj.id)
-                    projectToDelete = null
-                },
-                onDismiss = { projectToDelete = null }
-            )
-        }
-
-        if (projectToRename != null) {
-            val proj = projectToRename!!
-            RenameProjectDialog(
-                initialTitle = proj.title,
-                onConfirmRename = { newTitle ->
-                    viewModel.renameProject(context, proj.id, newTitle)
-                    projectToRename = null
-                },
-                onDismiss = { projectToRename = null }
-            )
-        }
-
-        if (showSettingsDialog) {
-            AtharSettingsDialog(
-                onDismiss = { showSettingsDialog = false }
-            )
-        }
+        HomeModals(
+            context = context, viewModel = viewModel, haptic = haptic,
+            selectedAspectRatio = selectedAspectRatio,
+            projectToDelete = projectToDelete, onDismissDelete = { projectToDelete = null },
+            projectToRename = projectToRename, onDismissRename = { projectToRename = null },
+            showSettingsDialog = showSettingsDialog, onDismissSettings = { showSettingsDialog = false },
+            pendingCropImageUri = pendingCropImageUri, onClearCrop = { pendingCropImageUri = null },
+            onNavigateToStudio = onNavigateToStudio
+        )
     }
 }

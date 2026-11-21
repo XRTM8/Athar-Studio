@@ -999,6 +999,64 @@ class AtharStudioViewModel : ViewModel() {
         ))
     }
 
+    // ==========================================
+    // 8-Channel Lightroom Color Mix
+    // ==========================================
+
+    fun setColorMixEnabled(enabled: Boolean) {
+        pushHistory(_canvasState.value.copy(
+            colorMixState = _canvasState.value.colorMixState.copy(isEnabled = enabled)
+        ))
+    }
+
+    fun setColorMixChannel(channel: app.xrtm8.athar.model.ColorMixChannel, hue: Float, sat: Float, lum: Float) {
+        markSliderChange()
+        val cur = _canvasState.value.colorMixState
+        val map = cur.channelAdjustments.toMutableMap()
+        map[channel] = app.xrtm8.athar.model.ChannelAdjustment(
+            hueShift = hue.coerceIn(-50f, 50f),
+            satShift = sat.coerceIn(-100f, 100f),
+            lumShift = lum.coerceIn(-100f, 100f)
+        )
+        _canvasState.update { it.copy(colorMixState = cur.copy(isEnabled = true, channelAdjustments = map)) }
+    }
+
+    fun setIsolatedColorChannel(channel: app.xrtm8.athar.model.ColorMixChannel?) {
+        pushHistory(_canvasState.value.copy(
+            colorMixState = _canvasState.value.colorMixState.copy(isEnabled = true, isolatedChannel = channel, monochromeChannel = null)
+        ))
+    }
+
+    fun setMonochromeColorChannel(channel: app.xrtm8.athar.model.ColorMixChannel?) {
+        pushHistory(_canvasState.value.copy(
+            colorMixState = _canvasState.value.colorMixState.copy(isEnabled = true, monochromeChannel = channel, isolatedChannel = null)
+        ))
+    }
+
+    fun resetColorMixChannel(channel: app.xrtm8.athar.model.ColorMixChannel) {
+        val cur = _canvasState.value.colorMixState
+        val map = cur.channelAdjustments.toMutableMap()
+        map.remove(channel)
+        pushHistory(_canvasState.value.copy(colorMixState = cur.copy(channelAdjustments = map)))
+    }
+
+    fun resetAllColorMix() {
+        pushHistory(_canvasState.value.copy(
+            colorMixState = app.xrtm8.athar.model.ColorMixState()
+        ))
+    }
+
+    fun resetPhotoAdjustments() {
+        pushHistory(_canvasState.value.copy(
+            backgroundBlur = 0f,
+            backgroundBrightness = 0f,
+            backgroundContrast = 1.0f,
+            backgroundSaturation = 1.0f,
+            backgroundVignette = 0f,
+            backgroundDim = 0.25f
+        ))
+    }
+
     fun exportDesign(
         context: Context,
         resolution: ExportResolution = ExportResolution.HD_1080P,
