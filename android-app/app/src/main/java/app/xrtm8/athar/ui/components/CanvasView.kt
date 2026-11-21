@@ -34,9 +34,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.core.AtharImageProcessor
-import app.xrtm8.athar.core.SubjectDepthEngine
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.LayerBlendMode
+import app.xrtm8.athar.model.LuxuryGradientPreset
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
@@ -104,17 +104,6 @@ fun CanvasView(
             if (r != null && !r.isRecycled) {
                 r.recycle()
             }
-            SubjectDepthEngine.clearCache()
-        }
-    }
-
-    var subjectCutoutBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(processedBgBitmap, state.isTextBehindSubject, state.subjectDepthSensitivity) {
-        val bg = processedBgBitmap
-        if (state.isTextBehindSubject && bg != null && !bg.isRecycled) {
-            subjectCutoutBitmap = SubjectDepthEngine.getSubjectCutout(bg, state.subjectDepthSensitivity)
-        } else {
-            subjectCutoutBitmap = null
         }
     }
 
@@ -173,7 +162,6 @@ fun CanvasView(
     var isInteracting by remember { mutableStateOf(false) }
     var wasSnapped by remember { mutableStateOf(false) }
     val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
-    val glowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE } }
     val guidePaint = remember { Paint().apply { isAntiAlias = true; color = 0x99FFD700.toInt(); strokeWidth = 2.0f } }
@@ -182,12 +170,6 @@ fun CanvasView(
     val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0xFFFFD700.toInt(); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
     val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = 0xFFFFD700.toInt() } }
     val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
-
-    val neonGlowColor = remember { 0x6600FF9D.toInt() }
-    val cinematicShadowColor = remember { 0xFFF5F6F8.toInt() }
-    val neonBlurFilter = remember(density) {
-        BlurMaskFilter((28f * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
-    }
 
     val colorFilterCache = remember { mutableMapOf<Int, ColorMatrixColorFilter>() }
     val shadowBlurFilterCache = remember { mutableMapOf<Int, BlurMaskFilter>() }
@@ -359,7 +341,6 @@ fun CanvasView(
                         }
 
                         basePaint.typeface = realTypeface
-                        glowPaint.typeface = realTypeface
                         shadowPaint.typeface = realTypeface
                         strokePaint.typeface = realTypeface
 
@@ -370,7 +351,6 @@ fun CanvasView(
                         }
 
                         basePaint.textAlign = align
-                        glowPaint.textAlign = align
                         shadowPaint.textAlign = align
                         strokePaint.textAlign = align
 
@@ -386,10 +366,6 @@ fun CanvasView(
                                 PorterDuffXfermode(layer.blendMode.porterDuffMode)
                             }
                         } else null
-
-                        glowPaint.textSize = textSizePx
-                        glowPaint.letterSpacing = layer.letterSpacing
-                        glowPaint.textSkewX = basePaint.textSkewX
 
                         shadowPaint.textSize = textSizePx
                         shadowPaint.letterSpacing = layer.letterSpacing
@@ -473,12 +449,25 @@ fun CanvasView(
                                 }
                             }
 
-                            // 3. Fill: Multi-Stop Gradient or Custom Color or Effect Shaders Fill
+                            // 3. Fill: Luxury Rotatable Gradient or Solid Swatch Fill
                             if (!layer.isHollowText) {
-                                val customColor = layer.customTextColorLong
-                                if (layer.gradientPreset != app.xrtm8.athar.model.LuxuryGradientPreset.NONE) {
+                                val activeGrad = if (layer.gradientPreset != LuxuryGradientPreset.NONE) {
+                                    layer.gradientPreset
+                                } else if (layer.customTextColorLong == null) {
+                                    when (layer.selectedEffect) {
+                                        VisualEffect.LIQUID_CHROME -> LuxuryGradientPreset.TITANIUM_CHROME
+                                        VisualEffect.CYBER_NEON -> LuxuryGradientPreset.CYBER_EMERALD
+                                        VisualEffect.FROSTED_GLASS -> LuxuryGradientPreset.FROSTED_PEARL
+                                        VisualEffect.MINIMAL_LUXURY, VisualEffect.CINEMATIC_SHADOW -> LuxuryGradientPreset.NONE
+                                        else -> LuxuryGradientPreset.ANDALUSIAN_GOLD
+                                    }
+                                } else {
+                                    LuxuryGradientPreset.NONE
+                                }
+
+                                if (activeGrad != LuxuryGradientPreset.NONE) {
                                     val gradShader = CanvasShaderFactory.createMultiStopGradientShader(
-                                        preset = layer.gradientPreset,
+                                        preset = activeGrad,
                                         angle = layer.gradientAngle,
                                         isRadial = layer.isRadialGradient,
                                         centerX = layerLayout.lineX,
@@ -487,65 +476,16 @@ fun CanvasView(
                                     )
                                     basePaint.shader = gradShader
                                     basePaint.color = Color.WHITE
-                                    if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                        CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
-                                    } else {
-                                        nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
-                                    }
-                                } else if (customColor != null && customColor != 0L) {
-                                    val baseColor = customColor.toInt()
+                                } else {
+                                    val baseColor = (layer.customTextColorLong ?: 0xFFFFFFFFL).toInt()
                                     basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
                                     basePaint.shader = null
-                                    if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                        CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
-                                    } else {
-                                        nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
-                                    }
+                                }
+
+                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
+                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
                                 } else {
-                                    val effectShader = CanvasShaderFactory.createEffectShader(layer.selectedEffect, lineY, textSizePx)
-                                    if (effectShader != null) {
-                                        basePaint.shader = effectShader
-                                        if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                            CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
-                                        } else {
-                                            nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
-                                        }
-                                    } else {
-                                        basePaint.shader = null
-                                        when (layer.selectedEffect) {
-                                            VisualEffect.CYBER_NEON -> {
-                                                glowPaint.color = neonGlowColor
-                                                glowPaint.maskFilter = neonBlurFilter
-                                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, glowPaint, layer.curveAngle)
-                                                } else {
-                                                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, glowPaint)
-                                                }
-                                                basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
-                                                } else {
-                                                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
-                                                }
-                                            }
-                                            VisualEffect.CINEMATIC_SHADOW -> {
-                                                basePaint.color = (cinematicShadowColor and 0x00FFFFFF) or (alphaInt shl 24)
-                                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
-                                                } else {
-                                                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
-                                                }
-                                            }
-                                            else -> {
-                                                basePaint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
-                                                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, basePaint, layer.curveAngle)
-                                                } else {
-                                                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
-                                                }
-                                            }
-                                        }
-                                    }
+                                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, basePaint)
                                 }
                             }
                         }
@@ -568,22 +508,8 @@ fun CanvasView(
                     }
                 }
 
-                // Render layers with dual-pass subject depth isolation if enabled
-                val cutout = subjectCutoutBitmap
-                if (state.isTextBehindSubject && cutout != null && !cutout.isRecycled) {
-                    state.layers.filter { it.isBehindSubject }.forEach { renderTextLayer(it) }
-                    CanvasBackgroundRenderer.drawCutoutForeground(
-                        nativeCanvas = nativeCanvas,
-                        state = stateForBg,
-                        canvasWidth = canvasWidth,
-                        canvasHeight = canvasHeight,
-                        cutoutBitmap = cutout,
-                        paint = bgPaint
-                    )
-                    state.layers.filter { !it.isBehindSubject }.forEach { renderTextLayer(it) }
-                } else {
-                    state.layers.forEach { renderTextLayer(it) }
-                }
+                // Render layers back-to-front
+                state.layers.forEach { renderTextLayer(it) }
             }
         }
     }

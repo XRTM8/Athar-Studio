@@ -2,18 +2,13 @@ package app.xrtm8.athar.core
 
 import android.graphics.Bitmap
 import android.graphics.Color
-import app.xrtm8.athar.model.CanvasState
-import app.xrtm8.athar.model.TextLayer
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sqrt
 
 /**
- * Smart Color Palette Extractor & 1-Tap Auto-Harmonizer.
- * Analyzes background imagery using color quantization and luminance contrast
- * to formulate a synchronized graphic designer palette for instant text & backdrop theming.
+ * High-performance deterministic color palette extractor.
+ * Downsamples background imagery and quantizes luminance/hue to extract 5 complementary
+ * graphic design swatches (Dominant, Accent, Highlight, Shadow, Glass) for user selection.
  */
-object SmartColorHarmonizer {
+object AtharPaletteExtractor {
 
     data class ExtractedPalette(
         val dominantLong: Long,
@@ -24,7 +19,6 @@ object SmartColorHarmonizer {
     )
 
     fun extractPalette(source: Bitmap): ExtractedPalette {
-        // Downsample for lightning-fast analysis
         val w = 64
         val h = 64
         val small = Bitmap.createScaledBitmap(source, w, h, false)
@@ -32,7 +26,6 @@ object SmartColorHarmonizer {
         small.getPixels(pixels, 0, w, 0, 0, w, h)
         if (small != source) small.recycle()
 
-        // Histogram / Quantization clustering
         var totalR = 0L; var totalG = 0L; var totalB = 0L
         var minLum = 255f; var maxLum = 0f
         var darkPixel = Color.BLACK
@@ -63,7 +56,7 @@ object SmartColorHarmonizer {
 
         val dominantColor = (0xFFL shl 24) or ((avgR.toLong() and 0xFFL) shl 16) or ((avgG.toLong() and 0xFFL) shl 8) or (avgB.toLong() and 0xFFL)
 
-        // Accent Color: Invert or shift hue by 180 degrees for high readability contrast
+        // Accent Color: Invert/shift hue by 180 degrees
         val hsv = FloatArray(3)
         Color.RGBToHSV(avgR, avgG, avgB, hsv)
         val accentHue = (hsv[0] + 180f) % 360f
@@ -72,17 +65,17 @@ object SmartColorHarmonizer {
         val accentRgb = Color.HSVToColor(floatArrayOf(accentHue, accentSat, accentVal))
         val accentColor = (0xFFL shl 24) or (accentRgb.toLong() and 0x00FFFFFFL)
 
-        // Highlight Color: Warm Golden / Bright Tint
+        // Highlight Color: Warm golden or bright tint
         val highlightColor = if (maxLum > 180f) {
             (0xFFL shl 24) or (brightPixel.toLong() and 0x00FFFFFFL)
         } else {
-            0xFFFFD54FL // Golden Warmth
+            0xFFFFD54FL
         }
 
-        // Deep Shadow Tone: Rich Midnight or Espresso Shadow
+        // Deep Shadow Tone
         val shadowColor = (0xDDL shl 24) or (darkPixel.toLong() and 0x00FFFFFFL)
 
-        // Glass Backdrop Tone
+        // Glass Tone
         val glassColor = (0xBBL shl 24) or ((avgR / 3).toLong() shl 16) or ((avgG / 3).toLong() shl 8) or ((avgB / 3).toLong())
 
         return ExtractedPalette(
@@ -101,17 +94,6 @@ object SmartColorHarmonizer {
             palette.dominantLong,
             palette.glassLong,
             palette.shadowLong
-        )
-    }
-
-    fun harmonizeActiveLayer(layer: TextLayer, palette: ExtractedPalette): TextLayer {
-        return layer.copy(
-            customTextColorLong = palette.highlightLong,
-            strokeColorLong = palette.accentLong,
-            shadowColorLong = palette.shadowLong,
-            enableGlassBackdrop = true,
-            glassBackdropColorLong = palette.glassLong,
-            glassBackdropBorderColorLong = palette.highlightLong
         )
     }
 }

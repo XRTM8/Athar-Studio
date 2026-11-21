@@ -38,7 +38,6 @@ fun TextLayerStrip(
     onDuplicateLayer: () -> Unit,
     onDeleteLayer: () -> Unit,
     onSelectLayer: (String) -> Unit,
-    onToggleBehindSubject: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -122,30 +121,6 @@ fun TextLayerStrip(
                         maxLines = 1
                     )
                 }
-            }
-        }
-
-        if (state.isTextBehindSubject && onToggleBehindSubject != null) {
-            Spacer(modifier = Modifier.width(6.dp))
-            val isBehind = state.activeLayer.isBehindSubject
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isBehind) GoldAccent.copy(alpha = 0.25f) else GlassSurface)
-                    .border(0.5.dp, if (isBehind) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onToggleBehindSubject()
-                    }
-                    .padding(horizontal = 7.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isBehind) "خلف العنصر" else "أمام العنصر",
-                    color = if (isBehind) GoldAccent else SubtleGray,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
 

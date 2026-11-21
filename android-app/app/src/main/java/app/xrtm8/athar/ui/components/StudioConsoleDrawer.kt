@@ -188,8 +188,6 @@ fun StudioConsoleDrawer(
                             onGlassCornerRadiusChange = { viewModel.setGlassBackdropCornerRadius(it) },
                             onGlassPaddingChange = { viewModel.setGlassBackdropPadding(it) },
                             onBlendModeChange = { viewModel.setBlendMode(it) },
-                            onHarmonizeWithBackground = { viewModel.harmonizeWithBackgroundImage(context) },
-                            onAutoLegibility = { viewModel.autoAdjustContrastAndLegibility(context) },
                             extractedPalette = extractedPalette,
                             onSelectGradientPreset = { viewModel.setLuxuryGradient(it) },
                             onGradientAngleChange = { viewModel.setGradientAngle(it) },
@@ -229,8 +227,6 @@ fun StudioConsoleDrawer(
                             onGradientScrimColorChange = { viewModel.setGradientScrimColor(it) },
                             onGradientScrimOpacityChange = { viewModel.setGradientScrimOpacity(it) },
                             onGradientScrimMidpointChange = { viewModel.setGradientScrimMidpoint(it) },
-                            onToggleTextBehindSubject = { viewModel.setTextBehindSubject(it) },
-                            onSubjectDepthSensitivityChange = { viewModel.setSubjectDepthSensitivity(it) },
                             onSelectFilmPreset = { viewModel.setFilmPreset(it) },
                             onToggleColorGrading = { viewModel.setColorGradingEnabled(it) },
                             onLiftChange = { r, g, b -> viewModel.setColorGradingLift(r, g, b) },
@@ -247,7 +243,6 @@ fun StudioConsoleDrawer(
                             onRotationChange = { viewModel.setRotationAngle(it) },
                             onScaleChange = { viewModel.setScale(it) },
                             onResetTransform = { viewModel.resetCanvasTransform() },
-                            onAutoSmartPlacement = { viewModel.autoPlaceInNegativeSpace(context) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
                     }

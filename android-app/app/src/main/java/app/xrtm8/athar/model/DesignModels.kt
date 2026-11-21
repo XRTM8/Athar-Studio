@@ -40,6 +40,16 @@ enum class LuxuryGradientPreset(val labelAr: String, val colors: List<Long>, val
         "تيتانيوم وكروم عاكس",
         listOf(0xFF1F2421, 0xFF495057, 0xFFCED4DA, 0xFFFFFFFF, 0xFF343A40),
         listOf(0.0f, 0.20f, 0.50f, 0.75f, 1.0f)
+    ),
+    CYBER_EMERALD(
+        "زمرد نيون مشع",
+        listOf(0xFF003822, 0xFF00B0FF, 0xFF00FF9D, 0xFFB3FFD6),
+        listOf(0.0f, 0.35f, 0.70f, 1.0f)
+    ),
+    FROSTED_PEARL(
+        "لؤلؤ بلوري مثلج",
+        listOf(0xCC3A3F47, 0xDD9EA5B0, 0xEEFFFFFF, 0xFFF8F9FA),
+        listOf(0.0f, 0.30f, 0.70f, 1.0f)
     )
 }
 
@@ -235,7 +245,6 @@ data class TextLayer(
     val blendMode: LayerBlendMode = LayerBlendMode.NORMAL,
     val isCurved: Boolean = false,
     val curveAngle: Float = 0f,
-    val isBehindSubject: Boolean = false,
     val gradientPreset: LuxuryGradientPreset = LuxuryGradientPreset.NONE,
     val gradientAngle: Float = 90f,
     val isRadialGradient: Boolean = false,
@@ -246,8 +255,6 @@ data class CanvasState(
     val layers: List<TextLayer> = listOf(TextLayer(id = "layer_primary")),
     val activeLayerId: String = "layer_primary",
     val showGridGuides: Boolean = false,
-    val isTextBehindSubject: Boolean = false,
-    val subjectDepthSensitivity: Float = 0.5f,
     val aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
     val solidBgColorLong: Long? = null,
     val backgroundImageUri: Uri? = null,
@@ -318,7 +325,6 @@ data class CanvasState(
     val blendMode: LayerBlendMode get() = activeLayer.blendMode
     val isCurved: Boolean get() = activeLayer.isCurved
     val curveAngle: Float get() = activeLayer.curveAngle
-    val isBehindSubject: Boolean get() = activeLayer.isBehindSubject
     val gradientPreset: LuxuryGradientPreset get() = activeLayer.gradientPreset
     val gradientAngle: Float get() = activeLayer.gradientAngle
     val isRadialGradient: Boolean get() = activeLayer.isRadialGradient
@@ -351,8 +357,6 @@ data class CanvasState(
         isUnderline: Boolean = false,
         isLocked: Boolean = false,
         showGridGuides: Boolean = false,
-        isTextBehindSubject: Boolean = false,
-        subjectDepthSensitivity: Float = 0.5f,
         aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
         solidBgColorLong: Long? = null,
         backgroundImageUri: Uri? = null,
@@ -382,8 +386,7 @@ data class CanvasState(
         isFramingMode: Boolean = false,
         blendMode: LayerBlendMode = LayerBlendMode.NORMAL,
         isCurved: Boolean = false,
-        curveAngle: Float = 0f,
-        isBehindSubject: Boolean = false
+        curveAngle: Float = 0f
     ) : this(
         layers = listOf(
             TextLayer(
@@ -425,14 +428,11 @@ data class CanvasState(
                 glassBackdropPadding = glassBackdropPadding,
                 blendMode = blendMode,
                 isCurved = isCurved,
-                curveAngle = curveAngle,
-                isBehindSubject = isBehindSubject
+                curveAngle = curveAngle
             )
         ),
         activeLayerId = "layer_primary",
         showGridGuides = showGridGuides,
-        isTextBehindSubject = isTextBehindSubject,
-        subjectDepthSensitivity = subjectDepthSensitivity,
         aspectRatio = aspectRatio,
         solidBgColorLong = solidBgColorLong,
         backgroundImageUri = backgroundImageUri,

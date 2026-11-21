@@ -13,11 +13,13 @@ import android.graphics.Rect
 import android.graphics.Shader
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.LuxuryGradientPreset
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.typography.AtharTextLayout
+import app.xrtm8.athar.ui.components.CanvasShaderFactory
 import app.xrtm8.athar.ui.components.TextGlassBackdropRenderer
 
 /**
@@ -142,43 +144,36 @@ object AtharProjectThumbnailRenderer {
             }
 
             val customColor = layer.customTextColorLong
-            if (customColor != null && customColor != 0L) {
-                paint.color = customColor.toInt()
-            } else {
+            val activeGrad = if (layer.gradientPreset != LuxuryGradientPreset.NONE) {
+                layer.gradientPreset
+            } else if (customColor == null) {
                 when (layer.selectedEffect) {
-                    VisualEffect.ROYAL_GOLD -> {
-                        paint.shader = LinearGradient(
-                            0f, -paint.textSize * 0.8f,
-                            0f, paint.textSize * 0.2f,
-                            intArrayOf(
-                                Color.parseColor("#FFF7DB"),
-                                Color.parseColor("#F5C369"),
-                                Color.parseColor("#D49438"),
-                                Color.parseColor("#FFE8A3")
-                            ),
-                            null,
-                            Shader.TileMode.CLAMP
-                        )
-                    }
-                    VisualEffect.LIQUID_CHROME -> {
-                        paint.shader = LinearGradient(
-                            0f, -paint.textSize * 0.8f,
-                            0f, paint.textSize * 0.2f,
-                            intArrayOf(
-                                Color.parseColor("#FFFFFF"),
-                                Color.parseColor("#9EA5B0"),
-                                Color.parseColor("#181C22"),
-                                Color.parseColor("#FFFFFF")
-                            ),
-                            null,
-                            Shader.TileMode.CLAMP
-                        )
-                    }
-                    VisualEffect.CYBER_NEON -> paint.color = Color.parseColor("#00FF9D")
-                    VisualEffect.CINEMATIC_SHADOW -> paint.color = Color.parseColor("#F2F2F2")
-                    VisualEffect.FROSTED_GLASS -> paint.color = Color.parseColor("#E6FFFFFF")
-                    VisualEffect.MINIMAL_LUXURY -> paint.color = Color.WHITE
+                    VisualEffect.LIQUID_CHROME -> LuxuryGradientPreset.TITANIUM_CHROME
+                    VisualEffect.CYBER_NEON -> LuxuryGradientPreset.CYBER_EMERALD
+                    VisualEffect.FROSTED_GLASS -> LuxuryGradientPreset.FROSTED_PEARL
+                    VisualEffect.MINIMAL_LUXURY, VisualEffect.CINEMATIC_SHADOW -> LuxuryGradientPreset.NONE
+                    else -> LuxuryGradientPreset.ANDALUSIAN_GOLD
                 }
+            } else {
+                LuxuryGradientPreset.NONE
+            }
+
+            if (activeGrad != LuxuryGradientPreset.NONE) {
+                paint.shader = CanvasShaderFactory.createMultiStopGradientShader(
+                    preset = activeGrad,
+                    angle = layer.gradientAngle,
+                    isRadial = layer.isRadialGradient,
+                    centerX = 0f,
+                    centerY = 0f,
+                    radiusPx = paint.textSize * 2.5f
+                )
+                paint.color = Color.WHITE
+            } else if (customColor != null && customColor != 0L) {
+                paint.color = customColor.toInt()
+                paint.shader = null
+            } else {
+                paint.color = Color.WHITE
+                paint.shader = null
             }
 
             val centerX = width * 0.5f + (width * layer.normOffsetX)

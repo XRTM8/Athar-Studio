@@ -47,7 +47,6 @@ fun TransformPositionPanel(
     onScaleChange: (Float) -> Unit,
     onResetTransform: () -> Unit,
     modifier: Modifier = Modifier,
-    onAutoSmartPlacement: (() -> Unit)? = null,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
@@ -92,8 +91,7 @@ fun TransformPositionPanel(
             normOffsetX = state.normOffsetX,
             normOffsetY = state.normOffsetY,
             onSnapPosition = onSnapPosition,
-            onNudgeOffset = onNudgeOffset,
-            onAutoSmartPlacement = onAutoSmartPlacement
+            onNudgeOffset = onNudgeOffset
         )
 
         Spacer(modifier = Modifier.height(12.dp))

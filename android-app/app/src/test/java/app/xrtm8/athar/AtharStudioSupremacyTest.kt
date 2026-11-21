@@ -29,31 +29,25 @@ class AtharStudioSupremacyTest {
             displayText = "قُلْ هُوَ اللَّهُ أَحَدٌ",
             blendMode = LayerBlendMode.SCREEN,
             isCurved = true,
-            curveAngle = 65f,
-            isBehindSubject = true
+            curveAngle = 65f
         )
 
         val state = CanvasState(
             layers = listOf(layer),
             activeLayerId = "layer_curved",
-            aspectRatio = CanvasAspectRatio.LANDSCAPE_16_9,
-            isTextBehindSubject = true,
-            subjectDepthSensitivity = 0.65f
+            aspectRatio = CanvasAspectRatio.LANDSCAPE_16_9
         )
 
         val json = AtharProjectSerializer.serializeCanvasState(state, false)
         val restored = AtharProjectSerializer.deserializeCanvasState(json)
 
         assertEquals(CanvasAspectRatio.LANDSCAPE_16_9, restored.aspectRatio)
-        assertTrue(restored.isTextBehindSubject)
-        assertEquals(0.65f, restored.subjectDepthSensitivity, 0.001f)
 
         assertEquals(1, restored.layers.size)
         val restoredLayer = restored.layers.first()
         assertEquals(LayerBlendMode.SCREEN, restoredLayer.blendMode)
         assertTrue(restoredLayer.isCurved)
         assertEquals(65f, restoredLayer.curveAngle, 0.001f)
-        assertTrue(restoredLayer.isBehindSubject)
     }
 
     @Test
@@ -78,14 +72,22 @@ class AtharStudioSupremacyTest {
     }
 
     @Test
-    fun testSubjectDepthEngineCache() {
-        app.xrtm8.athar.core.SubjectDepthEngine.clearCache()
+    fun testAtharPaletteExtractorSwatches() {
+        val palette = app.xrtm8.athar.core.AtharPaletteExtractor.ExtractedPalette(
+            dominantLong = 0xFF121418,
+            accentLong = 0xFFFFD700,
+            highlightLong = 0xFFFFFFFF,
+            shadowLong = 0xAA000000,
+            glassLong = 0x88202020
+        )
+        val swatches = app.xrtm8.athar.core.AtharPaletteExtractor.getSwatches(palette)
+        assertEquals(5, swatches.size)
     }
 
     @Test
-    fun testSmartTypographyBalancingEngine() {
+    fun testArabicParagraphBalancing() {
         val input = "أَثَرٌ جَمِيلٌ يَبْقَى\nفِي قُلُوبِ النَّاسِ"
-        val balanced = app.xrtm8.athar.core.SmartTypographyBalancingEngine.balanceArabicBlock(input)
+        val balanced = app.xrtm8.athar.typography.ArabicParagraphJustifier.balanceArabicBlock(input)
         val lines = balanced.split("\n")
         assertEquals(2, lines.size)
         assertTrue("Balanced text should be non-empty", balanced.isNotEmpty())
@@ -93,10 +95,7 @@ class AtharStudioSupremacyTest {
 
     @Test
     fun testAtharPureEngineArchitecture() {
-        val ready = app.xrtm8.athar.core.AtharNativeEngine.isNativeReady()
-        assertTrue("Pure Kotlin engine should always be ready", ready)
-        assertEquals("2.0.0-pure", app.xrtm8.athar.core.AtharNativeEngine.getEngineVersion())
-        val opportunities = app.xrtm8.athar.core.AtharNativeEngine.findOpportunities("بسم الله الرحمن الرحيم")
+        val opportunities = app.xrtm8.athar.core.PureArabicKashidaEngine.findOpportunities("بسم الله الرحمن الرحيم")
         assertTrue("Should detect calligraphic kashida opportunities", opportunities.isNotEmpty())
     }
 

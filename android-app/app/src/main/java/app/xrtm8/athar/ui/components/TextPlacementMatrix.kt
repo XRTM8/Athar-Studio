@@ -35,7 +35,6 @@ fun TextPlacementMatrix(
     normOffsetY: Float,
     onSnapPosition: (normX: Float, normY: Float, align: TextAlignOption) -> Unit,
     onNudgeOffset: (deltaX: Float, deltaY: Float) -> Unit,
-    onAutoSmartPlacement: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -224,41 +223,6 @@ fun TextPlacementMatrix(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = "أسفل", tint = PureWhite, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-
-        if (onAutoSmartPlacement != null) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(GlassCard)
-                    .border(0.5.dp, GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onAutoSmartPlacement()
-                    }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "الموضع الذكي",
-                        tint = GoldAccent,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Text(
-                        text = "الموضع الذكي (تجنب العناصر والوجوه تلقائياً)",
-                        color = GoldAccent,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
         }

@@ -20,11 +20,11 @@ import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.core.FilmPresetEngine
-import app.xrtm8.athar.core.SubjectDepthEngine
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.LayerBlendMode
+import app.xrtm8.athar.model.LuxuryGradientPreset
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
@@ -75,28 +75,7 @@ object AtharExportManager {
                 drawBackground(context, canvas, state, width, height)
             }
 
-            // Dual-pass subject depth isolation or standard back-to-front rendering
-            if (state.isTextBehindSubject && state.backgroundImageUri != null) {
-                val bgUri = state.backgroundImageUri
-                var srcBitmap = decodeSampledBitmap(context, bgUri, width, height)
-                if (srcBitmap != null) {
-                    val behindLayers = state.layers.filter { it.isBehindSubject }
-                    drawLayers(context, canvas, behindLayers, width, height)
-
-                    val cutout = SubjectDepthEngine.getSubjectCutout(srcBitmap, state.subjectDepthSensitivity)
-                    drawForegroundCutout(canvas, cutout, state, width, height)
-
-                    val frontLayers = state.layers.filter { !it.isBehindSubject }
-                    drawLayers(context, canvas, frontLayers, width, height)
-
-                    if (cutout != srcBitmap) cutout.recycle()
-                    srcBitmap.recycle()
-                } else {
-                    drawLayers(context, canvas, state.layers, width, height)
-                }
-            } else {
-                drawLayers(context, canvas, state.layers, width, height)
-            }
+            drawLayers(context, canvas, state.layers, width, height)
 
             val finalBitmap = if (effectiveTransparent && isStickerTrimmed) {
                 val padding = (48f * (width / 1080f)).toInt()
@@ -231,35 +210,6 @@ object AtharExportManager {
         }
     }
 
-    private fun drawForegroundCutout(canvas: Canvas, cutout: Bitmap, state: CanvasState, width: Int, height: Int) {
-        val srcW = cutout.width.toFloat()
-        val srcH = cutout.height.toFloat()
-        val srcRatio = srcW / srcH
-        val dstRatio = width.toFloat() / height.toFloat()
-        val scale = state.bgPhotoScale.coerceIn(0.5f, 4.0f)
-        val srcRect: Rect
-        if (srcRatio > dstRatio) {
-            val newW = ((srcH * dstRatio) / scale).toInt().coerceIn(10, srcW.toInt())
-            val newH = (srcH / scale).toInt().coerceIn(10, srcH.toInt())
-            val maxShiftX = (srcW - newW) / 2f
-            val maxShiftY = (srcH - newH) / 2f
-            val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
-            val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
-            srcRect = Rect(xOffset, yOffset, xOffset + newW, yOffset + newH)
-        } else {
-            val newW = (srcW / scale).toInt().coerceIn(10, srcW.toInt())
-            val newH = ((srcW / dstRatio) / scale).toInt().coerceIn(10, srcH.toInt())
-            val maxShiftX = (srcW - newW) / 2f
-            val maxShiftY = (srcH - newH) / 2f
-            val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
-            val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
-            srcRect = Rect(xOffset, yOffset, xOffset + newW, yOffset + newH)
-        }
-        val dstRect = Rect(0, 0, width, height)
-        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-        canvas.drawBitmap(cutout, srcRect, dstRect, paint)
-    }
-
     private fun drawLayers(context: Context, canvas: Canvas, layers: List<TextLayer>, width: Int, height: Int) {
         val densityFactor = width / 380f
 
@@ -381,9 +331,23 @@ object AtharExportManager {
 
                 if (!layer.isHollowText) {
                     val customColor = layer.customTextColorLong
-                    if (layer.gradientPreset != app.xrtm8.athar.model.LuxuryGradientPreset.NONE) {
+                    val activeGrad = if (layer.gradientPreset != LuxuryGradientPreset.NONE) {
+                        layer.gradientPreset
+                    } else if (customColor == null) {
+                        when (layer.selectedEffect) {
+                            VisualEffect.LIQUID_CHROME -> LuxuryGradientPreset.TITANIUM_CHROME
+                            VisualEffect.CYBER_NEON -> LuxuryGradientPreset.CYBER_EMERALD
+                            VisualEffect.FROSTED_GLASS -> LuxuryGradientPreset.FROSTED_PEARL
+                            VisualEffect.MINIMAL_LUXURY, VisualEffect.CINEMATIC_SHADOW -> LuxuryGradientPreset.NONE
+                            else -> LuxuryGradientPreset.ANDALUSIAN_GOLD
+                        }
+                    } else {
+                        LuxuryGradientPreset.NONE
+                    }
+
+                    if (activeGrad != LuxuryGradientPreset.NONE) {
                         val gradShader = CanvasShaderFactory.createMultiStopGradientShader(
-                            preset = layer.gradientPreset,
+                            preset = activeGrad,
                             angle = layer.gradientAngle,
                             isRadial = layer.isRadialGradient,
                             centerX = layout.lineX,
@@ -392,67 +356,16 @@ object AtharExportManager {
                         )
                         paint.shader = gradShader
                         paint.color = Color.WHITE
-                        if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                            CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                        } else {
-                            canvas.drawText(line, layout.lineX, lineY, paint)
-                        }
-                    } else if (customColor != null && customColor != 0L) {
-                        val baseColor = customColor.toInt()
+                    } else {
+                        val baseColor = (customColor ?: 0xFFFFFFFFL).toInt()
                         paint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
                         paint.shader = null
-                        if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                            CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                        } else {
-                            canvas.drawText(line, layout.lineX, lineY, paint)
-                        }
+                    }
+
+                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
+                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
                     } else {
-                        val effectShader = CanvasShaderFactory.createEffectShader(layer.selectedEffect, lineY, paint.textSize)
-                        if (effectShader != null) {
-                            paint.shader = effectShader
-                            if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                                CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                            } else {
-                                canvas.drawText(line, layout.lineX, lineY, paint)
-                            }
-                        } else {
-                            paint.shader = null
-                            when (layer.selectedEffect) {
-                                VisualEffect.CYBER_NEON -> {
-                                    val neonGlowPaint = Paint(paint).apply {
-                                        color = 0x6600FF9D.toInt()
-                                        maskFilter = BlurMaskFilter((28f / 380f) * width, BlurMaskFilter.Blur.NORMAL)
-                                    }
-                                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, neonGlowPaint, layer.curveAngle)
-                                    } else {
-                                        canvas.drawText(line, layout.lineX, lineY, neonGlowPaint)
-                                    }
-                                    paint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                                    } else {
-                                        canvas.drawText(line, layout.lineX, lineY, paint)
-                                    }
-                                }
-                                VisualEffect.CINEMATIC_SHADOW -> {
-                                    paint.color = (0xFFF5F6F8.toInt() and 0x00FFFFFF) or (alphaInt shl 24)
-                                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                                    } else {
-                                        canvas.drawText(line, layout.lineX, lineY, paint)
-                                    }
-                                }
-                                else -> {
-                                    paint.color = (Color.WHITE and 0x00FFFFFF) or (alphaInt shl 24)
-                                    if (layer.isCurved && kotlin.math.abs(layer.curveAngle) >= 1f) {
-                                        CurvedTextRenderer.drawCurvedText(canvas, line, layout.lineX, lineY, paint, layer.curveAngle)
-                                    } else {
-                                        canvas.drawText(line, layout.lineX, lineY, paint)
-                                    }
-                                }
-                            }
-                        }
+                        canvas.drawText(line, layout.lineX, lineY, paint)
                     }
                 }
             }

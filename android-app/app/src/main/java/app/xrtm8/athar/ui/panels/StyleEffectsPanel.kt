@@ -46,7 +46,7 @@ import app.xrtm8.athar.ui.theme.*
 @Composable
 fun StyleEffectsPanel(
     state: CanvasState,
-    onSelectEffect: (VisualEffect) -> Unit,
+    onSelectEffect: ((VisualEffect) -> Unit)? = null,
     onSelectCustomColor: (Long?) -> Unit,
     onStrokeWidthChange: (Float) -> Unit,
     onStrokeColorChange: (Long) -> Unit,
@@ -60,9 +60,7 @@ fun StyleEffectsPanel(
     onGlassCornerRadiusChange: (Float) -> Unit,
     onGlassPaddingChange: (Float) -> Unit,
     onBlendModeChange: (LayerBlendMode) -> Unit = {},
-    onHarmonizeWithBackground: (() -> Unit)? = null,
-    onAutoLegibility: (() -> Unit)? = null,
-    extractedPalette: app.xrtm8.athar.core.SmartColorHarmonizer.ExtractedPalette? = null,
+    extractedPalette: app.xrtm8.athar.core.AtharPaletteExtractor.ExtractedPalette? = null,
     onSelectGradientPreset: ((LuxuryGradientPreset) -> Unit)? = null,
     onGradientAngleChange: ((Float) -> Unit)? = null,
     onToggleRadialGradient: ((Boolean) -> Unit)? = null,
@@ -139,9 +137,9 @@ fun StyleEffectsPanel(
         ) { currentSubTab ->
             when (currentSubTab) {
                 0 -> Column(modifier = Modifier.fillMaxWidth()) {
-                    // Multi-Stop Luxury Gradients
+                    // Multi-Stop Luxury Gradients & Materials
                     if (onSelectGradientPreset != null) {
-                        Text(text = "التدرجات متعددة المحطات (Multi-Stop Gradients):", color = MutedWhite, fontSize = 11.5.sp)
+                        Text(text = "الخامات والتدرجات الفاخرة (Luxury Materials & Gradients):", color = MutedWhite, fontSize = 11.5.sp)
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Row(
@@ -151,7 +149,7 @@ fun StyleEffectsPanel(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             LuxuryGradientPreset.entries.filter { it != LuxuryGradientPreset.NONE }.forEach { grad ->
-                                val isSelected = state.gradientPreset == grad
+                                val isSelected = state.gradientPreset == grad && state.customTextColorLong == null
                                 val brushColors = grad.colors.map { Color(it.toInt()) }
                                 val brush = Brush.horizontalGradient(brushColors)
 
@@ -226,68 +224,8 @@ fun StyleEffectsPanel(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
-
-                    // Shaders Carousel
-                    Text(text = "الخامات المعدنية:", color = MutedWhite, fontSize = 11.5.sp)
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        VisualEffect.entries.forEach { effect ->
-                            val isSelected = state.selectedEffect == effect && state.customTextColorLong == null
-                            val gradientBrush = when (effect) {
-                                VisualEffect.ROYAL_GOLD -> Brush.horizontalGradient(listOf(Color(0xFFFFF7DB), Color(0xFFF5C369), Color(0xFFD49438)))
-                                VisualEffect.LIQUID_CHROME -> Brush.horizontalGradient(listOf(Color(0xFFFFFFFF), Color(0xFF9EA5B0), Color(0xFF3A3F47)))
-                                VisualEffect.FROSTED_GLASS -> Brush.horizontalGradient(listOf(Color(0xCCFFFFFF), Color(0x33E2E8F0)))
-                                VisualEffect.CYBER_NEON -> Brush.horizontalGradient(listOf(Color(0xFF00FF9D), Color(0xFF00B0FF)))
-                                VisualEffect.CINEMATIC_SHADOW -> Brush.horizontalGradient(listOf(Color(0xFFF5F6F8), Color(0xFF4A4E5A)))
-                                VisualEffect.MINIMAL_LUXURY -> Brush.horizontalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFD4D4D8)))
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .width(130.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) GoldAccent else GlassSurface)
-                                    .border(
-                                        width = if (isSelected) 1.5.dp else 0.5.dp,
-                                        color = if (isSelected) GoldAccent else GlassBorder,
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onSelectEffect(effect)
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 8.dp)
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp))
-                                            .background(gradientBrush)
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = effect.arabicName,
-                                        color = if (isSelected) AmoledBlack else PureWhite,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 11.5.sp,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Luxury Color Swatches Palette
                     Text(text = "الألوان الجاهزة:", color = MutedWhite, fontSize = 11.5.sp)
@@ -330,50 +268,12 @@ fun StyleEffectsPanel(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
-                    Spacer(modifier = Modifier.height(10.dp))
+                    if (state.backgroundImageUri != null && extractedPalette != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    // Smart Designer-Assist Intelligence Buttons
-                    if (state.backgroundImageUri != null) {
-                        if (onAutoLegibility != null) {
-                            Button(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onAutoLegibility()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = GlassCard),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF64B5F6).copy(alpha = 0.6f)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(38.dp)
-                            ) {
-                                Icon(Icons.Default.Visibility, contentDescription = null, tint = Color(0xFF64B5F6), modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("الوضوح والتباين الذكي المباشر (Auto-Contrast)", color = PureWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-
-                        if (onHarmonizeWithBackground != null) {
-                            Button(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onHarmonizeWithBackground()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = GlassCard),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.6f)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(38.dp)
-                            ) {
-                                Icon(Icons.Default.Palette, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("استخراج ألوان الصورة وتنسيق التصميم بالكامل (Auto-Harmonize)", color = PureWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                        }
-
-                        if (extractedPalette != null) {
-                            Text(text = "لوحة ألوان صورتك المستخرجة (تناغم ذكي):", color = MutedWhite, fontSize = 11.sp)
+                        Text(text = "لوحة ألوان صورتك المستخرجة:", color = MutedWhite, fontSize = 11.sp)
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 modifier = Modifier
@@ -414,7 +314,6 @@ fun StyleEffectsPanel(
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                         }
-                    }
 
                     // Blend Mode Selector
                     Text(text = "نمط الدمج للطبقة (Blend Mode):", color = MutedWhite, fontSize = 11.5.sp)

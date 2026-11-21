@@ -61,7 +61,6 @@ object AtharProjectSerializer {
                     put("blend_mode", layer.blendMode.name)
                     put("is_curved", layer.isCurved)
                     put("curve_angle", layer.curveAngle.toDouble())
-                    put("is_behind_subject", layer.isBehindSubject)
                     put("gradient_preset", layer.gradientPreset.name)
                     put("gradient_angle", layer.gradientAngle.toDouble())
                     put("is_radial_gradient", layer.isRadialGradient)
@@ -137,10 +136,6 @@ object AtharProjectSerializer {
             put("bg_photo_offset_y", state.bgPhotoOffsetY.toDouble())
             put("bg_photo_scale", state.bgPhotoScale.toDouble())
 
-            // Depth & Optical FX
-            put("is_text_behind_subject", state.isTextBehindSubject)
-            put("subject_depth_sensitivity", state.subjectDepthSensitivity.toDouble())
-
             // 3-Way Color Wheels Grading
             put("color_grading_enabled", state.colorGradingEnabled)
             put("lift_red", state.liftRed.toDouble())
@@ -201,7 +196,6 @@ object AtharProjectSerializer {
                 val blendMode = try { LayerBlendMode.valueOf(blendModeStr) } catch (e: Exception) { LayerBlendMode.NORMAL }
                 val isCurved = lObj.optBoolean("is_curved", false)
                 val curveAngle = lObj.optDouble("curve_angle", 0.0).toFloat()
-                val isBehindSubject = lObj.optBoolean("is_behind_subject", false)
 
                 // Luxury Gradients & Hollow Vector Style
                 val gradPresetStr = lObj.optString("gradient_preset", LuxuryGradientPreset.NONE.name)
@@ -251,7 +245,6 @@ object AtharProjectSerializer {
                         blendMode = blendMode,
                         isCurved = isCurved,
                         curveAngle = curveAngle,
-                        isBehindSubject = isBehindSubject,
                         gradientPreset = gradPreset,
                         gradientAngle = gradAngle,
                         isRadialGradient = isRadialGrad,
@@ -341,8 +334,6 @@ object AtharProjectSerializer {
             bgPhotoOffsetX = c.optDouble("bg_photo_offset_x", 0.0).toFloat(),
             bgPhotoOffsetY = c.optDouble("bg_photo_offset_y", 0.0).toFloat(),
             bgPhotoScale = c.optDouble("bg_photo_scale", 1.0).toFloat(),
-            isTextBehindSubject = c.optBoolean("is_text_behind_subject", false),
-            subjectDepthSensitivity = c.optDouble("subject_depth_sensitivity", 0.5).toFloat(),
             colorGradingEnabled = c.optBoolean("color_grading_enabled", false),
             liftRed = c.optDouble("lift_red", 0.0).toFloat(),
             liftGreen = c.optDouble("lift_green", 0.0).toFloat(),

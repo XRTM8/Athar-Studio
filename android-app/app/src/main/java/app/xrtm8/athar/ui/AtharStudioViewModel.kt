@@ -9,10 +9,8 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.xrtm8.athar.core.AtharNativeEngine
-import app.xrtm8.athar.core.OpticalLegibilityEngine
-import app.xrtm8.athar.core.SmartColorHarmonizer
-import app.xrtm8.athar.core.SmartFocalPlacementEngine
+import app.xrtm8.athar.core.AtharPaletteExtractor
+import app.xrtm8.athar.core.PureArabicKashidaEngine
 import app.xrtm8.athar.export.AtharExportManager
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
@@ -66,8 +64,8 @@ class AtharStudioViewModel : ViewModel() {
     private val _projectsList = MutableStateFlow<List<AtharProjectMeta>>(emptyList())
     val projectsList: StateFlow<List<AtharProjectMeta>> = _projectsList.asStateFlow()
 
-    private val _extractedPalette = MutableStateFlow<SmartColorHarmonizer.ExtractedPalette?>(null)
-    val extractedPalette: StateFlow<SmartColorHarmonizer.ExtractedPalette?> = _extractedPalette.asStateFlow()
+    private val _extractedPalette = MutableStateFlow<AtharPaletteExtractor.ExtractedPalette?>(null)
+    val extractedPalette: StateFlow<AtharPaletteExtractor.ExtractedPalette?> = _extractedPalette.asStateFlow()
 
     private var kashidaDebounceJob: Job? = null
     private var sliderDragInitialState: CanvasState? = null
@@ -241,7 +239,25 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setEffect(effect: VisualEffect) {
-        pushActiveLayerHistory { it.copy(selectedEffect = effect, customTextColorLong = null) }
+        val mappedPreset = when (effect) {
+            VisualEffect.ROYAL_GOLD -> app.xrtm8.athar.model.LuxuryGradientPreset.ANDALUSIAN_GOLD
+            VisualEffect.LIQUID_CHROME -> app.xrtm8.athar.model.LuxuryGradientPreset.TITANIUM_CHROME
+            VisualEffect.CYBER_NEON -> app.xrtm8.athar.model.LuxuryGradientPreset.CYBER_EMERALD
+            VisualEffect.FROSTED_GLASS -> app.xrtm8.athar.model.LuxuryGradientPreset.FROSTED_PEARL
+            else -> app.xrtm8.athar.model.LuxuryGradientPreset.NONE
+        }
+        val customColor = when (effect) {
+            VisualEffect.MINIMAL_LUXURY -> 0xFFFFFFFF
+            VisualEffect.CINEMATIC_SHADOW -> 0xFFF2F2F2
+            else -> null
+        }
+        pushActiveLayerHistory {
+            it.copy(
+                selectedEffect = effect,
+                gradientPreset = mappedPreset,
+                customTextColorLong = customColor
+            )
+        }
     }
 
     fun setFont(font: ArabicFontFamily) {
@@ -249,7 +265,12 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setCustomColor(colorLong: Long?) {
-        pushActiveLayerHistory { it.copy(customTextColorLong = colorLong) }
+        pushActiveLayerHistory {
+            it.copy(
+                customTextColorLong = colorLong,
+                gradientPreset = if (colorLong != null) app.xrtm8.athar.model.LuxuryGradientPreset.NONE else it.gradientPreset
+            )
+        }
     }
 
     fun setStrokeWidth(width: Float) {
@@ -575,37 +596,9 @@ class AtharStudioViewModel : ViewModel() {
         updateActiveLayer { it.copy(curveAngle = angle.coerceIn(-180f, 180f)) }
     }
 
-    fun toggleActiveLayerBehindSubject() {
-        pushActiveLayerHistory { it.copy(isBehindSubject = !it.isBehindSubject) }
-    }
-
     // ==========================================
-    // Smart Color Harmonizer Operations
+    // Color Palette Extraction Operations
     // ==========================================
-
-    fun harmonizeWithBackgroundImage(context: Context) {
-        val uri = _canvasState.value.backgroundImageUri ?: return
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
-                val bmp = context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, opts)
-                } ?: return@launch
-
-                val palette = SmartColorHarmonizer.extractPalette(bmp)
-                bmp.recycle()
-
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    _extractedPalette.value = palette
-                    pushActiveLayerHistory { active ->
-                        SmartColorHarmonizer.harmonizeActiveLayer(active, palette)
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore gracefully
-            }
-        }
-    }
 
     fun loadExtractedPalette(context: Context) {
         val uri = _canvasState.value.backgroundImageUri ?: return
@@ -615,64 +608,13 @@ class AtharStudioViewModel : ViewModel() {
                 val bmp = context.contentResolver.openInputStream(uri)?.use {
                     BitmapFactory.decodeStream(it, null, opts)
                 } ?: return@launch
-                val palette = SmartColorHarmonizer.extractPalette(bmp)
+                val palette = AtharPaletteExtractor.extractPalette(bmp)
                 bmp.recycle()
                 withContext(Dispatchers.Main) {
                     _extractedPalette.value = palette
                 }
             } catch (e: Exception) {
                 // Ignore gracefully
-            }
-        }
-    }
-
-    fun autoPlaceInNegativeSpace(context: Context) {
-        val uri = _canvasState.value.backgroundImageUri ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
-                val bmp = context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, opts)
-                } ?: return@launch
-
-                val result = SmartFocalPlacementEngine.findOptimalPlacement(bmp)
-                bmp.recycle()
-
-                withContext(Dispatchers.Main) {
-                    pushActiveLayerHistory { active ->
-                        active.copy(
-                            normOffsetX = result.normX,
-                            normOffsetY = result.normY,
-                            textAlign = result.recommendedAlign
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                // Safe fallback
-            }
-        }
-    }
-
-    fun autoAdjustContrastAndLegibility(context: Context) {
-        val uri = _canvasState.value.backgroundImageUri ?: return
-        val active = _canvasState.value.activeLayer
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
-                val bmp = context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, opts)
-                } ?: return@launch
-
-                val rec = OpticalLegibilityEngine.analyzeLegibility(bmp, active)
-                bmp.recycle()
-
-                withContext(Dispatchers.Main) {
-                    pushActiveLayerHistory { currentActive ->
-                        OpticalLegibilityEngine.applyLegibility(currentActive, rec)
-                    }
-                }
-            } catch (e: Exception) {
-                // Safe fallback
             }
         }
     }
@@ -683,19 +625,6 @@ class AtharStudioViewModel : ViewModel() {
 
         val balanced = ArabicParagraphJustifier.balanceArabicBlock(active.displayText)
         pushActiveLayerHistory { it.copy(displayText = balanced) }
-    }
-
-    // ==========================================
-    // Depth Saliency & Optical FX Operations
-    // ==========================================
-
-    fun setTextBehindSubject(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(isTextBehindSubject = enabled))
-    }
-
-    fun setSubjectDepthSensitivity(sensitivity: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(subjectDepthSensitivity = sensitivity.coerceIn(0.1f, 0.9f)) }
     }
 
     // ==========================================
@@ -813,7 +742,7 @@ class AtharStudioViewModel : ViewModel() {
         mode: KashidaMode,
         targetIndex: Int
     ) {
-        val stretched = AtharNativeEngine.applyKashida(text, level, mode, targetIndex)
+        val stretched = PureArabicKashidaEngine.stretchText(text, level, mode, targetIndex)
         updateActiveLayer { it.copy(displayText = stretched) }
     }
 
