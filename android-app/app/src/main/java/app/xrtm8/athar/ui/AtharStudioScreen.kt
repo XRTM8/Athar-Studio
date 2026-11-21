@@ -62,16 +62,40 @@ fun AtharStudioScreen(
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
 
-    BackHandler(enabled = onNavigateBackToHome != null) {
-        onNavigateBackToHome?.invoke()
-    }
-
     val canvasState by viewModel.canvasState.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
     val canRedo by viewModel.canRedo.collectAsState()
     val isExporting by viewModel.isExporting.collectAsState()
     val projectsList by viewModel.projectsList.collectAsState()
     val exportMessage by viewModel.exportMessage.collectAsState()
+
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var isPanelExpanded by remember { mutableStateOf(false) }
+
+    var showTextDialog by remember { mutableStateOf(false) }
+    var showFontBrowser by remember { mutableStateOf(false) }
+    var showExportSheet by remember { mutableStateOf(false) }
+    var showProjectsSheet by remember { mutableStateOf(false) }
+
+    val handleBackNavigation: () -> Unit = {
+        when {
+            showTextDialog -> showTextDialog = false
+            showFontBrowser -> showFontBrowser = false
+            showExportSheet -> showExportSheet = false
+            showProjectsSheet -> showProjectsSheet = false
+            isPanelExpanded -> isPanelExpanded = false
+            else -> {
+                if (canvasState.layers.any { it.displayText.isNotBlank() } || canvasState.backgroundImageUri != null) {
+                    viewModel.saveCurrentProject(context)
+                }
+                onNavigateBackToHome?.invoke()
+            }
+        }
+    }
+
+    BackHandler(enabled = onNavigateBackToHome != null) {
+        handleBackNavigation()
+    }
 
     LaunchedEffect(exportMessage) {
         exportMessage?.let { msg ->
@@ -82,14 +106,6 @@ fun AtharStudioScreen(
 
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
-
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var isPanelExpanded by remember { mutableStateOf(false) }
-
-    var showTextDialog by remember { mutableStateOf(false) }
-    var showFontBrowser by remember { mutableStateOf(false) }
-    var showExportSheet by remember { mutableStateOf(false) }
-    var showProjectsSheet by remember { mutableStateOf(false) }
 
     // Handle deep-linked project file (.athar)
     LaunchedEffect(initialProjectUri) {
@@ -162,7 +178,7 @@ fun AtharStudioScreen(
                 onToggleLock = { viewModel.toggleLock() },
                 onResetTransform = { viewModel.resetCanvasTransform() },
                 onExportClick = { showExportSheet = true },
-                onBackToHome = onNavigateBackToHome,
+                onBackToHome = handleBackNavigation,
                 onToggleTheme = { viewModel.toggleAmoledWhite(context) }
             )
 

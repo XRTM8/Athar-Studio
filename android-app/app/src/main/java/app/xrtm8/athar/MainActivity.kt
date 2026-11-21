@@ -1,31 +1,32 @@
 package app.xrtm8.athar
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.core.content.ContextCompat
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.AtharHomeScreen
 import app.xrtm8.athar.ui.AtharStudioScreen
 import app.xrtm8.athar.ui.AtharStudioViewModel
+import app.xrtm8.athar.ui.splash.AtharSplashScreen
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.AmoledWhite
 import app.xrtm8.athar.ui.theme.AtharTheme
@@ -33,6 +34,7 @@ import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
 
 enum class AtharScreen {
+    SPLASH,
     HOME,
     STUDIO
 }
@@ -49,6 +51,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 1. Enable Full-Screen Immersive Edge-to-Edge System Bar Integration
+        enableEdgeToEdge()
 
         updateManager = AtharUpdateManager(this)
 
@@ -78,6 +83,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             val isAmoledWhite by studioViewModel.isAmoledWhite.collectAsState()
 
+            // 2. Synchronize Status Bar & Navigation Bar light/dark appearance dynamically with AMOLED Theme
+            val view = LocalView.current
+            if (!view.isInEditMode) {
+                SideEffect {
+                    val window = (view.context as? Activity)?.window ?: return@SideEffect
+                    WindowCompat.setDecorFitsSystemWindows(window, false)
+                    val insetsController = WindowCompat.getInsetsController(window, view)
+                    insetsController.isAppearanceLightStatusBars = isAmoledWhite
+                    insetsController.isAppearanceLightNavigationBars = isAmoledWhite
+                }
+            }
+
             AtharTheme(isAmoledWhite = isAmoledWhite) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Surface(
@@ -85,24 +102,38 @@ class MainActivity : ComponentActivity() {
                         color = if (isAmoledWhite) AmoledWhite else AmoledBlack
                     ) {
                         var currentScreen by remember {
-                            mutableStateOf(if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.HOME)
+                            mutableStateOf(
+                                if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.SPLASH
+                            )
                         }
 
-                        when (currentScreen) {
-                            AtharScreen.HOME -> {
-                                AtharHomeScreen(
-                                    viewModel = studioViewModel,
-                                    updateManager = updateManager,
-                                    onNavigateToStudio = { currentScreen = AtharScreen.STUDIO }
-                                )
-                            }
-                            AtharScreen.STUDIO -> {
-                                AtharStudioScreen(
-                                    updateManager = updateManager,
-                                    initialProjectUri = initialProjectUri,
-                                    viewModel = studioViewModel,
-                                    onNavigateBackToHome = { currentScreen = AtharScreen.HOME }
-                                )
+                        Crossfade(
+                            targetState = currentScreen,
+                            label = "ScreenCrossfade"
+                        ) { screen ->
+                            when (screen) {
+                                AtharScreen.SPLASH -> {
+                                    AtharSplashScreen(
+                                        onSplashFinished = {
+                                            currentScreen = AtharScreen.HOME
+                                        }
+                                    )
+                                }
+                                AtharScreen.HOME -> {
+                                    AtharHomeScreen(
+                                        viewModel = studioViewModel,
+                                        updateManager = updateManager,
+                                        onNavigateToStudio = { currentScreen = AtharScreen.STUDIO }
+                                    )
+                                }
+                                AtharScreen.STUDIO -> {
+                                    AtharStudioScreen(
+                                        updateManager = updateManager,
+                                        initialProjectUri = initialProjectUri,
+                                        viewModel = studioViewModel,
+                                        onNavigateBackToHome = { currentScreen = AtharScreen.HOME }
+                                    )
+                                }
                             }
                         }
                     }

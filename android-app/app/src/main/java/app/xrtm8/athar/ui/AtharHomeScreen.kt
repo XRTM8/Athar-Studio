@@ -1,5 +1,8 @@
 package app.xrtm8.athar.ui
 
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +44,17 @@ fun AtharHomeScreen(
     val projectsList by viewModel.projectsList.collectAsState()
     val updateInfo by updateManager.updateState.collectAsState()
     val downloadProgress by updateManager.downloadProgress.collectAsState()
+
+    var lastBackPressTime by remember { mutableLongStateOf(0L) }
+    BackHandler {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastBackPressTime < 2000L) {
+            (context as? Activity)?.finish()
+        } else {
+            lastBackPressTime = currentTime
+            Toast.makeText(context, "اضغط مرة أخرى للخروج من أثر", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     var selectedAspectRatio by remember { mutableStateOf(CanvasAspectRatio.STORY_9_16) }
 

@@ -2,7 +2,9 @@ package app.xrtm8.athar.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -69,21 +71,26 @@ fun TopStudioBar(
             // Right: Back to Home, Logo & Project Library Button
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onBackToHome != null) {
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onBackToHome()
-                        },
-                        modifier = Modifier.size(32.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(if (isAmoledWhite) WhiteSurfaceElevated else StudioSurface)
+                            .border(0.5.dp, pillBorder, CircleShape)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onBackToHome()
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "العودة للرئيسية",
-                            tint = primaryText,
-                            modifier = Modifier.size(19.dp)
+                            tint = CherryAccent,
+                            modifier = Modifier.size(17.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                 }
 
                 Text(
