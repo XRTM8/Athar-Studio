@@ -199,7 +199,7 @@ fun TopStudioBar(
                 modifier = Modifier.height(34.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Share, contentDescription = null, tint = PureWhite, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.IosShare, contentDescription = null, tint = PureWhite, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(text = "تصدير", color = PureWhite, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                 }

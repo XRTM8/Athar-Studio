@@ -92,11 +92,26 @@ fun ImageCropDialog(
 
     fun applyAspectConstraint(aspect: CropAspect) {
         val targetRatio = aspect.ratio ?: return
-        val currentW = cropRight - cropLeft
-        val targetH = (currentW / targetRatio).coerceIn(0.1f, 0.95f)
-        val cy = (cropTop + cropBottom) / 2f
-        cropTop = (cy - targetH / 2f).coerceAtLeast(0f)
-        cropBottom = (cropTop + targetH).coerceAtMost(1f)
+        val bm = loadedBitmap ?: return
+        val imgW = bm.width.toFloat()
+        val imgH = bm.height.toFloat()
+        val normRatio = targetRatio * (imgH / imgW)
+
+        if (normRatio <= 1.0f) {
+            val targetH = 0.82f
+            val targetW = (targetH * normRatio).coerceIn(0.15f, 0.98f)
+            cropLeft = (0.5f - targetW / 2f).coerceIn(0f, 1f - targetW)
+            cropRight = cropLeft + targetW
+            cropTop = (0.5f - targetH / 2f).coerceIn(0f, 1f - targetH)
+            cropBottom = cropTop + targetH
+        } else {
+            val targetW = 0.85f
+            val targetH = (targetW / normRatio).coerceIn(0.15f, 0.98f)
+            cropLeft = (0.5f - targetW / 2f).coerceIn(0f, 1f - targetW)
+            cropRight = cropLeft + targetW
+            cropTop = (0.5f - targetH / 2f).coerceIn(0f, 1f - targetH)
+            cropBottom = cropTop + targetH
+        }
     }
 
     val dialogBg = if (isAmoledWhite) AmoledWhite else AmoledBlack
@@ -155,6 +170,7 @@ fun ImageCropDialog(
                     cropTop = cropTop,
                     cropRight = cropRight,
                     cropBottom = cropBottom,
+                    targetRatio = selectedAspect.ratio,
                     onCropChange = { l, t, r, b ->
                         cropLeft = l
                         cropTop = t

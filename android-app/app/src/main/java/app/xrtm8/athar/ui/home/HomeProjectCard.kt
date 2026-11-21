@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -120,10 +120,10 @@ fun HomeProjectCard(
                         modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
-                            Icons.Default.Share,
+                            Icons.Default.IosShare,
                             contentDescription = "مشاركة",
                             tint = CherryAccent,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                     IconButton(

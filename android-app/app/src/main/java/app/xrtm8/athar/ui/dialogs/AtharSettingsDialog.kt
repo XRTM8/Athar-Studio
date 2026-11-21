@@ -13,7 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -108,12 +108,8 @@ fun AtharSettingsDialog(
 
                 // Section 1: Cache Management
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(cardBg)
-                        .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-                        .padding(14.dp)
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .background(cardBg).border(1.dp, cardBorder, RoundedCornerShape(16.dp)).padding(14.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -125,22 +121,14 @@ fun AtharSettingsDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = "الذاكرة المؤقتة", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
-
                         val mb = cacheSizeBytes / (1024f * 1024f)
-                        Text(
-                            text = String.format("%.1f ميجابايت", mb),
-                            color = subtleText,
-                            fontSize = 12.sp
-                        )
+                        Text(text = String.format("%.1f ميجابايت", mb), color = subtleText, fontSize = 12.sp)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Text(
                         text = "تنظيف الملفات المؤقتة الناتجة عن عمليات التصدير والمشاركات السابقة لتوفير مساحة التخزين.",
-                        color = subtleText,
-                        fontSize = 11.5.sp,
-                        lineHeight = 16.sp
+                        color = subtleText, fontSize = 11.5.sp, lineHeight = 16.sp
                     )
 
                     if (cacheMessage != null) {
@@ -149,7 +137,6 @@ fun AtharSettingsDialog(
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
-
                     OutlinedButton(
                         onClick = {
                             if (!isClearingCache) {
@@ -168,11 +155,7 @@ fun AtharSettingsDialog(
                         shape = RoundedCornerShape(10.dp),
                         enabled = !isClearingCache
                     ) {
-                        Text(
-                            text = if (isClearingCache) "جارٍ التنظيف..." else "تنظيف الذاكرة المؤقتة الآن",
-                            color = primaryText,
-                            fontSize = 12.sp
-                        )
+                        Text(text = if (isClearingCache) "جارٍ التنظيف..." else "تنظيف الذاكرة المؤقتة الآن", color = primaryText, fontSize = 12.sp)
                     }
                 }
 
@@ -224,24 +207,14 @@ fun AtharSettingsDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = "أثر (Athar)", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
-
-                        Text(
-                            text = "الإصدار 2.5.0",
-                            color = CherryAccent,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(text = "الإصدار 2.7.1", color = CherryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
-
                     Text(
                         text = "استوديو التايبوغرافي وتصميم النصوص العربية الأصيلة بتقنيات المد والكشيدة الذكية ومعالجة الطبقات الرقمية.",
-                        color = subtleText,
-                        fontSize = 11.5.sp,
-                        lineHeight = 16.sp
+                        color = subtleText, fontSize = 11.5.sp, lineHeight = 16.sp
                     )
-
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Button(
@@ -257,7 +230,7 @@ fun AtharSettingsDialog(
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = CherryAccent)
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.IosShare, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(text = "مشاركة التطبيق مع الأصدقاء", color = PureWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }

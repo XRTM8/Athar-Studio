@@ -155,19 +155,9 @@ fun ProjectsBottomSheet(
                             modifier = Modifier.size(46.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "لا توجد مشاريع محفوظة بعد",
-                            color = secondaryTextColor,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
+                        Text(text = "لا توجد مشاريع محفوظة بعد", color = secondaryTextColor, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "احفظ تصميمك كملف .athar لتعديله في أي وقت أو مشاركته مع الآخرين",
-                            color = subtleTextColor,
-                            fontSize = 11.5.sp,
-                            textAlign = TextAlign.Center
-                        )
+                        Text(text = "احفظ تصميمك كملف .athar لتعديله في أي وقت أو مشاركته مع الآخرين", color = subtleTextColor, fontSize = 11.5.sp, textAlign = TextAlign.Center)
                     }
                 }
             } else {
@@ -219,18 +209,8 @@ fun ProjectsBottomSheet(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = proj.title,
-                                            color = primaryTextColor,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            maxLines = 1
-                                        )
-                                        Text(
-                                            text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(proj.lastModified)),
-                                            color = subtleTextColor,
-                                            fontSize = 9.5.sp
-                                        )
+                                        Text(text = proj.title, color = primaryTextColor, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+                                        Text(text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(proj.lastModified)), color = subtleTextColor, fontSize = 9.5.sp)
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         IconButton(
@@ -240,12 +220,7 @@ fun ProjectsBottomSheet(
                                             },
                                             modifier = Modifier.size(28.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Share,
-                                                contentDescription = "مشاركة المشروع (.athar)",
-                                                tint = CherryAccent,
-                                                modifier = Modifier.size(15.dp)
-                                            )
+                                            Icon(Icons.Default.IosShare, contentDescription = "مشاركة المشروع (.athar)", tint = CherryAccent, modifier = Modifier.size(15.dp))
                                         }
 
                                         IconButton(
@@ -255,12 +230,7 @@ fun ProjectsBottomSheet(
                                             },
                                             modifier = Modifier.size(28.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "حذف",
-                                                tint = Color(0xFFFF6B6B),
-                                                modifier = Modifier.size(15.dp)
-                                            )
+                                            Icon(Icons.Default.Delete, contentDescription = "حذف", tint = Color(0xFFFF6B6B), modifier = Modifier.size(15.dp))
                                         }
                                     }
                                 }
