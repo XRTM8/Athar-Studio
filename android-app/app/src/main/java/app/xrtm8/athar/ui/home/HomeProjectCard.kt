@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
@@ -43,6 +44,7 @@ fun HomeProjectCard(
     subtleTextColor: Color,
     onClick: () -> Unit,
     onShare: () -> Unit,
+    onRename: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -99,8 +101,20 @@ fun HomeProjectCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = onRename,
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "إعادة تسمية",
+                            tint = subtleTextColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                     IconButton(
                         onClick = onShare,
                         modifier = Modifier.size(26.dp)
@@ -109,7 +123,7 @@ fun HomeProjectCard(
                             Icons.Default.Share,
                             contentDescription = "مشاركة",
                             tint = CherryAccent,
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                     IconButton(

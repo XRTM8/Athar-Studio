@@ -66,7 +66,7 @@ fun StudioDock(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (isSelected) GoldAccent.copy(alpha = 0.18f) else Color.Transparent)
+                    .background(if (isSelected) CherryAccent.copy(alpha = 0.18f) else Color.Transparent)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onTabSelected(tab.index)
@@ -76,13 +76,13 @@ fun StudioDock(
                 Icon(
                     imageVector = tab.icon,
                     contentDescription = tab.title,
-                    tint = if (isSelected) GoldAccent else SubtleGray,
+                    tint = if (isSelected) CherryAccent else SubtleGray,
                     modifier = Modifier.size(19.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = tab.title,
-                    color = if (isSelected) GoldAccent else MutedWhite,
+                    color = if (isSelected) CherryAccent else MutedWhite,
                     fontSize = 10.5.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )

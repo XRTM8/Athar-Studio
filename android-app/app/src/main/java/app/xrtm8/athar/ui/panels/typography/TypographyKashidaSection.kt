@@ -49,7 +49,7 @@ fun TypographyKashidaSection(
                 Icon(
                     imageVector = Icons.Default.LinearScale,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -116,8 +116,8 @@ fun TypographyKashidaSection(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isSelected) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onStretchLevelChange(lvl)
@@ -153,7 +153,7 @@ fun TypographyKashidaSection(
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(13.dp))
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(13.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "تمديد حرف محدد:",

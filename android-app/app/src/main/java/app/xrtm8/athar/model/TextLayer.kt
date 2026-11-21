@@ -48,5 +48,7 @@ data class TextLayer(
     val gradientAngle: Float = 90f,
     val isRadialGradient: Boolean = false,
     val isHollowText: Boolean = false,
-    val boxWidthRatio: Float = 0.85f
+    val boxWidthRatio: Float = 0.85f,
+    val customFontPath: String? = null,
+    val customFontName: String? = null
 )

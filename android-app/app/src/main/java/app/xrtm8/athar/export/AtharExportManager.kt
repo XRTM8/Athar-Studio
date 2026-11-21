@@ -217,7 +217,7 @@ object AtharExportManager {
             if (!layer.isVisible || layer.displayText.isEmpty()) return@forEach
 
             val scaledTextSize = (layer.fontSize / 380f) * width
-            val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
+            val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
             val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
             val alphaInt = (alphaFloat * 255).toInt()
             val opacityFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, alphaFloat) })

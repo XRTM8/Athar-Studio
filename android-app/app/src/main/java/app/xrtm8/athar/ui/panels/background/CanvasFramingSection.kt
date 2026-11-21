@@ -9,12 +9,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +29,7 @@ import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.LUXURY_BG_PRESETS
 import app.xrtm8.athar.ui.components.StudioSlider
+import app.xrtm8.athar.ui.dialogs.CustomColorPickerDialog
 import app.xrtm8.athar.ui.theme.*
 import java.util.Locale
 
@@ -48,6 +50,7 @@ fun CanvasFramingSection(
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    var showCustomBgColorDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Aspect Ratio Selector
@@ -64,8 +67,8 @@ fun CanvasFramingSection(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
+                        .background(if (isSelected) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onAspectRatioChange(ratio)
@@ -95,7 +98,7 @@ fun CanvasFramingSection(
                 checked = state.showGridGuides,
                 onCheckedChange = { onToggleGridGuides() },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = GoldAccent,
+                    checkedThumbColor = CherryAccent,
                     checkedTrackColor = GlassSurface,
                     uncheckedThumbColor = SubtleGray,
                     uncheckedTrackColor = AmoledBlack
@@ -123,7 +126,7 @@ fun CanvasFramingSection(
                 Icon(
                     imageVector = Icons.Default.AddPhotoAlternate,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -156,7 +159,7 @@ fun CanvasFramingSection(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .background(GlassSurface)
-                    .border(0.5.dp, if (state.isFramingMode) GoldAccent else GlassBorder, RoundedCornerShape(14.dp))
+                    .border(0.5.dp, if (state.isFramingMode) CherryAccent else GlassBorder, RoundedCornerShape(14.dp))
                     .padding(12.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -169,14 +172,14 @@ fun CanvasFramingSection(
                             Icon(
                                 Icons.Default.Crop,
                                 contentDescription = null,
-                                tint = if (state.isFramingMode) GoldAccent else PureWhite,
+                                tint = if (state.isFramingMode) CherryAccent else PureWhite,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Column {
                                 Text(
                                     text = "تأطير واختيار جزء الصورة للقص",
-                                    color = if (state.isFramingMode) GoldAccent else PureWhite,
+                                    color = if (state.isFramingMode) CherryAccent else PureWhite,
                                     fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -194,7 +197,7 @@ fun CanvasFramingSection(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onToggleFramingMode(it)
                             },
-                            colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
+                            colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
                         )
                     }
 
@@ -258,7 +261,7 @@ fun CanvasFramingSection(
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onToggleTransparent(it)
                 },
-                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
+                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
             )
         }
 
@@ -273,14 +276,43 @@ fun CanvasFramingSection(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Custom Color Chip
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(CherryAccent.copy(alpha = 0.2f))
+                        .border(1.dp, CherryAccent, RoundedCornerShape(10.dp))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onRemoveImage()
+                            showCustomBgColorDialog = true
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "لون خلفية مخصص",
+                        tint = CherryAccent,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "مخصص",
+                        color = CherryAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 LUXURY_BG_PRESETS.forEach { bg ->
                     val isSelected = (state.solidBgColorLong == bg.argb || (bg.argb == 0xFF000000 && state.solidBgColorLong == null)) && state.backgroundImageUri == null
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
+                            .background(if (isSelected) CherryAccent else GlassSurface)
+                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onRemoveImage()
@@ -305,6 +337,15 @@ fun CanvasFramingSection(
                     }
                 }
             }
+        }
+
+        if (showCustomBgColorDialog) {
+            CustomColorPickerDialog(
+                initialColorLong = state.solidBgColorLong ?: 0xFF000000L,
+                title = "منتقي لون خلفية الكانفاس",
+                onColorSelected = { onSelectSolidBgColor(it) },
+                onDismiss = { showCustomBgColorDialog = false }
+            )
         }
     }
 }

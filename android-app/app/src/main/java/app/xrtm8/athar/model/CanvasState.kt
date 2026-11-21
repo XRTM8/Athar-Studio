@@ -82,6 +82,8 @@ data class CanvasState(
     val gradientAngle: Float get() = activeLayer.gradientAngle
     val isRadialGradient: Boolean get() = activeLayer.isRadialGradient
     val isHollowText: Boolean get() = activeLayer.isHollowText
+    val customFontPath: String? get() = activeLayer.customFontPath
+    val customFontName: String? get() = activeLayer.customFontName
 
     // Convenience constructor for legacy / single-layer callers
     constructor(

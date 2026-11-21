@@ -28,7 +28,7 @@ import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.GlassBorder
 import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.CherryAccent
 import app.xrtm8.athar.ui.theme.MutedWhite
 import app.xrtm8.athar.ui.theme.PureWhite
 import app.xrtm8.athar.ui.theme.SubtleGray
@@ -50,7 +50,7 @@ fun KashidaModeSelector(
             Text(text = "نمط وتوزيع الكشيدة الخطية:", color = MutedWhite, fontSize = 11.5.sp)
             Text(
                 text = selectedMode.label,
-                color = GoldAccent,
+                color = CherryAccent,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -68,10 +68,10 @@ fun KashidaModeSelector(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
+                        .background(if (isSelected) CherryAccent else GlassSurface)
                         .border(
                             width = if (isSelected) 1.dp else 0.5.dp,
-                            color = if (isSelected) GoldAccent else GlassBorder,
+                            color = if (isSelected) CherryAccent else GlassBorder,
                             shape = RoundedCornerShape(8.dp)
                         )
                         .clickable {

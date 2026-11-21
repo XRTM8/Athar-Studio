@@ -107,7 +107,7 @@ fun CanvasBackgroundPanel(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(9.dp))
-                        .background(if (isSelected) GoldAccent else Color.Transparent)
+                        .background(if (isSelected) CherryAccent else Color.Transparent)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             subSection = idx

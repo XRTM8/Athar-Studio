@@ -59,13 +59,13 @@ fun TypographyFontSection(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.LibraryBooks,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(12.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "كافة الخطوط والمفضلة",
-                    color = GoldAccent,
+                    color = CherryAccent,
                     fontSize = 10.5.sp,
                     fontWeight = FontWeight.Bold
                 )

@@ -71,7 +71,7 @@ fun TransformPositionPanel(
                 Icon(
                     imageVector = Icons.Default.CenterFocusStrong,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -106,7 +106,7 @@ fun TransformPositionPanel(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.RotateRight,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(15.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -133,8 +133,8 @@ fun TransformPositionPanel(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(6.dp))
+                            .background(if (isSelected) CherryAccent else GlassSurface)
+                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(6.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onRotationChange(angle)
@@ -178,7 +178,7 @@ fun TransformPositionPanel(
                 Icon(
                     imageVector = Icons.Default.ZoomIn,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -205,7 +205,7 @@ fun TransformPositionPanel(
             ) {
                 Text(
                     text = "1.0x",
-                    color = GoldAccent,
+                    color = CherryAccent,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )

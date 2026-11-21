@@ -88,4 +88,23 @@ class MultiLayerSerializationTest {
         assertEquals(ArabicFontFamily.AMIRI, restored.selectedFont)
         assertEquals(42f, restored.fontSize, 0.001f)
     }
+
+    @Test
+    fun testCustomFontSerializationRoundTrip() {
+        val customLayer = TextLayer(
+            id = "layer_custom",
+            name = "نص بخط مخصص",
+            rawText = "خط الرقعة الحديث",
+            customFontPath = "/data/user/0/app.xrtm8.athar/files/custom_fonts/my_ruqaa.ttf",
+            customFontName = "my_ruqaa"
+        )
+        val state = CanvasState(layers = listOf(customLayer), activeLayerId = "layer_custom")
+        val json = AtharProjectSerializer.serializeCanvasState(state, false)
+        val restored = AtharProjectSerializer.deserializeCanvasState(json)
+
+        val layer = restored.layers.first()
+        assertEquals("/data/user/0/app.xrtm8.athar/files/custom_fonts/my_ruqaa.ttf", layer.customFontPath)
+        assertEquals("my_ruqaa", layer.customFontName)
+        assertEquals(layer.customFontPath, restored.customFontPath)
+    }
 }

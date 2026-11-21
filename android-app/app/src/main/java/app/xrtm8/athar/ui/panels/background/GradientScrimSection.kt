@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasGradientDirection
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.ui.components.StudioSlider
+import app.xrtm8.athar.ui.dialogs.CustomColorPickerDialog
 import app.xrtm8.athar.ui.theme.*
 
 @Composable
@@ -38,6 +42,7 @@ fun GradientScrimSection(
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    var showCustomScrimColorDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -65,7 +70,7 @@ fun GradientScrimSection(
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onToggleGradientScrim(it)
                 },
-                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
+                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
             )
         }
 
@@ -86,8 +91,8 @@ fun GradientScrimSection(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(9.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(9.dp))
+                            .background(if (isSelected) CherryAccent else GlassSurface)
+                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onGradientScrimDirectionChange(dir)
@@ -115,6 +120,34 @@ fun GradientScrimSection(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Custom Color Chip
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(CherryAccent.copy(alpha = 0.2f))
+                        .border(1.dp, CherryAccent, RoundedCornerShape(10.dp))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            showCustomScrimColorDialog = true
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "لون ظل مخصص",
+                        tint = CherryAccent,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "مخصص",
+                        color = CherryAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 listOf(
                     0xFF000000L to "أسود داكن",
                     0xFF0A1128L to "كحلي ليلي",
@@ -128,8 +161,8 @@ fun GradientScrimSection(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
+                            .background(if (isSelected) CherryAccent else GlassSurface)
+                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onGradientScrimColorChange(colorLong)
@@ -176,6 +209,15 @@ fun GradientScrimSection(
                 valueRange = 0.1f..0.9f,
                 step = 0.05f,
                 valueDisplay = "${(state.gradientScrim.midpoint * 100).toInt()}%"
+            )
+        }
+
+        if (showCustomScrimColorDialog) {
+            CustomColorPickerDialog(
+                initialColorLong = state.gradientScrim.colorLong,
+                title = "منتقي لون الظل المتدرج",
+                onColorSelected = { onGradientScrimColorChange(it) },
+                onDismiss = { showCustomScrimColorDialog = false }
             )
         }
     }

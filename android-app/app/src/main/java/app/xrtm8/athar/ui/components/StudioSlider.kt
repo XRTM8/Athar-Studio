@@ -53,7 +53,7 @@ fun StudioSlider(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = GoldAccent,
+                        tint = CherryAccent,
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -99,7 +99,7 @@ fun StudioSlider(
 
                 Text(
                     text = valueDisplay,
-                    color = GoldAccent,
+                    color = CherryAccent,
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 4.dp)
@@ -140,8 +140,8 @@ fun StudioSlider(
             valueRange = valueRange,
             steps = steps,
             colors = SliderDefaults.colors(
-                thumbColor = GoldAccent,
-                activeTrackColor = GoldAccent,
+                thumbColor = CherryAccent,
+                activeTrackColor = CherryAccent,
                 inactiveTrackColor = GlassSurface,
                 activeTickColor = AmoledBlack,
                 inactiveTickColor = GlassBorder

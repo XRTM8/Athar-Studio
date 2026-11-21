@@ -86,7 +86,7 @@ fun FilmFilterPanel(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(9.dp))
-                        .background(if (isSelected) GoldAccent else Color.Transparent)
+                        .background(if (isSelected) CherryAccent else Color.Transparent)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             mainFilterSubTab = idx
@@ -129,8 +129,8 @@ fun FilmFilterPanel(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(9.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(9.dp))
+                        .background(if (isSelected) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             selectedCategory = cat
@@ -164,10 +164,10 @@ fun FilmFilterPanel(
                     modifier = Modifier
                         .width(140.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
+                        .background(if (isSelected) CherryAccent else GlassSurface)
                         .border(
                             width = if (isSelected) 1.5.dp else 0.5.dp,
-                            color = if (isSelected) GoldAccent else GlassBorder,
+                            color = if (isSelected) CherryAccent else GlassBorder,
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable {

@@ -66,6 +66,8 @@ object AtharProjectSerializer {
                     put("is_radial_gradient", layer.isRadialGradient)
                     put("is_hollow_text", layer.isHollowText)
                     put("box_width_ratio", layer.boxWidthRatio.toDouble())
+                    put("custom_font_path", layer.customFontPath ?: "")
+                    put("custom_font_name", layer.customFontName ?: "")
                 }
                 layersArray.put(lObj)
             }
@@ -108,6 +110,8 @@ object AtharProjectSerializer {
             put("glass_backdrop_corner_radius", active.glassBackdropCornerRadius.toDouble())
             put("glass_backdrop_padding", active.glassBackdropPadding.toDouble())
             put("box_width_ratio", active.boxWidthRatio.toDouble())
+            put("custom_font_path", active.customFontPath ?: "")
+            put("custom_font_name", active.customFontName ?: "")
 
             // Global Canvas Keys
             put("show_grid_guides", state.showGridGuides)
@@ -205,6 +209,8 @@ object AtharProjectSerializer {
                 val gradAngle = lObj.optDouble("gradient_angle", 90.0).toFloat()
                 val isRadialGrad = lObj.optBoolean("is_radial_gradient", false)
                 val isHollow = lObj.optBoolean("is_hollow_text", false)
+                val customFontPath = lObj.optString("custom_font_path", "").ifBlank { null }
+                val customFontName = lObj.optString("custom_font_name", "").ifBlank { null }
 
                 layers.add(
                     TextLayer(
@@ -251,7 +257,9 @@ object AtharProjectSerializer {
                         gradientAngle = gradAngle,
                         isRadialGradient = isRadialGrad,
                         isHollowText = isHollow,
-                        boxWidthRatio = lObj.optDouble("box_width_ratio", 0.85).toFloat()
+                        boxWidthRatio = lObj.optDouble("box_width_ratio", 0.85).toFloat(),
+                        customFontPath = customFontPath,
+                        customFontName = customFontName
                     )
                 )
             }
@@ -270,6 +278,8 @@ object AtharProjectSerializer {
             val effect = try { VisualEffect.valueOf(eStr) } catch (e: Exception) { VisualEffect.ROYAL_GOLD }
             val align = try { TextAlignOption.valueOf(aStr) } catch (e: Exception) { TextAlignOption.CENTER }
             val customColor = c.optLong("custom_color", 0L)
+            val customFontPath = c.optString("custom_font_path", "").ifBlank { null }
+            val customFontName = c.optString("custom_font_name", "").ifBlank { null }
             val dispText = c.optString("display_text", "")
             val finalDisp = if (dispText.isNotEmpty()) dispText else PureArabicKashidaEngine.stretchText(rawText, stretchLevel, kMode, targetIdx)
 
@@ -311,7 +321,9 @@ object AtharProjectSerializer {
                     glassBackdropBorderColorLong = c.optLong("glass_backdrop_border_color", 0x55E5C07B),
                     glassBackdropCornerRadius = c.optDouble("glass_backdrop_corner_radius", 22.0).toFloat(),
                     glassBackdropPadding = c.optDouble("glass_backdrop_padding", 22.0).toFloat(),
-                    boxWidthRatio = c.optDouble("box_width_ratio", 0.85).toFloat()
+                    boxWidthRatio = c.optDouble("box_width_ratio", 0.85).toFloat(),
+                    customFontPath = customFontPath,
+                    customFontName = customFontName
                 )
             )
         }

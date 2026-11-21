@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.ui.theme.GlassBorder
 import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.CherryAccent
 import app.xrtm8.athar.ui.theme.MutedWhite
 import app.xrtm8.athar.ui.theme.PureWhite
 
@@ -155,7 +155,7 @@ fun PhotoAdjustmentsPanel(
                 shape = RoundedCornerShape(10.dp),
                 border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder)
             ) {
-                Icon(Icons.Default.RestartAlt, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(15.dp))
+                Icon(Icons.Default.RestartAlt, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "إعادة ضبط التعديلات", color = PureWhite, fontSize = 11.sp)
             }

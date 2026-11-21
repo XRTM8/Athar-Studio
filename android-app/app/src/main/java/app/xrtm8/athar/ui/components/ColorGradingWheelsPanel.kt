@@ -53,7 +53,7 @@ fun ColorGradingWheelsPanel(
                 Icon(
                     imageVector = Icons.Default.Tune,
                     contentDescription = null,
-                    tint = if (state.colorGradingEnabled) GoldAccent else SubtleGray,
+                    tint = if (state.colorGradingEnabled) CherryAccent else SubtleGray,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -92,7 +92,7 @@ fun ColorGradingWheelsPanel(
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = AmoledBlack,
-                        checkedTrackColor = GoldAccent,
+                        checkedTrackColor = CherryAccent,
                         uncheckedThumbColor = SubtleGray,
                         uncheckedTrackColor = GlassSurface
                     ),
@@ -166,7 +166,7 @@ private fun ColorToneChannelSection(
             Text(text = title, color = PureWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 text = "R:${(red * 100).toInt()}% G:${(green * 100).toInt()}% B:${(blue * 100).toInt()}%",
-                color = GoldAccent,
+                color = CherryAccent,
                 fontSize = 9.5.sp
             )
         }

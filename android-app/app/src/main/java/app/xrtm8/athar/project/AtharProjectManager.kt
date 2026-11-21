@@ -216,6 +216,76 @@ object AtharProjectManager {
         file.delete() && thumb.delete()
     }
 
+    suspend fun renameProject(context: Context, projectId: String, newTitle: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val projectsDir = getProjectsDir(context)
+            val file = File(projectsDir, "$projectId.athar")
+            if (!file.exists()) return@withContext false
+
+            val cleanTitle = newTitle.trim().take(40).ifBlank { "مشروع بدون عنوان" }
+            val tempFile = File(projectsDir, "${projectId}_temp.athar")
+
+            var updated = false
+            ZipInputStream(FileInputStream(file)).use { zis ->
+                ZipOutputStream(FileOutputStream(tempFile)).use { zos ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        if (entry.name == MANIFEST_ENTRY_NAME) {
+                            val jsonStr = zis.bufferedReader(Charsets.UTF_8).readText()
+                            val json = JSONObject(jsonStr)
+                            json.put("title", cleanTitle)
+                            zos.putNextEntry(ZipEntry(MANIFEST_ENTRY_NAME))
+                            zos.write(json.toString(2).toByteArray(Charsets.UTF_8))
+                            zos.closeEntry()
+                            updated = true
+                        } else {
+                            zos.putNextEntry(ZipEntry(entry.name))
+                            zis.copyTo(zos)
+                            zos.closeEntry()
+                        }
+                        entry = zis.nextEntry
+                    }
+                }
+            }
+
+            if (updated && tempFile.exists()) {
+                file.delete()
+                tempFile.renameTo(file)
+            } else {
+                tempFile.delete()
+                false
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    suspend fun getCacheSizeBytes(context: Context): Long = withContext(Dispatchers.IO) {
+        fun dirSize(dir: File?): Long {
+            if (dir == null || !dir.exists()) return 0L
+            var size = 0L
+            dir.listFiles()?.forEach { file ->
+                size += if (file.isDirectory) dirSize(file) else file.length()
+            }
+            return size
+        }
+        dirSize(context.cacheDir)
+    }
+
+    suspend fun clearAppCache(context: Context): Long = withContext(Dispatchers.IO) {
+        val before = getCacheSizeBytes(context)
+        fun deleteRecursively(dir: File?) {
+            if (dir == null || !dir.exists()) return
+            dir.listFiles()?.forEach { file ->
+                if (file.isDirectory) deleteRecursively(file)
+                file.delete()
+            }
+        }
+        deleteRecursively(context.cacheDir)
+        val after = getCacheSizeBytes(context)
+        (before - after).coerceAtLeast(0L)
+    }
+
     suspend fun getExportableProjectFile(context: Context, projectId: String, title: String): File = withContext(Dispatchers.IO) {
         val projectsDir = getProjectsDir(context)
         val srcFile = File(projectsDir, "$projectId.athar")

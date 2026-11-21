@@ -45,7 +45,7 @@ fun TypographyEditorTrigger(
                 Icon(
                     imageVector = Icons.Default.Edit,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -58,7 +58,7 @@ fun TypographyEditorTrigger(
             }
             Text(
                 text = rawText.take(18).ifBlank { "اكتب نصك هنا..." },
-                color = GoldAccent,
+                color = CherryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1

@@ -27,7 +27,7 @@ import app.xrtm8.athar.core.PureArabicKashidaEngine
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.CherryAccent
 import app.xrtm8.athar.ui.theme.MutedWhite
 import app.xrtm8.athar.ui.theme.PureWhite
 
@@ -59,10 +59,10 @@ fun KashidaOpportunityChips(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) GoldAccent else GlassSurface)
+                    .background(if (isSelected) CherryAccent else GlassSurface)
                     .border(
                         width = 1.dp,
-                        color = if (isSelected) GoldAccent else if (opp.isRecommended) GoldAccent.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
+                        color = if (isSelected) CherryAccent else if (opp.isRecommended) CherryAccent.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
                         shape = RoundedCornerShape(8.dp)
                     )
                     .clickable {

@@ -124,7 +124,7 @@ object AtharProjectThumbnailRenderer {
             if (!layer.isVisible || layer.displayText.isEmpty()) return@forEach
 
             val scaledTextSize = (layer.fontSize / 380f) * width
-            val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
+            val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
 
             val paint = Paint().apply {
                 isAntiAlias = true

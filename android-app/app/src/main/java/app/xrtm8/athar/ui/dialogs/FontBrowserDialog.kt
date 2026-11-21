@@ -1,5 +1,8 @@
 package app.xrtm8.athar.ui.dialogs
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -31,31 +35,51 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.AtharFavoritesManager
+import app.xrtm8.athar.model.CustomFont
 import app.xrtm8.athar.ui.theme.*
 
 /**
  * Deluxe Arabic Font Browser Modal inspired by Al-Musamim Al-Arabi.
  * Features:
  * - Live font search
- * - Category filters (All, Favorites, Classical, Kufic, Nastaliq, Headlines, Modern, Free, Quranic)
+ * - External font import (.ttf / .otf)
+ * - Custom fonts section & management
+ * - Category filters (All, Custom, Favorites, Classical, Kufic, Nastaliq, etc.)
  * - Heart toggle for favorites with atomic persistence
  * - Specimen cards with instant selection
  */
 @Composable
 fun FontBrowserDialog(
     selectedFont: ArabicFontFamily,
+    customFontPath: String? = null,
     sampleText: String,
+    customFonts: List<CustomFont> = emptyList(),
     onSelectFont: (ArabicFontFamily) -> Unit,
+    onSelectCustomFont: (CustomFont) -> Unit = {},
+    onImportFont: (Uri) -> Unit = {},
+    onDeleteCustomFont: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
+    val fontPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onImportFont(uri)
+        }
+    }
+
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("الكل") }
     var favoriteFonts by remember { mutableStateOf(AtharFavoritesManager.getFavoriteFonts(context)) }
 
-    val categories = listOf("الكل", "المفضلة", "كلاسيكي", "كوفي", "نستعليق", "عناوين", "حديث", "تعبيري", "قرآني")
+    val categories = listOf("الكل", "خطوط مخصصة", "المفضلة", "كلاسيكي", "كوفي", "نستعليق", "عناوين", "حديث", "تعبيري", "قرآني")
+
+    val filteredCustomFonts = customFonts.filter { cf ->
+        cf.name.contains(searchQuery, ignoreCase = true)
+    }
 
     val filteredFonts = ArabicFontFamily.entries.filter { font ->
         val matchesSearch = font.fontName.contains(searchQuery, ignoreCase = true) ||
@@ -64,6 +88,7 @@ fun FontBrowserDialog(
         val matchesCategory = when (selectedCategory) {
             "الكل" -> true
             "المفضلة" -> favoriteFonts.contains(font.name)
+            "خطوط مخصصة" -> false
             else -> font.category == selectedCategory
         }
 
@@ -180,16 +205,72 @@ fun FontBrowserDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Import Font Button
+                OutlinedButton(
+                    onClick = {
+                        fontPickerLauncher.launch(
+                            arrayOf(
+                                "font/*",
+                                "application/x-font-ttf",
+                                "application/x-font-opentype",
+                                "application/octet-stream",
+                                "*/*"
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = CherryAccent.copy(alpha = if (isAmoledWhite) 0.08f else 0.12f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CherryAccent)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "استيراد خط خارجي (.ttf / .otf)",
+                        color = CherryAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Fonts List
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(filteredFonts) { font ->
-                        val isSelected = selectedFont == font
-                        val isFav = favoriteFonts.contains(font.name)
+                    // Custom fonts section
+                    if (selectedCategory == "خطوط مخصصة" || (selectedCategory == "الكل" && filteredCustomFonts.isNotEmpty())) {
+                        items(filteredCustomFonts, key = { "custom_${it.id}" }) { cf ->
+                            val isSelected = customFontPath == cf.filePath
+                            CustomFontItemRow(
+                                customFont = cf,
+                                isSelected = isSelected,
+                                sampleText = sampleText,
+                                isAmoledWhite = isAmoledWhite,
+                                onSelect = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelectCustomFont(cf)
+                                    onDismiss()
+                                },
+                                onDelete = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onDeleteCustomFont(cf.id)
+                                }
+                            )
+                        }
+                    }
+
+                    // Built-in fonts
+                    if (selectedCategory != "خطوط مخصصة") {
+                        items(filteredFonts, key = { it.name }) { font ->
+                            val isSelected = selectedFont == font && customFontPath == null
+                            val isFav = favoriteFonts.contains(font.name)
 
                         Box(
                             modifier = Modifier
@@ -264,6 +345,7 @@ fun FontBrowserDialog(
                                 }
                             }
                         }
+                    }
                     }
                 }
             }

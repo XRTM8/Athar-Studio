@@ -52,7 +52,7 @@ import app.xrtm8.athar.ui.panels.TransformPositionPanel
 import app.xrtm8.athar.ui.panels.TypographyPanel
 import app.xrtm8.athar.ui.theme.GlassBackground
 import app.xrtm8.athar.ui.theme.GlassBorder
-import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.CherryAccent
 import app.xrtm8.athar.ui.theme.PureWhite
 import app.xrtm8.athar.ui.theme.SubtleGray
 
@@ -105,7 +105,7 @@ fun StudioConsoleDrawer(
                             Icon(
                                 imageVector = currentTabItem.icon,
                                 contentDescription = null,
-                                tint = GoldAccent,
+                                tint = CherryAccent,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))

@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -29,6 +30,7 @@ fun HomeHeader(
     secondaryTextColor: Color,
     cardBorder: Color,
     onToggleTheme: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -69,20 +71,41 @@ fun HomeHeader(
             )
         }
 
-        IconButton(
-            onClick = onToggleTheme,
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(if (isAmoledWhite) WhiteSurfaceElevated else StudioSurface)
-                .border(0.5.dp, cardBorder, CircleShape)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = if (isAmoledWhite) Icons.Default.DarkMode else Icons.Default.LightMode,
-                contentDescription = "تبديل الثيم",
-                tint = if (isAmoledWhite) DarkText else CherryAccent,
-                modifier = Modifier.size(20.dp)
-            )
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(if (isAmoledWhite) WhiteSurfaceElevated else StudioSurface)
+                    .border(0.5.dp, cardBorder, CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "الإعدادات",
+                    tint = if (isAmoledWhite) DarkText else PureWhite,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onToggleTheme,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(if (isAmoledWhite) WhiteSurfaceElevated else StudioSurface)
+                    .border(0.5.dp, cardBorder, CircleShape)
+            ) {
+                Icon(
+                    imageVector = if (isAmoledWhite) Icons.Default.DarkMode else Icons.Default.LightMode,
+                    contentDescription = "تبديل الثيم",
+                    tint = if (isAmoledWhite) DarkText else CherryAccent,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

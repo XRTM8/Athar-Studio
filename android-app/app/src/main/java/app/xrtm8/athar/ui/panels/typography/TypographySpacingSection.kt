@@ -106,7 +106,7 @@ fun TypographySpacingSection(
                 },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = AmoledBlack,
-                    checkedTrackColor = GoldAccent,
+                    checkedTrackColor = CherryAccent,
                     uncheckedThumbColor = SubtleGray,
                     uncheckedTrackColor = GlassCard
                 )

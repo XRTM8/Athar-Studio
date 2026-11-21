@@ -61,7 +61,7 @@ fun TextPlacementMatrix(
 
             Text(
                 text = "X: ${(normOffsetX * 100).toInt()}%  Y: ${(normOffsetY * 100).toInt()}%",
-                color = GoldAccent,
+                color = CherryAccent,
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -111,8 +111,8 @@ fun TextPlacementMatrix(
                                     .weight(1f)
                                     .height(28.dp)
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSnapped) GoldAccent else GlassBackground)
-                                    .border(0.5.dp, if (isSnapped) GoldAccent else GlassBorder, RoundedCornerShape(6.dp))
+                                    .background(if (isSnapped) CherryAccent else GlassBackground)
+                                    .border(0.5.dp, if (isSnapped) CherryAccent else GlassBorder, RoundedCornerShape(6.dp))
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         onSnapPosition(x, y, align)
@@ -182,14 +182,14 @@ fun TextPlacementMatrix(
                             .size(28.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .background(GlassBackground)
-                            .border(0.5.dp, GoldAccent.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                            .border(0.5.dp, CherryAccent.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onSnapPosition(0f, 0f, TextAlignOption.CENTER)
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✦", color = GoldAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("✦", color = CherryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                     // Left Nudge (Nudge X-)

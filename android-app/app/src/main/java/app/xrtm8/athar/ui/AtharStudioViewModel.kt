@@ -17,6 +17,7 @@ import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasGradientDirection
 import app.xrtm8.athar.model.CanvasGradientScrim
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.CustomFont
 import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.GlassBackdropPreset
@@ -69,6 +70,13 @@ class AtharStudioViewModel : ViewModel() {
 
     private val _isAmoledWhite = MutableStateFlow(false)
     val isAmoledWhite: StateFlow<Boolean> = _isAmoledWhite.asStateFlow()
+
+    private val _customFonts = MutableStateFlow<List<CustomFont>>(emptyList())
+    val customFonts: StateFlow<List<CustomFont>> = _customFonts.asStateFlow()
+
+    private var copiedLayerStyle: TextLayer? = null
+    private val _hasCopiedStyle = MutableStateFlow(false)
+    val hasCopiedStyle: StateFlow<Boolean> = _hasCopiedStyle.asStateFlow()
 
     fun initTheme(context: Context) {
         try {
@@ -274,7 +282,7 @@ class AtharStudioViewModel : ViewModel() {
         val active = _canvasState.value.activeLayer
         val paint = Paint().apply {
             isAntiAlias = true
-            typeface = AtharFontManager.getTypeface(context, active.selectedFont)
+            typeface = AtharFontManager.getTypeface(context, active.selectedFont, active.customFontPath)
             textSize = active.fontSize * 3f
             letterSpacing = active.letterSpacing
         }
@@ -307,7 +315,7 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setFont(font: ArabicFontFamily) {
-        pushActiveLayerHistory { it.copy(selectedFont = font) }
+        pushActiveLayerHistory { it.copy(selectedFont = font, customFontPath = null, customFontName = null) }
     }
 
     fun setCustomColor(colorLong: Long?) {
@@ -809,6 +817,116 @@ class AtharStudioViewModel : ViewModel() {
             AtharProjectManager.deleteProject(context, projectId)
             loadProjectsList(context)
         }
+    }
+
+    fun renameProject(context: Context, projectId: String, newTitle: String) {
+        viewModelScope.launch {
+            val success = AtharProjectManager.renameProject(context, projectId, newTitle)
+            if (success) {
+                loadProjectsList(context)
+                _exportMessage.value = "تمت إعادة تسمية المشروع بنجاح"
+            } else {
+                _exportMessage.value = "تعذرت إعادة تسمية المشروع"
+            }
+        }
+    }
+
+    // ==========================================
+    // Custom Font Import & Management
+    // ==========================================
+
+    fun loadCustomFonts(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = AtharFontManager.listCustomFonts(context)
+            _customFonts.value = list
+        }
+    }
+
+    fun importCustomFont(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val font = AtharFontManager.importFontFromUri(context, uri)
+            if (font != null) {
+                loadCustomFonts(context)
+                setCustomFont(font)
+                _exportMessage.value = "تم استيراد الخط: ${font.name}"
+            } else {
+                _exportMessage.value = "تعذر استيراد الخط، تأكد من صحة الملف (.ttf / .otf)"
+            }
+        }
+    }
+
+    fun deleteCustomFont(context: Context, fontId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = AtharFontManager.deleteCustomFont(context, fontId)
+            if (success) {
+                loadCustomFonts(context)
+                // If active layer was using this font, reset it
+                val active = _canvasState.value.activeLayer
+                if (active.customFontPath?.contains(fontId) == true) {
+                    setCustomFont(null)
+                }
+                _exportMessage.value = "تم حذف الخط المخصص"
+            }
+        }
+    }
+
+    fun setCustomFont(customFont: CustomFont?) {
+        pushActiveLayerHistory {
+            it.copy(
+                customFontPath = customFont?.filePath,
+                customFontName = customFont?.name
+            )
+        }
+    }
+
+    // ==========================================
+    // Copy / Paste Layer Styling
+    // ==========================================
+
+    fun copyActiveLayerStyle() {
+        val active = _canvasState.value.activeLayer
+        copiedLayerStyle = active.copy()
+        _hasCopiedStyle.value = true
+        _exportMessage.value = "تم نسخ تنسيق الطبقة"
+    }
+
+    fun pasteStyleToActiveLayer() {
+        val style = copiedLayerStyle ?: return
+        pushActiveLayerHistory { target ->
+            target.copy(
+                selectedFont = style.selectedFont,
+                customFontPath = style.customFontPath,
+                customFontName = style.customFontName,
+                selectedEffect = style.selectedEffect,
+                fontSize = style.fontSize,
+                customTextColorLong = style.customTextColorLong,
+                strokeWidth = style.strokeWidth,
+                strokeColorLong = style.strokeColorLong,
+                shadowRadius = style.shadowRadius,
+                shadowDx = style.shadowDx,
+                shadowDy = style.shadowDy,
+                shadowColorLong = style.shadowColorLong,
+                textAlign = style.textAlign,
+                lineSpacingMultiplier = style.lineSpacingMultiplier,
+                letterSpacing = style.letterSpacing,
+                textOpacity = style.textOpacity,
+                isBold = style.isBold,
+                isItalic = style.isItalic,
+                isUnderline = style.isUnderline,
+                enableGlassBackdrop = style.enableGlassBackdrop,
+                glassBackdropOpacity = style.glassBackdropOpacity,
+                glassBackdropColorLong = style.glassBackdropColorLong,
+                glassBackdropBorderColorLong = style.glassBackdropBorderColorLong,
+                glassBackdropCornerRadius = style.glassBackdropCornerRadius,
+                glassBackdropPadding = style.glassBackdropPadding,
+                blendMode = style.blendMode,
+                gradientPreset = style.gradientPreset,
+                gradientAngle = style.gradientAngle,
+                isRadialGradient = style.isRadialGradient,
+                isHollowText = style.isHollowText
+            )
+        }
+        _exportMessage.value = "تم تطبيق التنسيق على الطبقة"
     }
 
     private fun scheduleKashidaUpdate(

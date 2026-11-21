@@ -43,7 +43,7 @@ object CanvasLayerTextRenderer {
     ) {
         if (!layer.isVisible || layer.displayText.isEmpty()) return
 
-        val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
+        val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
         val canvasDensityFactor = canvasWidth / 380f
         val textSizePx = (layer.fontSize / 380f) * canvasWidth
         val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)

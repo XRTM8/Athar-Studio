@@ -47,10 +47,10 @@ fun FontPickerCarousel(
                     modifier = Modifier
                         .width(120.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
+                        .background(if (isSelected) CherryAccent else GlassSurface)
                         .border(
                             width = if (isSelected) 1.5.dp else 0.5.dp,
-                            color = if (isSelected) GoldAccent else GlassBorder,
+                            color = if (isSelected) CherryAccent else GlassBorder,
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable {
@@ -62,7 +62,7 @@ fun FontPickerCarousel(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = font.specimen,
-                            color = if (isSelected) AmoledBlack else GoldAccent,
+                            color = if (isSelected) AmoledBlack else CherryAccent,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp,
                             maxLines = 1

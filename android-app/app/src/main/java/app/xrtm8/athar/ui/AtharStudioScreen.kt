@@ -68,6 +68,8 @@ fun AtharStudioScreen(
     val isExporting by viewModel.isExporting.collectAsState()
     val projectsList by viewModel.projectsList.collectAsState()
     val exportMessage by viewModel.exportMessage.collectAsState()
+    val customFonts by viewModel.customFonts.collectAsState()
+    val hasCopiedStyle by viewModel.hasCopiedStyle.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var isPanelExpanded by remember { mutableStateOf(false) }
@@ -112,6 +114,10 @@ fun AtharStudioScreen(
         if (initialProjectUri != null) {
             viewModel.openProjectFromUri(context, initialProjectUri)
         }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadCustomFonts(context)
     }
 
     // Launchers
@@ -190,8 +196,11 @@ fun AtharStudioScreen(
             ) {
                 TextLayerStrip(
                     state = canvasState,
+                    hasCopiedStyle = hasCopiedStyle,
                     onAddLayer = { viewModel.addTextLayer() },
                     onDuplicateLayer = { viewModel.duplicateActiveLayer() },
+                    onCopyStyle = { viewModel.copyActiveLayerStyle() },
+                    onPasteStyle = { viewModel.pasteStyleToActiveLayer() },
                     onDeleteLayer = { viewModel.removeActiveLayer() },
                     onSelectLayer = { viewModel.selectLayer(it) },
                     onMoveLayerUp = { viewModel.moveActiveLayerUp() },
@@ -281,8 +290,13 @@ fun AtharStudioScreen(
         if (showFontBrowser) {
             FontBrowserDialog(
                 selectedFont = canvasState.selectedFont,
+                customFontPath = canvasState.customFontPath,
                 sampleText = canvasState.rawText,
+                customFonts = customFonts,
                 onSelectFont = { viewModel.setFont(it) },
+                onSelectCustomFont = { viewModel.setCustomFont(it) },
+                onImportFont = { uri -> viewModel.importCustomFont(context, uri) },
+                onDeleteCustomFont = { fontId -> viewModel.deleteCustomFont(context, fontId) },
                 onDismiss = { showFontBrowser = false }
             )
         }

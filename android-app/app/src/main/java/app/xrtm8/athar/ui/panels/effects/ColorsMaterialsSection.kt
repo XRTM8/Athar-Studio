@@ -10,8 +10,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +29,7 @@ import app.xrtm8.athar.model.LUXURY_SWATCHES
 import app.xrtm8.athar.model.LayerBlendMode
 import app.xrtm8.athar.model.LuxuryGradientPreset
 import app.xrtm8.athar.ui.components.StudioSlider
+import app.xrtm8.athar.ui.dialogs.CustomColorPickerDialog
 import app.xrtm8.athar.ui.theme.*
 
 @Composable
@@ -43,6 +45,7 @@ fun ColorsMaterialsSection(
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    var showCustomColorDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Multi-Stop Luxury Gradients & Materials
@@ -65,10 +68,10 @@ fun ColorsMaterialsSection(
                         modifier = Modifier
                             .width(130.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
+                            .background(if (isSelected) CherryAccent else GlassSurface)
                             .border(
                                 width = if (isSelected) 1.5.dp else 0.5.dp,
-                                color = if (isSelected) GoldAccent else GlassBorder,
+                                color = if (isSelected) CherryAccent else GlassBorder,
                                 shape = RoundedCornerShape(12.dp)
                             )
                             .clickable {
@@ -125,7 +128,7 @@ fun ColorsMaterialsSection(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onToggleRadialGradient(it)
                             },
-                            colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent),
+                            colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent),
                             modifier = Modifier.height(24.dp)
                         )
                     }
@@ -145,6 +148,38 @@ fun ColorsMaterialsSection(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // Custom Free Color Picker Button
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    showCustomColorDialog = true
+                }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(CherryAccent.copy(alpha = 0.2f))
+                        .border(1.dp, CherryAccent, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "لون مخصص",
+                        tint = CherryAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "مخصص",
+                    color = CherryAccent,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             LUXURY_SWATCHES.forEach { swatch ->
                 val isSelected = state.customTextColorLong == swatch.argb
                 Column(
@@ -158,7 +193,7 @@ fun ColorsMaterialsSection(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(if (swatch.argb == 0L) GoldAccent else Color(swatch.argb.toInt()))
+                            .background(if (swatch.argb == 0L) CherryAccent else Color(swatch.argb.toInt()))
                             .border(
                                 width = if (isSelected) 2.5.dp else 1.dp,
                                 color = if (isSelected) PureWhite else GlassBorder,
@@ -168,7 +203,7 @@ fun ColorsMaterialsSection(
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = swatch.name,
-                        color = if (isSelected) GoldAccent else SubtleGray,
+                        color = if (isSelected) CherryAccent else SubtleGray,
                         fontSize = 9.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
@@ -211,7 +246,7 @@ fun ColorsMaterialsSection(
                                 .background(Color(cLong))
                                 .border(
                                     width = if (isSelected) 2.dp else 0.5.dp,
-                                    color = if (isSelected) GoldAccent else GlassBorder,
+                                    color = if (isSelected) CherryAccent else GlassBorder,
                                     shape = CircleShape
                                 )
                         )
@@ -242,7 +277,7 @@ fun ColorsMaterialsSection(
                     },
                     label = { Text(mode.labelAr, fontSize = 11.sp) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GoldAccent,
+                        selectedContainerColor = CherryAccent,
                         selectedLabelColor = AmoledBlack,
                         containerColor = GlassCard,
                         labelColor = MutedWhite
@@ -250,6 +285,15 @@ fun ColorsMaterialsSection(
                     shape = RoundedCornerShape(10.dp)
                 )
             }
+        }
+
+        if (showCustomColorDialog) {
+            CustomColorPickerDialog(
+                initialColorLong = state.customTextColorLong ?: 0xFFFFFFFFL,
+                title = "منتقي لون النص",
+                onColorSelected = { onSelectCustomColor(it) },
+                onDismiss = { showCustomColorDialog = false }
+            )
         }
     }
 }

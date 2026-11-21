@@ -42,7 +42,7 @@ import app.xrtm8.athar.model.UpdateInfo
 import app.xrtm8.athar.ui.theme.GlassBackground
 import app.xrtm8.athar.ui.theme.GlassBorder
 import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.CherryAccent
 import app.xrtm8.athar.ui.theme.MutedWhite
 import app.xrtm8.athar.ui.theme.PureWhite
 
@@ -92,7 +92,7 @@ fun GentleUpdateBanner(
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = "تحديث جديد",
-                                tint = GoldAccent,
+                                tint = CherryAccent,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -131,7 +131,7 @@ fun GentleUpdateBanner(
                         Spacer(modifier = Modifier.height(14.dp))
                         LinearProgressIndicator(
                             progress = { downloadProgress },
-                            color = GoldAccent,
+                            color = CherryAccent,
                             trackColor = Color(0x33FFFFFF),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -158,7 +158,7 @@ fun GentleUpdateBanner(
                         Spacer(modifier = Modifier.width(10.dp))
                         Button(
                             onClick = { onUpdateClick(updateInfo.downloadUrl) },
-                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                            colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
                             shape = RoundedCornerShape(12.dp),
                             enabled = downloadProgress == null
                         ) {

@@ -29,6 +29,7 @@ fun LazyListScope.homeRecentProjectsSection(
     subtleTextColor: Color,
     onProjectClick: (AtharProjectMeta) -> Unit,
     onProjectShare: (AtharProjectMeta) -> Unit,
+    onProjectRename: (AtharProjectMeta) -> Unit,
     onProjectDelete: (AtharProjectMeta) -> Unit
 ) {
     // Header
@@ -108,6 +109,7 @@ fun LazyListScope.homeRecentProjectsSection(
                         subtleTextColor = subtleTextColor,
                         onClick = { onProjectClick(proj) },
                         onShare = { onProjectShare(proj) },
+                        onRename = { onProjectRename(proj) },
                         onDelete = { onProjectDelete(proj) },
                         modifier = Modifier.weight(1f)
                     )

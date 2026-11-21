@@ -50,13 +50,13 @@ fun TypographyFormattingRow(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
                 shape = RoundedCornerShape(10.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.5f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CherryAccent.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth().height(38.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.FormatAlignJustify,
                     contentDescription = null,
-                    tint = GoldAccent,
+                    tint = CherryAccent,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -82,8 +82,8 @@ fun TypographyFormattingRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isBold) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isBold) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isBold) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isBold) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleBold()
@@ -102,8 +102,8 @@ fun TypographyFormattingRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isItalic) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isItalic) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isItalic) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isItalic) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleItalic()
@@ -122,8 +122,8 @@ fun TypographyFormattingRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isUnderline) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isUnderline) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isUnderline) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isUnderline) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleUnderline()
@@ -158,7 +158,7 @@ fun TypographyFormattingRow(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) GoldAccent else Color.Transparent)
+                            .background(if (isSelected) CherryAccent else Color.Transparent)
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onTextAlignChange(align)

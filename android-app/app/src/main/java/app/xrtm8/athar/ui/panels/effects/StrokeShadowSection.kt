@@ -6,11 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.BorderColor
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.ui.components.StudioSlider
+import app.xrtm8.athar.ui.dialogs.CustomColorPickerDialog
 import app.xrtm8.athar.ui.theme.*
 
 @Composable
@@ -42,6 +44,8 @@ fun StrokeShadowSection(
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    var showCustomStrokeColorDialog by remember { mutableStateOf(false) }
+    var showCustomShadowColorDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Hollow Outline Typography
@@ -55,7 +59,7 @@ fun StrokeShadowSection(
                     Icon(
                         Icons.Default.CropFree,
                         contentDescription = null,
-                        tint = if (isHollowText) GoldAccent else SubtleGray,
+                        tint = if (isHollowText) CherryAccent else SubtleGray,
                         modifier = Modifier.size(17.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -72,7 +76,7 @@ fun StrokeShadowSection(
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onToggleHollowText(it)
                     },
-                    colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent),
+                    colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent),
                     modifier = Modifier.height(24.dp)
                 )
             }
@@ -96,19 +100,40 @@ fun StrokeShadowSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(CherryAccent.copy(alpha = 0.2f))
+                    .border(1.dp, CherryAccent, RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showCustomStrokeColorDialog = true
+                    }
+                    .padding(vertical = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+ مخصص",
+                    color = CherryAccent,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             listOf(
-                0xFF000000 to "أسود داكن",
-                0xFFFFFFFF to "أبيض ناصع",
-                0xFFFFD700 to "ذهب كلاسيكي",
-                0xFFE0E0E0 to "فضي بلاتيني"
+                0xFF000000 to "أسود",
+                0xFFFFFFFF to "أبيض",
+                0xFFFFD700 to "ذهب",
+                0xFFE0E0E0 to "فضي"
             ).forEach { (colorLong, name) ->
                 val isSelected = strokeColorLong == colorLong
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isSelected) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onStrokeColorChange(colorLong)
@@ -174,20 +199,41 @@ fun StrokeShadowSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(CherryAccent.copy(alpha = 0.2f))
+                    .border(1.dp, CherryAccent, RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showCustomShadowColorDialog = true
+                    }
+                    .padding(vertical = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+ مخصص",
+                    color = CherryAccent,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             listOf(
-                0xCC000000L to "ظل أسود",
-                0xAAFFD700L to "توهج ذهبي",
-                0xAA00FF9DL to "توهج زمردي",
-                0xAAFFFFFFL to "وهج أبيض",
-                0xAAFF3366L to "وهج ياقوتي"
+                0xCC000000L to "أسود",
+                0xAAFFD700L to "ذهب",
+                0xAA00FF9DL to "زمرد",
+                0xAAFFFFFFL to "أبيض",
+                0xAAFF3366L to "ياقوت"
             ).forEach { (colorLong, name) ->
                 val isSelected = shadowColorLong == colorLong
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) GoldAccent else GlassSurface)
-                        .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isSelected) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onShadowColorChange(colorLong)
@@ -203,6 +249,24 @@ fun StrokeShadowSection(
                     )
                 }
             }
+        }
+
+        if (showCustomStrokeColorDialog) {
+            CustomColorPickerDialog(
+                initialColorLong = strokeColorLong,
+                title = "منتقي لون التحديد (Stroke)",
+                onColorSelected = { onStrokeColorChange(it) },
+                onDismiss = { showCustomStrokeColorDialog = false }
+            )
+        }
+
+        if (showCustomShadowColorDialog) {
+            CustomColorPickerDialog(
+                initialColorLong = shadowColorLong,
+                title = "منتقي لون الظل (Shadow)",
+                onColorSelected = { onShadowColorChange(it) },
+                onDismiss = { showCustomShadowColorDialog = false }
+            )
         }
     }
 }

@@ -9,7 +9,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -36,8 +38,11 @@ import app.xrtm8.athar.ui.theme.*
 @Composable
 fun TextLayerStrip(
     state: CanvasState,
+    hasCopiedStyle: Boolean = false,
     onAddLayer: () -> Unit,
     onDuplicateLayer: () -> Unit,
+    onCopyStyle: (() -> Unit)? = null,
+    onPasteStyle: (() -> Unit)? = null,
     onDeleteLayer: () -> Unit,
     onSelectLayer: (String) -> Unit,
     onMoveLayerUp: (() -> Unit)? = null,
@@ -159,6 +164,54 @@ fun TextLayerStrip(
                 tint = CherryAccent,
                 modifier = Modifier.size(14.dp)
             )
+        }
+
+        // Copy Style Action
+        if (onCopyStyle != null) {
+            Spacer(modifier = Modifier.width(5.dp))
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(surfaceBg)
+                    .border(0.5.dp, stripBorder, RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onCopyStyle()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Brush,
+                    contentDescription = "نسخ التنسيق",
+                    tint = CherryAccent,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        // Paste Style Action
+        if (onPasteStyle != null && hasCopiedStyle) {
+            Spacer(modifier = Modifier.width(5.dp))
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(surfaceBg)
+                    .border(0.5.dp, stripBorder, RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPasteStyle()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentPaste,
+                    contentDescription = "لصق التنسيق",
+                    tint = CherryAccent,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
         }
 
         if (state.layers.size > 1) {

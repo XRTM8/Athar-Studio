@@ -16,7 +16,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.model.CanvasAspectRatio
+import app.xrtm8.athar.project.AtharProjectMeta
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
+import app.xrtm8.athar.ui.dialogs.AtharSettingsDialog
+import app.xrtm8.athar.ui.dialogs.DeleteProjectConfirmDialog
+import app.xrtm8.athar.ui.dialogs.RenameProjectDialog
 import app.xrtm8.athar.ui.home.*
 import app.xrtm8.athar.ui.theme.*
 import app.xrtm8.athar.updater.AtharUpdateManager
@@ -57,6 +61,9 @@ fun AtharHomeScreen(
     }
 
     var selectedAspectRatio by remember { mutableStateOf(CanvasAspectRatio.STORY_9_16) }
+    var projectToDelete by remember { mutableStateOf<AtharProjectMeta?>(null) }
+    var projectToRename by remember { mutableStateOf<AtharProjectMeta?>(null) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadProjectsList(context)
@@ -129,6 +136,10 @@ fun AtharHomeScreen(
                     onToggleTheme = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.toggleAmoledWhite(context)
+                    },
+                    onOpenSettings = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showSettingsDialog = true
                     }
                 )
             }
@@ -188,15 +199,49 @@ fun AtharHomeScreen(
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     viewModel.shareProjectById(context, proj.id)
                 },
+                onProjectRename = { proj ->
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    projectToRename = proj
+                },
                 onProjectDelete = { proj ->
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.deleteProject(context, proj.id)
+                    projectToDelete = proj
                 }
             )
 
             item {
                 Spacer(modifier = Modifier.height(20.dp))
             }
+        }
+
+        if (projectToDelete != null) {
+            val proj = projectToDelete!!
+            DeleteProjectConfirmDialog(
+                projectTitle = proj.title,
+                onConfirmDelete = {
+                    viewModel.deleteProject(context, proj.id)
+                    projectToDelete = null
+                },
+                onDismiss = { projectToDelete = null }
+            )
+        }
+
+        if (projectToRename != null) {
+            val proj = projectToRename!!
+            RenameProjectDialog(
+                initialTitle = proj.title,
+                onConfirmRename = { newTitle ->
+                    viewModel.renameProject(context, proj.id, newTitle)
+                    projectToRename = null
+                },
+                onDismiss = { projectToRename = null }
+            )
+        }
+
+        if (showSettingsDialog) {
+            AtharSettingsDialog(
+                onDismiss = { showSettingsDialog = false }
+            )
         }
     }
 }

@@ -41,7 +41,7 @@ import app.xrtm8.athar.model.GlassBackdropPreset
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.GlassBorder
 import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.GoldAccent
+import app.xrtm8.athar.ui.theme.CherryAccent
 import app.xrtm8.athar.ui.theme.MutedWhite
 import app.xrtm8.athar.ui.theme.PureWhite
 import app.xrtm8.athar.ui.theme.SubtleGray
@@ -85,7 +85,7 @@ fun TextGlassBackdropPanel(
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onToggleGlassBackdrop(it)
                 },
-                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = GoldAccent)
+                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
             )
         }
 
@@ -108,8 +108,8 @@ fun TextGlassBackdropPanel(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
+                            .background(if (isSelected) CherryAccent else GlassSurface)
+                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onSelectPreset(preset)
