@@ -17,7 +17,6 @@ import app.xrtm8.athar.core.IslamicManuscriptEngine
 import app.xrtm8.athar.core.OpticalLegibilityEngine
 import app.xrtm8.athar.core.SmartColorHarmonizer
 import app.xrtm8.athar.core.SmartFocalPlacementEngine
-import app.xrtm8.athar.core.SmartTypographyBalancingEngine
 import app.xrtm8.athar.export.AtharExportManager
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasAspectRatio
@@ -761,7 +760,7 @@ class AtharStudioViewModel : ViewModel() {
         val active = _canvasState.value.activeLayer
         if (!active.displayText.contains("\n")) return
 
-        val balanced = SmartTypographyBalancingEngine.balanceArabicBlock(active.displayText)
+        val balanced = ArabicParagraphJustifier.balanceArabicBlock(active.displayText)
         pushActiveLayerHistory { it.copy(displayText = balanced) }
     }
 

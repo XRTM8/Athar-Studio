@@ -38,8 +38,8 @@ jobs:
 
       - name: Build Signed Release APK
         env:
-          ATHAR_KEYSTORE_PASSWORD: ${{ secrets.ATHAR_KEYSTORE_PASSWORD || 'AtharRelease2026SecureKey' }}
-          ATHAR_KEY_PASSWORD: ${{ secrets.ATHAR_KEY_PASSWORD || 'AtharRelease2026SecureKey' }}
+          ATHAR_KEYSTORE_PASSWORD: ${{ secrets.ATHAR_KEYSTORE_PASSWORD }}
+          ATHAR_KEY_PASSWORD: ${{ secrets.ATHAR_KEY_PASSWORD }}
           ATHAR_KEY_ALIAS: ${{ secrets.ATHAR_KEY_ALIAS || 'athar_release' }}
           ATHAR_KEYSTORE_PATH: ${{ github.workspace }}/keystore/athar-release.jks
         run: |

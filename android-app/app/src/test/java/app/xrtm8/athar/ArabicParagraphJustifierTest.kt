@@ -36,4 +36,14 @@ class ArabicParagraphJustifierTest {
         assertEquals(2, lines.size)
         assertTrue("First line should receive tatweel extension", lines[0].contains("ـ"))
     }
+
+    @Test
+    fun testBalanceArabicBlockConsolidation() {
+        val multiLine = "أثرٌ جميلٌ يبقى\nفي قلوب الناس أجمعين"
+        val balanced = ArabicParagraphJustifier.balanceArabicBlock(multiLine)
+        assertTrue("Balanced text must contain newline", balanced.contains("\n"))
+        val lines = balanced.split("\n")
+        assertEquals(2, lines.size)
+        assertTrue("Should distribute kashida to shorter line", lines[0].contains("ـ"))
+    }
 }

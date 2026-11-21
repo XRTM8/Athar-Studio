@@ -43,7 +43,7 @@ android {
 
             storePassword = System.getenv("ATHAR_KEYSTORE_PASSWORD")
                 ?: keystoreProperties.getProperty("storePassword")
-                ?: "AtharRelease2026SecureKey"
+                ?: ""
 
             keyAlias = System.getenv("ATHAR_KEY_ALIAS")
                 ?: keystoreProperties.getProperty("keyAlias")
@@ -51,7 +51,7 @@ android {
 
             keyPassword = System.getenv("ATHAR_KEY_PASSWORD")
                 ?: keystoreProperties.getProperty("keyPassword")
-                ?: "AtharRelease2026SecureKey"
+                ?: ""
 
             enableV1Signing = true
             enableV2Signing = true
@@ -61,7 +61,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
