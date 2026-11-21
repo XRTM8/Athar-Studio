@@ -65,6 +65,7 @@ object AtharProjectSerializer {
                     put("gradient_angle", layer.gradientAngle.toDouble())
                     put("is_radial_gradient", layer.isRadialGradient)
                     put("is_hollow_text", layer.isHollowText)
+                    put("box_width_ratio", layer.boxWidthRatio.toDouble())
                 }
                 layersArray.put(lObj)
             }
@@ -106,6 +107,7 @@ object AtharProjectSerializer {
             put("glass_backdrop_border_color", active.glassBackdropBorderColorLong)
             put("glass_backdrop_corner_radius", active.glassBackdropCornerRadius.toDouble())
             put("glass_backdrop_padding", active.glassBackdropPadding.toDouble())
+            put("box_width_ratio", active.boxWidthRatio.toDouble())
 
             // Global Canvas Keys
             put("show_grid_guides", state.showGridGuides)
@@ -248,7 +250,8 @@ object AtharProjectSerializer {
                         gradientPreset = gradPreset,
                         gradientAngle = gradAngle,
                         isRadialGradient = isRadialGrad,
-                        isHollowText = isHollow
+                        isHollowText = isHollow,
+                        boxWidthRatio = lObj.optDouble("box_width_ratio", 0.85).toFloat()
                     )
                 )
             }
@@ -307,7 +310,8 @@ object AtharProjectSerializer {
                     glassBackdropColorLong = c.optLong("glass_backdrop_color", 0xFF0D0F14),
                     glassBackdropBorderColorLong = c.optLong("glass_backdrop_border_color", 0x55E5C07B),
                     glassBackdropCornerRadius = c.optDouble("glass_backdrop_corner_radius", 22.0).toFloat(),
-                    glassBackdropPadding = c.optDouble("glass_backdrop_padding", 22.0).toFloat()
+                    glassBackdropPadding = c.optDouble("glass_backdrop_padding", 22.0).toFloat(),
+                    boxWidthRatio = c.optDouble("box_width_ratio", 0.85).toFloat()
                 )
             )
         }

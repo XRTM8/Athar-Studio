@@ -46,17 +46,23 @@ fun ProjectsBottomSheet(
     onShareProject: (String) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val primaryTextColor = if (isAmoledWhite) DarkText else PureWhite
+    val secondaryTextColor = if (isAmoledWhite) DarkTextMuted else MutedWhite
+    val subtleTextColor = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val cardBg = if (isAmoledWhite) WhiteSurface else GlassSurface
+    val cardBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = AmoledBlack,
+        containerColor = if (isAmoledWhite) AmoledWhite else AmoledBlack,
         dragHandle = {
             Box(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 40.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(GlassBorder)
+                    .background(cardBorder)
             )
         }
     ) {
@@ -74,7 +80,7 @@ fun ProjectsBottomSheet(
             ) {
                 Text(
                     text = "المشاريع والمسودات",
-                    color = PureWhite,
+                    color = primaryTextColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.5.sp
                 )
@@ -83,14 +89,14 @@ fun ProjectsBottomSheet(
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onImportProject()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                    colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                     shape = RoundedCornerShape(10.dp),
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
                     modifier = Modifier.height(34.dp)
                 ) {
-                    Icon(Icons.Default.FileOpen, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.FileOpen, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("استيراد مشروع", color = PureWhite, fontSize = 11.5.sp)
+                    Text("استيراد مشروع", color = primaryTextColor, fontSize = 11.5.sp)
                 }
             }
 
@@ -106,13 +112,13 @@ fun ProjectsBottomSheet(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onSaveCurrent()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                    colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f).height(42.dp)
                 ) {
-                    Icon(Icons.Default.Save, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Save, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("حفظ العمل الحالي", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                    Text("حفظ العمل الحالي", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
                 }
 
                 Button(
@@ -120,9 +126,9 @@ fun ProjectsBottomSheet(
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onNewProject()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                    colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
                     modifier = Modifier.weight(1f).height(42.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
@@ -145,20 +151,20 @@ fun ProjectsBottomSheet(
                         Icon(
                             imageVector = Icons.Default.FolderOpen,
                             contentDescription = null,
-                            tint = SubtleGray,
+                            tint = subtleTextColor,
                             modifier = Modifier.size(46.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "لا توجد مشاريع محفوظة بعد",
-                            color = MutedWhite,
+                            color = secondaryTextColor,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "احفظ تصميمك كملف .athar لتعديله في أي وقت أو مشاركته مع الآخرين",
-                            color = SubtleGray,
+                            color = subtleTextColor,
                             fontSize = 11.5.sp,
                             textAlign = TextAlign.Center
                         )
@@ -175,8 +181,8 @@ fun ProjectsBottomSheet(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(GlassSurface)
-                                .border(0.5.dp, GlassBorder, RoundedCornerShape(14.dp))
+                                .background(cardBg)
+                                .border(0.5.dp, cardBorder, RoundedCornerShape(14.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onOpenProject(proj.id)
@@ -191,7 +197,7 @@ fun ProjectsBottomSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(110.dp)
-                                        .background(AmoledBlack),
+                                        .background(if (isAmoledWhite) WhiteSurfaceElevated else AmoledBlack),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (thumbBitmap != null) {
@@ -201,7 +207,7 @@ fun ProjectsBottomSheet(
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     } else {
-                                        Text("أَثَــر", color = GoldAccent, fontWeight = FontWeight.Bold)
+                                        Text("أَثَــر", color = CherryAccent, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
@@ -215,14 +221,14 @@ fun ProjectsBottomSheet(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = proj.title,
-                                            color = PureWhite,
+                                            color = primaryTextColor,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp,
                                             maxLines = 1
                                         )
                                         Text(
                                             text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(proj.lastModified)),
-                                            color = SubtleGray,
+                                            color = subtleTextColor,
                                             fontSize = 9.5.sp
                                         )
                                     }
@@ -237,7 +243,7 @@ fun ProjectsBottomSheet(
                                             Icon(
                                                 imageVector = Icons.Default.Share,
                                                 contentDescription = "مشاركة المشروع (.athar)",
-                                                tint = GoldAccent,
+                                                tint = CherryAccent,
                                                 modifier = Modifier.size(15.dp)
                                             )
                                         }

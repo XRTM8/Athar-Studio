@@ -28,7 +28,7 @@ class AtharProjectModelTest {
 
     @Test
     fun testLuxuryBgPresetsCompleteness() {
-        assertEquals(6, LUXURY_BG_PRESETS.size)
+        assertEquals(8, LUXURY_BG_PRESETS.size)
         val amoled = LUXURY_BG_PRESETS.find { it.name.contains("AMOLED") }
         assertNotNull(amoled)
         assertEquals(0xFF000000L, amoled!!.argb)

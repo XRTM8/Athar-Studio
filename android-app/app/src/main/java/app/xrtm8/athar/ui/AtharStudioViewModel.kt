@@ -67,6 +67,25 @@ class AtharStudioViewModel : ViewModel() {
     private val _extractedPalette = MutableStateFlow<AtharPaletteExtractor.ExtractedPalette?>(null)
     val extractedPalette: StateFlow<AtharPaletteExtractor.ExtractedPalette?> = _extractedPalette.asStateFlow()
 
+    private val _isAmoledWhite = MutableStateFlow(false)
+    val isAmoledWhite: StateFlow<Boolean> = _isAmoledWhite.asStateFlow()
+
+    fun initTheme(context: Context) {
+        try {
+            val sp = context.getSharedPreferences("athar_prefs", Context.MODE_PRIVATE)
+            _isAmoledWhite.value = sp.getBoolean("pref_amoled_white", false)
+        } catch (_: Exception) {}
+    }
+
+    fun toggleAmoledWhite(context: Context) {
+        val next = !_isAmoledWhite.value
+        _isAmoledWhite.value = next
+        try {
+            val sp = context.getSharedPreferences("athar_prefs", Context.MODE_PRIVATE)
+            sp.edit().putBoolean("pref_amoled_white", next).apply()
+        } catch (_: Exception) {}
+    }
+
     private var kashidaDebounceJob: Job? = null
     private var sliderDragInitialState: CanvasState? = null
 
@@ -375,6 +394,11 @@ class AtharStudioViewModel : ViewModel() {
     fun setLineSpacing(multiplier: Float) {
         markSliderChange()
         updateActiveLayer { it.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)) }
+    }
+
+    fun setBoxWidthRatio(ratio: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(boxWidthRatio = ratio.coerceIn(0.30f, 1.0f)) }
     }
 
     fun toggleGlassBackdrop(enabled: Boolean) {

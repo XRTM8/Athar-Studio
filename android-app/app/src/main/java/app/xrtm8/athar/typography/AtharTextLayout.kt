@@ -102,12 +102,18 @@ object AtharTextLayout {
         val lines = if (maxWidth > 0f && maxWidth < Float.MAX_VALUE) {
             val wrapped = ArrayList<String>()
             for (rawLine in rawLines) {
-                if (measurer(rawLine) <= maxWidth) {
-                    wrapped.add(rawLine)
+                val trimmed = rawLine.trim()
+                if (trimmed.isEmpty()) {
+                    wrapped.add("")
+                    continue
+                }
+                if (measurer(trimmed) <= maxWidth) {
+                    wrapped.add(trimmed)
                 } else {
-                    val words = rawLine.split(" ")
+                    val words = trimmed.split(Regex("\\s+"))
                     var currentLine = StringBuilder()
                     for (word in words) {
+                        if (word.isEmpty()) continue
                         if (currentLine.isEmpty()) {
                             currentLine.append(word)
                         } else {
@@ -125,7 +131,7 @@ object AtharTextLayout {
                     }
                 }
             }
-            wrapped
+            wrapped.ifEmpty { listOf("") }
         } else {
             rawLines
         }

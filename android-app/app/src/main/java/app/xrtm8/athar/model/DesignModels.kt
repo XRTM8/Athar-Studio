@@ -6,48 +6,53 @@ import androidx.compose.ui.graphics.Color
 import java.util.UUID
 
 enum class VisualEffect(val arabicName: String, val description: String) {
-    ROYAL_GOLD("ذهب ملكي 24K", "تذهيب عربي فاخر مع لمعان دافئ وتدرجات شمسية"),
-    LIQUID_CHROME("كروم بلاتيني", "انعكاسات معدنية لامعة وإضاءة ألمنيوم مصقول"),
-    FROSTED_GLASS("زجاج مصنفر", "شفافية سينمائية مع تشتت ضوئي وحواف مصقولة"),
-    CYBER_NEON("نيون زمردي", "إشعاع ضوئي متعدد الطبقات بألوان نابضة"),
-    CINEMATIC_SHADOW("ظل سينمائي", "بروز ثلاثي الأبعاد مع ظل واقعي ممتد في الفضاء"),
-    MINIMAL_LUXURY("أبيض ناصع", "بساطة مطلقة بأسلوب التصميم المعاصر")
+    ROYAL_GOLD("تذهيب", "لون ذهبي كلاسيكي مع تدرج متزن"),
+    LIQUID_CHROME("كروم", "انعكاسات معدنية لامعة"),
+    FROSTED_GLASS("زجاجي", "خلفية شبه شفافة مع حواف ناعمة"),
+    CYBER_NEON("نيون", "إشعاع ضوئي بألوان نابضة"),
+    CINEMATIC_SHADOW("ظل بارز", "بروز مع ظل ثلاثي الأبعاد"),
+    MINIMAL_LUXURY("أبيض ناصع", "لون ناصع بسيط وعصري")
 }
 
 enum class LuxuryGradientPreset(val labelAr: String, val colors: List<Long>, val stops: List<Float>) {
     NONE("تلقائي", emptyList(), emptyList()),
+    CHERRY_CRIMSON(
+        "كرزي مخملي",
+        listOf(0xFF4A0012, 0xFF9C1030, 0xFFE02447, 0xFFFF6B8B, 0xFF9C1030),
+        listOf(0.0f, 0.25f, 0.50f, 0.75f, 1.0f)
+    ),
     ANDALUSIAN_GOLD(
-        "ذهب أندلسي ملكي",
+        "ذهبي معدني",
         listOf(0xFF4A3500, 0xFFD4AF37, 0xFFFFF2A3, 0xFFD4AF37, 0xFF785100),
         listOf(0.0f, 0.25f, 0.50f, 0.75f, 1.0f)
     ),
     PERSIAN_TURQUOISE(
-        "فيروز نيسابوري",
+        "فيروزي",
         listOf(0xFF0B2545, 0xFF134074, 0xFF00A896, 0xFF8ECAE6),
         listOf(0.0f, 0.35f, 0.70f, 1.0f)
     ),
     ROYAL_AMETHYST(
-        "جمشت أرجواني فاخر",
+        "أرجواني",
         listOf(0xFF240046, 0xFF5A189A, 0xFF9D4EDD, 0xFFE0AAFF),
         listOf(0.0f, 0.30f, 0.65f, 1.0f)
     ),
     DESERT_ROSE(
-        "وردة الصحراء المذهبة",
+        "وردي هادئ",
         listOf(0xFF4A0E17, 0xFF8B263E, 0xFFE0A996, 0xFFFBF2E9),
         listOf(0.0f, 0.30f, 0.70f, 1.0f)
     ),
     TITANIUM_CHROME(
-        "تيتانيوم وكروم عاكس",
+        "تيتانيوم وكروم",
         listOf(0xFF1F2421, 0xFF495057, 0xFFCED4DA, 0xFFFFFFFF, 0xFF343A40),
         listOf(0.0f, 0.20f, 0.50f, 0.75f, 1.0f)
     ),
     CYBER_EMERALD(
-        "زمرد نيون مشع",
+        "زمرد نيون",
         listOf(0xFF003822, 0xFF00B0FF, 0xFF00FF9D, 0xFFB3FFD6),
         listOf(0.0f, 0.35f, 0.70f, 1.0f)
     ),
     FROSTED_PEARL(
-        "لؤلؤ بلوري مثلج",
+        "لؤلؤي مثلج",
         listOf(0xCC3A3F47, 0xDD9EA5B0, 0xEEFFFFFF, 0xFFF8F9FA),
         listOf(0.0f, 0.30f, 0.70f, 1.0f)
     )
@@ -66,9 +71,9 @@ enum class LayerBlendMode(val labelAr: String, val porterDuffMode: PorterDuff.Mo
     NORMAL("عادي", PorterDuff.Mode.SRC_OVER),
     MULTIPLY("ضرب (تعتيم)", PorterDuff.Mode.MULTIPLY),
     SCREEN("شاشة (تفتيح)", PorterDuff.Mode.SCREEN),
-    OVERLAY("تراكب سينمائي", PorterDuff.Mode.OVERLAY),
-    LIGHTEN("إنارة ساطعة", PorterDuff.Mode.LIGHTEN),
-    DARKEN("تغميق عميق", PorterDuff.Mode.DARKEN)
+    OVERLAY("تراكب", PorterDuff.Mode.OVERLAY),
+    LIGHTEN("إنارة", PorterDuff.Mode.LIGHTEN),
+    DARKEN("تغميق", PorterDuff.Mode.DARKEN)
 }
 
 enum class ArabicFontFamily(
@@ -78,32 +83,32 @@ enum class ArabicFontFamily(
     val specimen: String
 ) {
     // كلاسيكي ورقعة
-    AREF_RUQAA("رقعة أصيل", "رقعة", "fonts/aref_ruqaa.ttf", "أَثَــرٌ يَبْقَى"),
-    AMIRI("نسخ قرآني", "كلاسيكي", "fonts/amiri.ttf", "أَثَــرٌ جَمِيل"),
-    SCHEHERAZADE_NEW("شهرازاد نسخ ملكي", "كلاسيكي", "fonts/scheherazade_new.ttf", "أَثَـرٌ شَهْرَازَاد"),
-    EL_MESSIRI("المسيري الملكي", "كلاسيكي", "fonts/el_messiri.ttf", "أَثَــر مَلَكِي"),
-    ELGHARIB_HAFS_TAWEEL("حفص ممدود (الغريب)", "قرآني", "fonts/elgharib_kfgqpc_hafs_taweel.ttf", "أَثَـــــرٌ قُـرْآنِـيَّ"),
+    AREF_RUQAA("رقعة", "رقعة", "fonts/aref_ruqaa.ttf", "أَثَــرٌ يَبْقَى"),
+    AMIRI("نسخ أميري", "كلاسيكي", "fonts/amiri.ttf", "أَثَــرٌ جَمِيل"),
+    SCHEHERAZADE_NEW("شهرزاد نسخ", "كلاسيكي", "fonts/scheherazade_new.ttf", "أَثَـرٌ شَهْرَازَاد"),
+    EL_MESSIRI("المسيري", "كلاسيكي", "fonts/el_messiri.ttf", "أَثَــرٌ مُمَيَّز"),
+    ELGHARIB_HAFS_TAWEEL("حفص ممدود", "قرآني", "fonts/elgharib_kfgqpc_hafs_taweel.ttf", "أَثَـــــرٌ قُـرْآنِـيَّ"),
 
     // نستعليق فارسي
-    GULZAR("نستعليق أصيل", "نستعليق", "fonts/gulzar.ttf", "أَثَـرٌ نَسْتَعْلِيقِي"),
+    GULZAR("نستعليق", "نستعليق", "fonts/gulzar.ttf", "أَثَـرٌ نَسْتَعْلِيقِي"),
 
     // كوفي وهندسي
-    REEM_KUFI("كوفي هندسي", "كوفي", "fonts/reem_kufi.ttf", "أَثَــر مُعْمَارِي"),
-    QAHIRI("قاهري كوفي", "كوفي", "fonts/qahiri.ttf", "أَثَـرٌ قَاهِرِي"),
-    KUFAM("كوفام معاصر", "كوفي", "fonts/kufam.ttf", "أَثَـرٌ كُوفَام"),
+    REEM_KUFI("كوفي", "كوفي", "fonts/reem_kufi.ttf", "أَثَــرٌ كُوفِي"),
+    QAHIRI("قاهري", "كوفي", "fonts/qahiri.ttf", "أَثَـرٌ قَاهِرِي"),
+    KUFAM("كوفام", "كوفي", "fonts/kufam.ttf", "أَثَـرٌ كُوفَام"),
 
     // عناوين وملصقات عريضة
-    LALEZAR("لاليزار عريض", "عناوين", "fonts/lalezar.ttf", "أَثَـرٌ لَالِيزَار"),
-    RAKKAS("رقاص عريض", "عناوين", "fonts/rakkas.ttf", "أَثَـرٌ رَقَّاص"),
+    LALEZAR("لاليزار", "عناوين", "fonts/lalezar.ttf", "أَثَـرٌ لَالِيزَار"),
+    RAKKAS("رقاص", "عناوين", "fonts/rakkas.ttf", "أَثَـرٌ رَقَّاص"),
 
     // حديث وعصري
-    CAIRO("كايرو عصري", "حديث", "fonts/cairo.ttf", "أَثَــر مُعَاصِر"),
-    ALMARAI("المراعي أنيق", "حديث", "fonts/almarai.ttf", "أَثَـرٌ مَرَاعِي"),
-    TAJAWAL("تجوال هادئ", "حديث", "fonts/tajawal.ttf", "أَثَــر خَفِيف"),
+    CAIRO("كايرو", "حديث", "fonts/cairo.ttf", "أَثَــرٌ مُعَاصِر"),
+    ALMARAI("المراعي", "حديث", "fonts/almarai.ttf", "أَثَـرٌ مَرَاعِي"),
+    TAJAWAL("تجوال", "حديث", "fonts/tajawal.ttf", "أَثَــرٌ خَفِيف"),
 
     // تعبيري وحر
-    MARHEY("مرحي فني", "تعبيري", "fonts/marhey.ttf", "أَثَــر جَرِيء"),
-    LEMONADA("ليمونادا حر", "تعبيري", "fonts/lemonada.ttf", "أَثَـرٌ لَيْمُونَادَا")
+    MARHEY("مرحي", "تعبيري", "fonts/marhey.ttf", "أَثَــرٌ جَرِيء"),
+    LEMONADA("ليمونادا", "تعبيري", "fonts/lemonada.ttf", "أَثَـرٌ لَيْمُونَادَا")
 }
 
 enum class TextAlignOption(val label: String) {
@@ -113,18 +118,18 @@ enum class TextAlignOption(val label: String) {
 }
 
 enum class KashidaMode(val label: String, val description: String = "") {
-    SMART("خطي ذكي", "توازن خطي موزون حسب قواعد الخط العربي"),
-    PRE_FINAL("عجز الكلمة (قبل الأخير)", "مد الوصلة السابقة للحرف الأخير لإيقاع خطي كلاسيكي متزن"),
-    INITIAL("صدر الكلمة (البداية)", "مد ما بعد الحرف الأول لعناوين كوفية وحديثة جريئة"),
-    MEDIAL("وسط الكلمة (القلب)", "مد الحروف المتصلة الداخلية في منتصف الكلمة"),
+    SMART("تلقائي متزن", "توزيع المدود حسب قواعد الخط العربي"),
+    PRE_FINAL("عجز الكلمة (قبل الأخير)", "مد الوصلة السابقة للحرف الأخير"),
+    INITIAL("صدر الكلمة (البداية)", "مد ما بعد الحرف الأول"),
+    MEDIAL("وسط الكلمة (القلب)", "مد الحروف المتصلة في منتصف الكلمة"),
     TEETH("الأسنان والأطباق (س، ص)", "مد مسار الحروف المسننة والأطباق الأفقية"),
     ALL("شامل (الكل)", "مد متساوٍ لكافة مواضع الوصل القابلة للمد"),
     CUSTOM("موضع مخصص", "اختيار يدوي دقيق للحرف المطلوب مده")
 }
 
 enum class ExportResolution(val label: String, val width: Int, val description: String) {
-    HD_1080P("عالية الدقة HD (1080p)", 1080, "مثالية للنشر السريع على انستغرام وتيك توك"),
-    ULTRA_4K("فائقة الدقة Ultra 4K (2160p)", 2160, "دقة فائقة النقاء للطباعة وتفاصيل التايبوغرافي الحادة")
+    HD_1080P("عالية HD (1080p)", 1080, "مناسبة للنشر على وسائل التواصل"),
+    ULTRA_4K("فائقة 4K (2160p)", 2160, "دقة عالية للطباعة والحفظ بجودة كاملة")
 }
 
 data class ColorSwatch(val name: String, val argb: Long) {
@@ -132,27 +137,31 @@ data class ColorSwatch(val name: String, val argb: Long) {
 }
 
 val LUXURY_SWATCHES = listOf(
-    ColorSwatch("تذهيب تلقائي", 0x00000000), // 0 means default effect shader
-    ColorSwatch("ذهب ملكي", 0xFFFFD700),
+    ColorSwatch("تلقائي", 0x00000000), // 0 means default effect shader
+    ColorSwatch("كرزي", 0xFFE02447),
+    ColorSwatch("كرزي داكن", 0xFF9C1030),
     ColorSwatch("أبيض ناصع", 0xFFFFFFFF),
-    ColorSwatch("رمال نجد", 0xFFE5C07B),
-    ColorSwatch("زمرد نبيل", 0xFF00E676),
-    ColorSwatch("ياقوت قرمزي", 0xFFFF3366),
-    ColorSwatch("كروم بلاتيني", 0xFFE0E0E0),
-    ColorSwatch("أزرق ملكي", 0xFF448AFF),
-    ColorSwatch("خزامي ناعم", 0xFFB388FF),
-    ColorSwatch("برتقالي شمس", 0xFFFF9100),
+    ColorSwatch("ذهبي", 0xFFFFD700),
+    ColorSwatch("رمال", 0xFFE5C07B),
+    ColorSwatch("زمرد", 0xFF00E676),
+    ColorSwatch("ياقوت", 0xFFFF3366),
+    ColorSwatch("كروم", 0xFFE0E0E0),
+    ColorSwatch("أزرق", 0xFF448AFF),
+    ColorSwatch("خزامي", 0xFFB388FF),
+    ColorSwatch("برتقالي", 0xFFFF9100),
     ColorSwatch("فحم داكن", 0xFF212121),
-    ColorSwatch("ذهب وردي", 0xFFE0A996),
-    ColorSwatch("عقيق يماني", 0xFF800020)
+    ColorSwatch("وردي", 0xFFE0A996),
+    ColorSwatch("عنابي", 0xFF800020)
 )
 
 val LUXURY_BG_PRESETS = listOf(
     ColorSwatch("أسود AMOLED", 0xFF000000),
-    ColorSwatch("ورق عتيق", 0xFF1C1917),
+    ColorSwatch("أبيض ناصع", 0xFFFFFFFF),
+    ColorSwatch("كرزي ليلي", 0xFF240810),
+    ColorSwatch("ورق رمادي", 0xFF1C1917),
     ColorSwatch("كحلي ليلي", 0xFF0A1128),
     ColorSwatch("زمردي داكن", 0xFF081C15),
-    ColorSwatch("عنابي فاخر", 0xFF1A080E),
+    ColorSwatch("عنابي", 0xFF1A080E),
     ColorSwatch("فحم رمادي", 0xFF18191C)
 )
 
@@ -248,7 +257,8 @@ data class TextLayer(
     val gradientPreset: LuxuryGradientPreset = LuxuryGradientPreset.NONE,
     val gradientAngle: Float = 90f,
     val isRadialGradient: Boolean = false,
-    val isHollowText: Boolean = false
+    val isHollowText: Boolean = false,
+    val boxWidthRatio: Float = 0.85f
 )
 
 data class CanvasState(
@@ -309,6 +319,7 @@ data class CanvasState(
     val letterSpacing: Float get() = activeLayer.letterSpacing
     val textOpacity: Float get() = activeLayer.textOpacity
     val isBold: Boolean get() = activeLayer.isBold
+    val boxWidthRatio: Float get() = activeLayer.boxWidthRatio
     val isItalic: Boolean get() = activeLayer.isItalic
     val isUnderline: Boolean get() = activeLayer.isUnderline
     val isLocked: Boolean get() = activeLayer.isLocked

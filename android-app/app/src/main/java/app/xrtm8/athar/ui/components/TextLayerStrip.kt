@@ -30,8 +30,8 @@ import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * Ergonomic floating Multi-Text Layer selector strip.
- * Provides instant layer switching, duplicate, delete, and "+ نص" layer addition.
+ * Multi-Text Layer selector strip.
+ * Provides instant layer switching, duplicate, delete, and "+ نص جديد" layer addition.
  */
 @Composable
 fun TextLayerStrip(
@@ -45,13 +45,20 @@ fun TextLayerStrip(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+
+    val stripBg = if (isAmoledWhite) GlassBackgroundWhite else GlassBackground
+    val stripBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val surfaceBg = if (isAmoledWhite) WhiteSurface else GlassSurface
+    val primaryText = if (isAmoledWhite) DarkText else PureWhite
+    val secondaryText = if (isAmoledWhite) DarkTextMuted else MutedWhite
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(GlassBackground)
-            .border(0.5.dp, GlassBorder, RoundedCornerShape(16.dp))
+            .background(stripBg)
+            .border(0.5.dp, stripBorder, RoundedCornerShape(16.dp))
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -60,7 +67,7 @@ fun TextLayerStrip(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
-                .background(GoldAccent)
+                .background(CherryAccent)
                 .clickable {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onAddLayer()
@@ -70,13 +77,13 @@ fun TextLayerStrip(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "إضافة نص",
-                tint = AmoledBlack,
+                tint = PureWhite,
                 modifier = Modifier.size(15.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "نص جديد",
-                color = AmoledBlack,
+                color = PureWhite,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -98,10 +105,13 @@ fun TextLayerStrip(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(9.dp))
-                        .background(if (isActive) GoldAccent.copy(alpha = 0.22f) else GlassSurface)
+                        .background(
+                            if (isActive) CherryAccent.copy(alpha = if (isAmoledWhite) 0.15f else 0.22f)
+                            else surfaceBg
+                        )
                         .border(
                             width = if (isActive) 1.2.dp else 0.5.dp,
-                            color = if (isActive) GoldAccent else GlassBorder,
+                            color = if (isActive) CherryAccent else stripBorder,
                             shape = RoundedCornerShape(9.dp)
                         )
                         .clickable {
@@ -113,13 +123,13 @@ fun TextLayerStrip(
                     Icon(
                         imageVector = Icons.Default.TextFields,
                         contentDescription = null,
-                        tint = if (isActive) GoldAccent else SubtleGray,
+                        tint = if (isActive) CherryAccent else secondaryText,
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = layer.rawText.take(10).ifBlank { "نص ${index + 1}" },
-                        color = if (isActive) PureWhite else MutedWhite,
+                        color = if (isActive) primaryText else secondaryText,
                         fontSize = 11.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1
@@ -135,8 +145,8 @@ fun TextLayerStrip(
             modifier = Modifier
                 .size(30.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(GlassSurface)
-                .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
+                .background(surfaceBg)
+                .border(0.5.dp, stripBorder, RoundedCornerShape(8.dp))
                 .clickable {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onDuplicateLayer()
@@ -146,7 +156,7 @@ fun TextLayerStrip(
             Icon(
                 imageVector = Icons.Default.ContentCopy,
                 contentDescription = "تكرار الطبقة",
-                tint = GoldAccent,
+                tint = CherryAccent,
                 modifier = Modifier.size(14.dp)
             )
         }
@@ -158,8 +168,8 @@ fun TextLayerStrip(
                     modifier = Modifier
                         .size(30.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(GlassSurface)
-                        .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
+                        .background(surfaceBg)
+                        .border(0.5.dp, stripBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onMoveLayerUp()
@@ -169,7 +179,7 @@ fun TextLayerStrip(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowUp,
                         contentDescription = "تقديم الطبقة",
-                        tint = GoldAccent,
+                        tint = CherryAccent,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -181,8 +191,8 @@ fun TextLayerStrip(
                     modifier = Modifier
                         .size(30.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(GlassSurface)
-                        .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
+                        .background(surfaceBg)
+                        .border(0.5.dp, stripBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onMoveLayerDown()
@@ -192,7 +202,7 @@ fun TextLayerStrip(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = "تأخير الطبقة",
-                        tint = GoldAccent,
+                        tint = CherryAccent,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -204,13 +214,13 @@ fun TextLayerStrip(
             Box(
                 modifier = Modifier
                     .size(30.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(GlassSurface)
-                    .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onDeleteLayer()
-                    },
+                .clip(RoundedCornerShape(8.dp))
+                .background(surfaceBg)
+                .border(0.5.dp, stripBorder, RoundedCornerShape(8.dp))
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onDeleteLayer()
+                },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

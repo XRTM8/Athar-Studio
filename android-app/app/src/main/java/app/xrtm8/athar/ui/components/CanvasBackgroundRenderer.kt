@@ -110,12 +110,22 @@ object CanvasBackgroundRenderer {
                 AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
             }
         } else if (state.solidBgColorLong != null) {
-            nativeCanvas.drawColor(state.solidBgColorLong.toInt())
+            val fillPaint = Paint().apply {
+                isAntiAlias = true
+                style = Paint.Style.FILL
+                color = state.solidBgColorLong.toInt()
+            }
+            nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, fillPaint)
             if (state.backgroundVignette > 0f) {
                 AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
             }
         } else {
-            nativeCanvas.drawColor(Color.BLACK)
+            val fillPaint = Paint().apply {
+                isAntiAlias = true
+                style = Paint.Style.FILL
+                color = Color.BLACK
+            }
+            nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, fillPaint)
             if (state.backgroundVignette > 0f) {
                 AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
             }

@@ -183,7 +183,8 @@ object AtharProjectThumbnailRenderer {
                 text = layer.displayText,
                 paint = paint,
                 lineSpacingMultiplier = layer.lineSpacingMultiplier,
-                textAlign = layer.textAlign
+                textAlign = layer.textAlign,
+                maxWidth = width * layer.boxWidthRatio.coerceIn(0.2f, 1.0f)
             )
 
             canvas.save()

@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import app.xrtm8.athar.ui.theme.*
 import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.LayerBlendMode
@@ -164,27 +165,32 @@ fun CanvasView(
     val basePaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val shadowPaint = remember { Paint().apply { isAntiAlias = true; isDither = true } }
     val strokePaint = remember { Paint().apply { isAntiAlias = true; isDither = true; style = Paint.Style.STROKE } }
-    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = 0x99FFD700.toInt(); strokeWidth = 2.0f } }
-    val gridPaint = remember { Paint().apply { isAntiAlias = true; color = 0x33E5C07B.toInt(); strokeWidth = 1.5f } }
-    val selectBoxPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0x77FFD700.toInt(); strokeWidth = 1.2f * density } }
-    val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0xFFFFD700.toInt(); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
-    val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = 0xFFFFD700.toInt() } }
+    val guidePaint = remember { Paint().apply { isAntiAlias = true; color = 0xAAFF3366.toInt(); strokeWidth = 2.0f } }
+    val gridPaint = remember { Paint().apply { isAntiAlias = true; color = 0x33E02447.toInt(); strokeWidth = 1.5f } }
+    val selectBoxPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0x88E02447.toInt(); strokeWidth = 1.2f * density } }
+    val handlePaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; color = 0xFFE02447.toInt(); strokeWidth = 2.4f * density; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND } }
+    val handleFillPaint = remember { Paint().apply { isAntiAlias = true; style = Paint.Style.FILL; color = 0xFFE02447.toInt() } }
     val bgPaint = remember { Paint(Paint.FILTER_BITMAP_FLAG) }
 
     val colorFilterCache = remember { mutableMapOf<Int, ColorMatrixColorFilter>() }
     val shadowBlurFilterCache = remember { mutableMapOf<Int, BlurMaskFilter>() }
     val blendModeXfermode = remember { mutableMapOf<LayerBlendMode, PorterDuffXfermode>() }
 
+    val isAmoledWhite = LocalAmoledWhite.current
+    val canvasBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+
     val ratio = state.aspectRatio.ratio
-    val canvasModifier = if (ratio != null) {
-        Modifier
-            .fillMaxSize()
-            .aspectRatio(ratio, matchHeightConstraintsFirst = false)
-            .clipToBounds()
-            .border(0.5.dp, GlassBorder)
-    } else {
-        Modifier.fillMaxSize()
-    }
+    val canvasModifier = Modifier
+        .fillMaxSize()
+        .then(
+            if (ratio != null) {
+                Modifier.aspectRatio(ratio, matchHeightConstraintsFirst = false)
+            } else {
+                Modifier
+            }
+        )
+        .clipToBounds()
+        .border(0.5.dp, canvasBorder)
 
     val stateForBg = if (state.isFramingMode) {
         state.copy(
@@ -196,15 +202,24 @@ fun CanvasView(
         state
     }
 
+    val canvasBackground = if (state.isTransparentBg) {
+        androidx.compose.ui.graphics.Color.Transparent
+    } else if (isAmoledWhite) {
+        androidx.compose.ui.graphics.Color.White
+    } else {
+        AmoledBlack
+    }
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxSize()
-            .background(AmoledBlack)
+            .clipToBounds()
+            .background(if (isAmoledWhite) WhiteSurface else AmoledBlack)
     ) {
         Canvas(
             modifier = canvasModifier
-                .background(if (state.isTransparentBg) androidx.compose.ui.graphics.Color.Transparent else AmoledBlack)
+                .background(canvasBackground)
                 .pointerInput(state.isLocked, state.isFramingMode, active.id) {
                     detectCanvasGestures(
                         isLocked = state.isLocked,
@@ -393,7 +408,8 @@ fun CanvasView(
                             text = layer.displayText,
                             paint = basePaint,
                             lineSpacingMultiplier = layer.lineSpacingMultiplier,
-                            textAlign = layer.textAlign
+                            textAlign = layer.textAlign,
+                            maxWidth = canvasWidth * layer.boxWidthRatio.coerceIn(0.2f, 1.0f)
                         )
 
                         nativeCanvas.save()
@@ -478,7 +494,8 @@ fun CanvasView(
                                     basePaint.shader = gradShader
                                     basePaint.color = Color.WHITE
                                 } else {
-                                    val baseColor = (layer.customTextColorLong ?: 0xFFFFFFFFL).toInt()
+                                    val defaultTextColor = if (isAmoledWhite) 0xFF0F1014L else 0xFFFFFFFFL
+                                    val baseColor = (layer.customTextColorLong ?: defaultTextColor).toInt()
                                     basePaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
                                     basePaint.shader = null
                                 }
@@ -523,25 +540,25 @@ fun CanvasView(
                     val dashedBoxPaint = Paint().apply {
                         isAntiAlias = true
                         style = Paint.Style.STROKE
-                        color = 0x55E5C07B.toInt()
+                        color = 0x55E02447.toInt()
                         strokeWidth = 1.4f * density
                         pathEffect = android.graphics.DashPathEffect(floatArrayOf(8f * density, 6f * density), 0f)
                     }
                     val bgBoxPaint = Paint().apply {
                         isAntiAlias = true
                         style = Paint.Style.FILL
-                        color = 0x33000000.toInt()
+                        color = if (isAmoledWhite) 0x14000000.toInt() else 0x33000000.toInt()
                     }
                     val textPromptPaint = Paint().apply {
                         isAntiAlias = true
-                        color = 0xCCE5C07B.toInt()
+                        color = 0xCCE02447.toInt()
                         textSize = 13.5f * density
                         textAlign = Paint.Align.CENTER
                         typeface = AtharFontManager.getTypeface(context, app.xrtm8.athar.model.ArabicFontFamily.AREF_RUQAA)
                     }
                     val subTextPaint = Paint().apply {
                         isAntiAlias = true
-                        color = 0x88FFFFFF.toInt()
+                        color = if (isAmoledWhite) 0x99000000.toInt() else 0x88FFFFFF.toInt()
                         textSize = 10f * density
                         textAlign = Paint.Align.CENTER
                     }
@@ -587,7 +604,8 @@ private fun findHitLayer(
             text = layer.displayText,
             paint = testPaint,
             lineSpacingMultiplier = layer.lineSpacingMultiplier,
-            textAlign = layer.textAlign
+            textAlign = layer.textAlign,
+            maxWidth = canvasW * layer.boxWidthRatio.coerceIn(0.2f, 1.0f)
         )
 
         val totalW = layout.maxLineWidth.coerceAtLeast(scaledTextSize * 1.5f)

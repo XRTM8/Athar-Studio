@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import app.xrtm8.athar.ui.AtharHomeScreen
 import app.xrtm8.athar.ui.AtharStudioScreen
 import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.theme.AmoledBlack
+import app.xrtm8.athar.ui.theme.AmoledWhite
 import app.xrtm8.athar.ui.theme.AtharTheme
 import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
@@ -69,15 +71,18 @@ class MainActivity : ComponentActivity() {
 
         // Preload authentic Arabic typefaces into memory
         AtharFontManager.preload(this)
+        studioViewModel.initTheme(this)
 
         val initialProjectUri = if (intent?.action == Intent.ACTION_VIEW) intent.data else null
 
         setContent {
-            AtharTheme {
+            val isAmoledWhite by studioViewModel.isAmoledWhite.collectAsState()
+
+            AtharTheme(isAmoledWhite = isAmoledWhite) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
-                        color = AmoledBlack
+                        color = if (isAmoledWhite) AmoledWhite else AmoledBlack
                     ) {
                         var currentScreen by remember {
                             mutableStateOf(if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.HOME)

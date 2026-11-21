@@ -53,6 +53,7 @@ fun TypographyPanel(
     onLetterSpacingChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onTextAlignChange: (TextAlignOption) -> Unit,
+    onBoxWidthRatioChange: (Float) -> Unit = {},
     onStretchLevelChange: (Int) -> Unit = {},
     onKashidaModeChange: (KashidaMode) -> Unit = {},
     onTargetIndexChange: (Int) -> Unit = {},
@@ -315,7 +316,7 @@ fun TypographyPanel(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(GlassCard)
-                    .border(0.5.dp, GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .border(0.5.dp, CherryAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onAutoBalanceBlock()
@@ -329,15 +330,64 @@ fun TypographyPanel(
                 ) {
                     Icon(
                         imageVector = Icons.Default.FormatAlignJustify,
-                        contentDescription = "ميزان الفقرة الذكي",
-                        tint = GoldAccent,
+                        contentDescription = "محاذاة الأسطر بالمد",
+                        tint = CherryAccent,
                         modifier = Modifier.size(15.dp)
                     )
                     Text(
-                        text = "ميزان الفقرة الذكي (محاذاة هندسية متوازية بالمد)",
-                        color = GoldAccent,
+                        text = "محاذاة الأسطر بالمد (ميزان الفقرة)",
+                        color = CherryAccent,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 5. Text Box Area & Multi-Line Word Wrapping Control (مساحة النص والتفاف الأسطر)
+        StudioSlider(
+            title = "عرض مساحة النص (التفاف الأسطر)",
+            value = (state.boxWidthRatio * 100f).coerceIn(30f, 100f),
+            onValueChange = { onBoxWidthRatioChange(it / 100f) },
+            valueRange = 30f..100f,
+            valueDisplay = "${((state.boxWidthRatio * 100f).toInt())}%",
+            onValueChangeFinished = onSliderChangeFinished
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                0.50f to "عمودي 50%",
+                0.70f to "موجز 70%",
+                0.85f to "متوازن 85%",
+                1.00f to "كامل 100%"
+            ).forEach { (ratio, label) ->
+                val isSelected = kotlin.math.abs(state.boxWidthRatio - ratio) < 0.05f
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) CherryAccent else GlassSurface)
+                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onBoxWidthRatioChange(ratio)
+                            onSliderChangeFinished?.invoke()
+                        }
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) AmoledBlack else PureWhite,
+                        fontSize = 10.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }

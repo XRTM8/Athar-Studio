@@ -163,6 +163,7 @@ fun StudioConsoleDrawer(
                             onLetterSpacingChange = { viewModel.setLetterSpacing(it) },
                             onLineSpacingChange = { viewModel.setLineSpacing(it) },
                             onTextAlignChange = { viewModel.setTextAlign(it) },
+                            onBoxWidthRatioChange = { viewModel.setBoxWidthRatio(it) },
                             onStretchLevelChange = { viewModel.setStretchLevel(it) },
                             onKashidaModeChange = { viewModel.setKashidaMode(it) },
                             onTargetIndexChange = { viewModel.setKashidaTargetIndex(it) },

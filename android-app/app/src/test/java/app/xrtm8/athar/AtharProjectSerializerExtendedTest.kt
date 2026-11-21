@@ -5,6 +5,7 @@ import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
+import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.project.AtharProjectSerializer
 import org.json.JSONObject
@@ -144,5 +145,21 @@ class AtharProjectSerializerExtendedTest {
         assertEquals(state.scaleFactor, restored.scaleFactor, 0.001f)
         assertEquals(state.normOffsetX, restored.normOffsetX, 0.001f)
         assertEquals(state.normOffsetY, restored.normOffsetY, 0.001f)
+    }
+
+    @Test
+    fun testBoxWidthRatioSerialization() {
+        val state = CanvasState(
+            layers = listOf(
+                TextLayer(
+                    id = "l1",
+                    rawText = "نص طويل ممتد للتجربة",
+                    boxWidthRatio = 0.65f
+                )
+            )
+        )
+        val json = AtharProjectSerializer.serializeCanvasState(state, false)
+        val restored = AtharProjectSerializer.deserializeCanvasState(json)
+        assertEquals(0.65f, restored.activeLayer.boxWidthRatio, 0.001f)
     }
 }

@@ -83,4 +83,32 @@ class CriticalFixesRegressionTest {
         val dominantB = palette.dominantLong and 0xFF
         assertTrue("Dominant color should be predominantly green", dominantG > dominantR && dominantG > dominantB)
     }
+
+    @Test
+    fun testLongArabicTextParagraphWrapping() {
+        val paragraph = "بسم الله الرحمن الرحيم والصلاة والسلام على رسول الله الكريم محمد بن عبد الله"
+        val measurer: (String) -> Float = { str -> str.length * 12f }
+        val layout = AtharTextLayout.computeLayout(
+            text = paragraph,
+            maxWidth = 300f,
+            measureText = measurer
+        )
+        assertTrue("Paragraph must wrap into 3 or more lines", layout.lines.size >= 3)
+        for (line in layout.lines) {
+            assertTrue("No line should exceed max allowed boundary plus word grace", measurer(line) <= 320f)
+        }
+    }
+
+    @Test
+    fun testViewModelBoxWidthRatioClamp() {
+        val vm = AtharStudioViewModel()
+        vm.setBoxWidthRatio(0.1f) // below min 0.3f
+        assertEquals(0.30f, vm.canvasState.value.activeLayer.boxWidthRatio, 0.001f)
+
+        vm.setBoxWidthRatio(1.5f) // above max 1.0f
+        assertEquals(1.0f, vm.canvasState.value.activeLayer.boxWidthRatio, 0.001f)
+
+        vm.setBoxWidthRatio(0.75f)
+        assertEquals(0.75f, vm.canvasState.value.activeLayer.boxWidthRatio, 0.001f)
+    }
 }

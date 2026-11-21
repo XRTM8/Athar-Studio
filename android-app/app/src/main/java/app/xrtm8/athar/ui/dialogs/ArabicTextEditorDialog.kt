@@ -54,14 +54,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.xrtm8.athar.ui.theme.AmoledBlack
-import app.xrtm8.athar.ui.theme.GlassBorder
-import app.xrtm8.athar.ui.theme.GlassBorderActive
-import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.GoldAccent
-import app.xrtm8.athar.ui.theme.MutedWhite
-import app.xrtm8.athar.ui.theme.PureWhite
-import app.xrtm8.athar.ui.theme.SubtleGray
+import app.xrtm8.athar.ui.theme.*
 
 /**
  * Strips Arabic diacritics (Harakat / Tashkeel) from string while keeping Tatweel and base letters intact.
@@ -82,16 +75,23 @@ fun ArabicTextEditorDialog(
     }
     val haptic = LocalHapticFeedback.current
 
+    val isAmoledWhite = LocalAmoledWhite.current
+    val primaryTextColor = if (isAmoledWhite) DarkText else PureWhite
+    val secondaryTextColor = if (isAmoledWhite) DarkTextMuted else MutedWhite
+    val subtleTextColor = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val cardBg = if (isAmoledWhite) WhiteSurface else GlassSurface
+    val cardBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = AmoledBlack,
+        containerColor = if (isAmoledWhite) AmoledWhite else AmoledBlack,
         dragHandle = {
             Box(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 40.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(GlassBorder)
+                    .background(cardBorder)
             )
         }
     ) {
@@ -110,8 +110,8 @@ fun ArabicTextEditorDialog(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "محرر التايبوغرافيا العربي",
-                    color = PureWhite,
+                    text = "تحرير النص",
+                    color = primaryTextColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp
                 )
@@ -124,7 +124,7 @@ fun ArabicTextEditorDialog(
                             val stripped = stripArabicDiacritics(textFieldValue.text)
                             textFieldValue = TextFieldValue(text = stripped, selection = TextRange(stripped.length))
                         },
-                        colors = ButtonDefaults.textButtonColors(contentColor = GoldAccent)
+                        colors = ButtonDefaults.textButtonColors(contentColor = CherryAccent)
                     ) {
                         Icon(Icons.Default.FormatClear, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -137,7 +137,7 @@ fun ArabicTextEditorDialog(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             textFieldValue = TextFieldValue(text = "", selection = TextRange.Zero)
                         },
-                        colors = ButtonDefaults.textButtonColors(contentColor = SubtleGray)
+                        colors = ButtonDefaults.textButtonColors(contentColor = subtleTextColor)
                     ) {
                         Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -252,8 +252,8 @@ fun ArabicTextEditorDialog(
 
             // Ready Calligraphy Presets
             Text(
-                text = "اقتراحات وسياقات جاهزة:",
-                color = MutedWhite,
+                text = "نصوص سريعة:",
+                color = secondaryTextColor,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -280,8 +280,8 @@ fun ArabicTextEditorDialog(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(GlassSurface)
-                            .border(0.5.dp, GlassBorder, RoundedCornerShape(10.dp))
+                            .background(cardBg)
+                            .border(0.5.dp, cardBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 textFieldValue = TextFieldValue(text = suggestion, selection = TextRange(suggestion.length))
@@ -290,7 +290,7 @@ fun ArabicTextEditorDialog(
                     ) {
                         Text(
                             text = suggestion,
-                            color = PureWhite,
+                            color = primaryTextColor,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -313,20 +313,20 @@ fun ArabicTextEditorDialog(
                         }
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                    colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.weight(1f).height(48.dp)
                 ) {
-                    Text("تطبيق وتحديث التصميم", color = AmoledBlack, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                    Text("تطبيق النص", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
                 }
 
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                    colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.height(48.dp)
                 ) {
-                    Text("إلغاء", color = PureWhite, fontSize = 13.sp)
+                    Text("إلغاء", color = primaryTextColor, fontSize = 13.sp)
                 }
             }
 

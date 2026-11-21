@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -42,6 +43,8 @@ import app.xrtm8.athar.ui.dialogs.ExportBottomSheet
 import app.xrtm8.athar.ui.dialogs.FontBrowserDialog
 import app.xrtm8.athar.ui.dialogs.ProjectsBottomSheet
 import app.xrtm8.athar.ui.theme.AmoledBlack
+import app.xrtm8.athar.ui.theme.AmoledWhite
+import app.xrtm8.athar.ui.theme.LocalAmoledWhite
 import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
 import java.io.File
@@ -116,9 +119,11 @@ fun AtharStudioScreen(
         }
     }
 
+    val isAmoledWhite = LocalAmoledWhite.current
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = AmoledBlack
+        containerColor = if (isAmoledWhite) AmoledWhite else AmoledBlack
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -157,7 +162,8 @@ fun AtharStudioScreen(
                 onToggleLock = { viewModel.toggleLock() },
                 onResetTransform = { viewModel.resetCanvasTransform() },
                 onExportClick = { showExportSheet = true },
-                onBackToHome = onNavigateBackToHome
+                onBackToHome = onNavigateBackToHome,
+                onToggleTheme = { viewModel.toggleAmoledWhite(context) }
             )
 
             // 2. Floating Multi-Text Layer Selector Strip
@@ -183,6 +189,7 @@ fun AtharStudioScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 2.dp)
+                    .clipToBounds()
             ) {
                 CanvasView(
                     state = canvasState,

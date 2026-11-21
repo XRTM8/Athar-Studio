@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * Top Studio Header: Brand mark, Project switcher, Quick studio controls pill, and Gold Export CTA.
+ * Top Studio Header: Brand mark, Project switcher, Quick studio controls pill, Theme toggle, and Cherry Export CTA.
  */
 @Composable
 fun TopStudioBar(
@@ -38,18 +38,28 @@ fun TopStudioBar(
     onResetTransform: () -> Unit,
     onExportClick: () -> Unit,
     onBackToHome: (() -> Unit)? = null,
+    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+
+    val barBackground = if (isAmoledWhite) GlassBackgroundWhite else GlassBackground
+    val barBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val primaryText = if (isAmoledWhite) DarkText else PureWhite
+    val secondaryText = if (isAmoledWhite) DarkTextMuted else MutedWhite
+    val subtleIcon = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val pillBackground = if (isAmoledWhite) WhiteSurface else GlassSurface
+    val pillBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(GlassBackground)
-            .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(20.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .background(barBackground)
+            .border(width = 0.5.dp, color = barBorder, shape = RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -69,7 +79,7 @@ fun TopStudioBar(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "العودة للرئيسية",
-                            tint = PureWhite,
+                            tint = primaryText,
                             modifier = Modifier.size(19.dp)
                         )
                     }
@@ -78,7 +88,7 @@ fun TopStudioBar(
 
                 Text(
                     text = "أَثَــر",
-                    color = PureWhite,
+                    color = primaryText,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
@@ -95,9 +105,26 @@ fun TopStudioBar(
                     Icon(
                         imageVector = Icons.Default.FolderOpen,
                         contentDescription = "مشاريعي ومسوداتي",
-                        tint = GoldAccent,
+                        tint = CherryAccent,
                         modifier = Modifier.size(19.dp)
                     )
+                }
+
+                if (onToggleTheme != null) {
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onToggleTheme()
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isAmoledWhite) Icons.Default.DarkMode else Icons.Default.LightMode,
+                            contentDescription = "تبديل الثيم",
+                            tint = if (isAmoledWhite) DarkText else CherryAccent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -106,8 +133,8 @@ fun TopStudioBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
-                    .background(GlassSurface)
-                    .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp))
+                    .background(pillBackground)
+                    .border(0.5.dp, pillBorder, RoundedCornerShape(12.dp))
                     .padding(horizontal = 4.dp, vertical = 2.dp)
             ) {
                 IconButton(
@@ -121,7 +148,7 @@ fun TopStudioBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Undo,
                         contentDescription = "تراجع",
-                        tint = if (canUndo) PureWhite else SubtleGray,
+                        tint = if (canUndo) primaryText else subtleIcon,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -137,7 +164,7 @@ fun TopStudioBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Redo,
                         contentDescription = "إعادة",
-                        tint = if (canRedo) PureWhite else SubtleGray,
+                        tint = if (canRedo) primaryText else subtleIcon,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -153,7 +180,7 @@ fun TopStudioBar(
                     Icon(
                         imageVector = if (showGrid) Icons.Default.GridOn else Icons.Default.GridOff,
                         contentDescription = "الشبكة",
-                        tint = if (showGrid) GoldAccent else SubtleGray,
+                        tint = if (showGrid) CherryAccent else subtleIcon,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -169,7 +196,7 @@ fun TopStudioBar(
                     Icon(
                         imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
                         contentDescription = "قفل",
-                        tint = if (isLocked) GoldAccent else SubtleGray,
+                        tint = if (isLocked) CherryAccent else subtleIcon,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -185,19 +212,19 @@ fun TopStudioBar(
                     Icon(
                         imageVector = Icons.Default.FilterCenterFocus,
                         contentDescription = "توسيط التصميم",
-                        tint = MutedWhite,
+                        tint = secondaryText,
                         modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
-            // Left: High-Contrast Luxury Gold Export CTA
+            // Left: High-Contrast Luxury Cherry Export CTA
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onExportClick()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                 modifier = Modifier.height(34.dp)
@@ -206,13 +233,13 @@ fun TopStudioBar(
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = null,
-                        tint = AmoledBlack,
+                        tint = PureWhite,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = "تصدير",
-                        color = AmoledBlack,
+                        color = PureWhite,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold
                     )

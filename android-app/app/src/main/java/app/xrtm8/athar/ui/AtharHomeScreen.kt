@@ -101,9 +101,17 @@ fun AtharHomeScreen(
         }
     }
 
+    val isAmoledWhite = LocalAmoledWhite.current
+
+    val primaryTextColor = if (isAmoledWhite) DarkText else PureWhite
+    val secondaryTextColor = if (isAmoledWhite) DarkTextMuted else MutedWhite
+    val subtleTextColor = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val cardBackground = if (isAmoledWhite) WhiteSurface else StudioSurface
+    val cardBorder = if (isAmoledWhite) WhiteBorder else StudioBorder
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = AmoledBlack
+        containerColor = if (isAmoledWhite) AmoledWhite else AmoledBlack
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -131,7 +139,7 @@ fun AtharHomeScreen(
                 )
             }
 
-            // 2. Luxury Header & Brand Mark
+            // 2. Header & Brand Mark with Theme Switcher
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -142,7 +150,7 @@ fun AtharHomeScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "أَثَــر",
-                                color = PureWhite,
+                                color = primaryTextColor,
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp
@@ -151,23 +159,42 @@ fun AtharHomeScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(GoldAccent.copy(alpha = 0.15f))
-                                    .border(0.5.dp, GoldAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                    .background(CherryAccent.copy(alpha = 0.15f))
+                                    .border(0.5.dp, CherryAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "v${BuildConfig.VERSION_NAME}",
-                                    color = GoldAccent,
+                                    color = CherryAccent,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                         Text(
-                            text = "استوديو التايبوغرافي وتصميم النصوص العربية الأصيلة",
-                            color = MutedWhite,
+                            text = "محرر ومصمم النصوص العربية",
+                            color = secondaryTextColor,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Normal
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            viewModel.toggleAmoledWhite(context)
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(if (isAmoledWhite) WhiteSurfaceElevated else StudioSurface)
+                            .border(0.5.dp, cardBorder, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isAmoledWhite) Icons.Default.DarkMode else Icons.Default.LightMode,
+                            contentDescription = "تبديل الثيم",
+                            tint = if (isAmoledWhite) DarkText else CherryAccent,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -175,20 +202,25 @@ fun AtharHomeScreen(
 
             // 3. Hero Card: Create Blank New Project
             item {
+                val heroGrad = if (isAmoledWhite) {
+                    Brush.verticalGradient(listOf(WhiteSurface, WhiteSurfaceElevated))
+                } else {
+                    Brush.verticalGradient(listOf(Color(0xFF220810), Color(0xFF14151B)))
+                }
+                val heroBorder = if (isAmoledWhite) {
+                    Brush.horizontalGradient(listOf(CherryAccent.copy(alpha = 0.5f), WhiteBorder))
+                } else {
+                    Brush.horizontalGradient(listOf(CherryAccent.copy(alpha = 0.7f), Color(0x33E02447)))
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(22.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF1E1A14), Color(0xFF121418))
-                            )
-                        )
+                        .background(heroGrad)
                         .border(
                             width = 1.dp,
-                            brush = Brush.horizontalGradient(
-                                listOf(GoldAccent.copy(alpha = 0.7f), Color(0x33E5C07B))
-                            ),
+                            brush = heroBorder,
                             shape = RoundedCornerShape(22.dp)
                         )
                         .padding(18.dp)
@@ -204,28 +236,28 @@ fun AtharHomeScreen(
                                     modifier = Modifier
                                         .size(42.dp)
                                         .clip(CircleShape)
-                                        .background(GoldAccent)
+                                        .background(CherryAccent)
                                         .padding(8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = null,
-                                        tint = AmoledBlack,
+                                        tint = PureWhite,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "مشروع جديد (كانفاس فارغ)",
-                                        color = PureWhite,
+                                        text = "مشروع جديد",
+                                        color = primaryTextColor,
                                         fontSize = 16.5.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "ابدأ صفحة بيضاء نظيفة بدون نصوص جاهزة",
-                                        color = SubtleGray,
+                                        text = "إنشاء مساحة عمل فارغة بدون نصوص جاهزة",
+                                        color = subtleTextColor,
                                         fontSize = 11.5.sp
                                     )
                                 }
@@ -237,7 +269,7 @@ fun AtharHomeScreen(
                         // Aspect Ratio Chips
                         Text(
                             text = "اختر قياس التصميم:",
-                            color = MutedWhite,
+                            color = secondaryTextColor,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -254,10 +286,10 @@ fun AtharHomeScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(10.dp))
-                                        .background(if (isSelected) GoldAccent else GlassSurface)
+                                        .background(if (isSelected) CherryAccent else if (isAmoledWhite) WhiteSurfaceElevated else GlassSurface)
                                         .border(
                                             0.5.dp,
-                                            if (isSelected) GoldAccent else GlassBorder,
+                                            if (isSelected) CherryAccent else cardBorder,
                                             RoundedCornerShape(10.dp)
                                         )
                                         .clickable {
@@ -268,7 +300,7 @@ fun AtharHomeScreen(
                                 ) {
                                     Text(
                                         text = ratio.label,
-                                        color = if (isSelected) AmoledBlack else PureWhite,
+                                        color = if (isSelected) PureWhite else primaryTextColor,
                                         fontSize = 11.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
@@ -278,14 +310,14 @@ fun AtharHomeScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Big CTA Button to launch Studio
+                        // CTA Button to launch Studio
                         Button(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 viewModel.createNewProject(selectedAspectRatio, initialText = "")
                                 onNavigateToStudio()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                            colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -296,8 +328,8 @@ fun AtharHomeScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "فتح الكانفاس وبدء التصميم",
-                                    color = AmoledBlack,
+                                    text = "بدء التصميم",
+                                    color = PureWhite,
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -305,7 +337,7 @@ fun AtharHomeScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = null,
-                                    tint = AmoledBlack,
+                                    tint = PureWhite,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -325,8 +357,8 @@ fun AtharHomeScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(GlassSurface)
-                            .border(0.5.dp, GlassBorder, RoundedCornerShape(16.dp))
+                            .background(cardBackground)
+                            .border(0.5.dp, cardBorder, RoundedCornerShape(16.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 photoPickerLauncher.launch(
@@ -339,20 +371,20 @@ fun AtharHomeScreen(
                             Icon(
                                 imageVector = Icons.Default.AddPhotoAlternate,
                                 contentDescription = null,
-                                tint = GoldAccent,
+                                tint = CherryAccent,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "تصميم على صورة",
-                                color = PureWhite,
+                                color = primaryTextColor,
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "اختر صورة من المعرض وتنسيق ألوانها",
-                                color = SubtleGray,
+                                color = subtleTextColor,
                                 fontSize = 10.5.sp,
                                 maxLines = 2
                             )
@@ -364,8 +396,8 @@ fun AtharHomeScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(GlassSurface)
-                            .border(0.5.dp, GlassBorder, RoundedCornerShape(16.dp))
+                            .background(cardBackground)
+                            .border(0.5.dp, cardBorder, RoundedCornerShape(16.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 projectImportLauncher.launch("*/*")
@@ -376,20 +408,20 @@ fun AtharHomeScreen(
                             Icon(
                                 imageVector = Icons.Default.FolderZip,
                                 contentDescription = null,
-                                tint = GoldAccent,
+                                tint = CherryAccent,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "استيراد مشروع",
-                                color = PureWhite,
+                                color = primaryTextColor,
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "فتح ملف .athar بكافة طبقاته السابقة",
-                                color = SubtleGray,
+                                color = subtleTextColor,
                                 fontSize = 10.5.sp,
                                 maxLines = 2
                             )
@@ -407,14 +439,14 @@ fun AtharHomeScreen(
                 ) {
                     Text(
                         text = "المشاريع والمسودات الأخيرة",
-                        color = PureWhite,
+                        color = primaryTextColor,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
                     if (projectsList.isNotEmpty()) {
                         Text(
                             text = "${projectsList.size} مشروع",
-                            color = GoldAccent,
+                            color = CherryAccent,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -429,8 +461,8 @@ fun AtharHomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(GlassSurface)
-                            .border(0.5.dp, GlassBorder, RoundedCornerShape(16.dp))
+                            .background(cardBackground)
+                            .border(0.5.dp, cardBorder, RoundedCornerShape(16.dp))
                             .padding(vertical = 32.dp, horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -438,20 +470,20 @@ fun AtharHomeScreen(
                             Icon(
                                 imageVector = Icons.Default.FolderOpen,
                                 contentDescription = null,
-                                tint = SubtleGray,
+                                tint = subtleTextColor,
                                 modifier = Modifier.size(42.dp)
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "لا توجد مشاريع سابقة محفوظة",
-                                color = MutedWhite,
+                                color = secondaryTextColor,
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "أي تصميم تقوم بحفظه كمسودة سيظهر هنا لتعديله في أي وقت",
-                                color = SubtleGray,
+                                color = subtleTextColor,
                                 fontSize = 11.5.sp,
                                 textAlign = TextAlign.Center
                             )
@@ -470,8 +502,8 @@ fun AtharHomeScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(GlassSurface)
-                                    .border(0.5.dp, GlassBorder, RoundedCornerShape(14.dp))
+                                    .background(cardBackground)
+                                    .border(0.5.dp, cardBorder, RoundedCornerShape(14.dp))
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.openProjectById(context, proj.id)
@@ -509,7 +541,7 @@ fun AtharHomeScreen(
                                     Column(modifier = Modifier.padding(10.dp)) {
                                         Text(
                                             text = proj.title,
-                                            color = PureWhite,
+                                            color = primaryTextColor,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.5.sp,
                                             maxLines = 1,
@@ -518,7 +550,7 @@ fun AtharHomeScreen(
                                         val dateStr = remember(proj.lastModified) {
                                             SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(proj.lastModified))
                                         }
-                                        Text(text = dateStr, color = SubtleGray, fontSize = 10.sp)
+                                        Text(text = dateStr, color = subtleTextColor, fontSize = 10.sp)
 
                                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -536,7 +568,7 @@ fun AtharHomeScreen(
                                                 Icon(
                                                     Icons.Default.Share,
                                                     contentDescription = "مشاركة",
-                                                    tint = GoldAccent,
+                                                    tint = CherryAccent,
                                                     modifier = Modifier.size(15.dp)
                                                 )
                                             }

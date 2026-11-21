@@ -70,6 +70,13 @@ fun FontBrowserDialog(
         matchesSearch && matchesCategory
     }
 
+    val isAmoledWhite = LocalAmoledWhite.current
+    val primaryTextColor = if (isAmoledWhite) DarkText else PureWhite
+    val subtleTextColor = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val dialogBg = if (isAmoledWhite) AmoledWhite else GlassBackground
+    val cardBg = if (isAmoledWhite) WhiteSurface else GlassSurface
+    val cardBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -77,7 +84,7 @@ fun FontBrowserDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(AmoledBlack.copy(alpha = 0.85f))
+                .background((if (isAmoledWhite) AmoledWhite else AmoledBlack).copy(alpha = 0.85f))
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -86,8 +93,8 @@ fun FontBrowserDialog(
                     .fillMaxWidth(0.95f)
                     .fillMaxHeight(0.85f)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(GlassBackground)
-                    .border(1.dp, GlassBorderActive, RoundedCornerShape(24.dp))
+                    .background(dialogBg)
+                    .border(1.dp, if (isAmoledWhite) WhiteBorder else GlassBorderActive, RoundedCornerShape(24.dp))
                     .padding(18.dp)
             ) {
                 // Header
@@ -99,13 +106,13 @@ fun FontBrowserDialog(
                     Column {
                         Text(
                             text = "مكتبة الخطوط العربية",
-                            color = GoldAccent,
+                            color = CherryAccent,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "مجموعة «المصمم العربي» والخطوط العالمية الأصيلة",
-                            color = SubtleGray,
+                            text = "اختر الخط المناسب لتصميمك",
+                            color = subtleTextColor,
                             fontSize = 11.sp
                         )
                     }
@@ -116,7 +123,7 @@ fun FontBrowserDialog(
                             onDismiss()
                         }
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = PureWhite)
+                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = primaryTextColor)
                     }
                 }
 
@@ -126,17 +133,17 @@ fun FontBrowserDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("ابحث عن اسم الخط أو النمط...", color = SubtleGray, fontSize = 12.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = GoldAccent) },
+                    placeholder = { Text("ابحث عن اسم الخط أو النمط...", color = subtleTextColor, fontSize = 12.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = CherryAccent) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = GlassSurface,
-                        unfocusedContainerColor = GlassSurface,
-                        focusedBorderColor = GoldAccent,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedTextColor = PureWhite,
-                        unfocusedTextColor = PureWhite
+                        focusedContainerColor = cardBg,
+                        unfocusedContainerColor = cardBg,
+                        focusedBorderColor = CherryAccent,
+                        unfocusedBorderColor = cardBorder,
+                        focusedTextColor = primaryTextColor,
+                        unfocusedTextColor = primaryTextColor
                     ),
                     singleLine = true
                 )
@@ -155,8 +162,8 @@ fun FontBrowserDialog(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) GoldAccent else GlassSurface)
-                                .border(0.5.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(10.dp))
+                                .background(if (isSelected) CherryAccent else cardBg)
+                                .border(0.5.dp, if (isSelected) CherryAccent else cardBorder, RoundedCornerShape(10.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     selectedCategory = cat
@@ -165,7 +172,7 @@ fun FontBrowserDialog(
                         ) {
                             Text(
                                 text = cat,
-                                color = if (isSelected) AmoledBlack else PureWhite,
+                                color = if (isSelected) PureWhite else primaryTextColor,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
@@ -188,10 +195,10 @@ fun FontBrowserDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSelected) GoldAccent.copy(alpha = 0.16f) else GlassSurface)
+                                .background(if (isSelected) CherryAccent.copy(alpha = if (isAmoledWhite) 0.15f else 0.16f) else cardBg)
                                 .border(
                                     width = if (isSelected) 1.5.dp else 0.5.dp,
-                                    color = if (isSelected) GoldAccent else GlassBorder,
+                                    color = if (isSelected) CherryAccent else cardBorder,
                                     shape = RoundedCornerShape(14.dp)
                                 )
                                 .clickable {
@@ -210,7 +217,7 @@ fun FontBrowserDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = font.fontName,
-                                            color = if (isSelected) GoldAccent else PureWhite,
+                                            color = if (isSelected) CherryAccent else primaryTextColor,
                                             fontSize = 13.5.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -218,12 +225,12 @@ fun FontBrowserDialog(
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(AmoledBlack)
+                                                .background(if (isAmoledWhite) WhiteSurfaceElevated else AmoledBlack)
                                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
                                             Text(
                                                 text = font.category,
-                                                color = SubtleGray,
+                                                color = subtleTextColor,
                                                 fontSize = 9.5.sp
                                             )
                                         }

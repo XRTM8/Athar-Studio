@@ -35,17 +35,23 @@ fun ExportBottomSheet(
 ) {
     var selectedResolution by remember { mutableStateOf(ExportResolution.HD_1080P) }
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val primaryTextColor = if (isAmoledWhite) DarkText else PureWhite
+    val secondaryTextColor = if (isAmoledWhite) DarkTextMuted else MutedWhite
+    val subtleTextColor = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val cardBg = if (isAmoledWhite) WhiteSurface else GlassSurface
+    val cardBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = AmoledBlack,
+        containerColor = if (isAmoledWhite) AmoledWhite else AmoledBlack,
         dragHandle = {
             Box(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 40.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(GlassBorder)
+                    .background(cardBorder)
             )
         }
     ) {
@@ -55,14 +61,14 @@ fun ExportBottomSheet(
                 .padding(horizontal = 22.dp, vertical = 6.dp)
                 .navigationBarsPadding()
         ) {
-            Text(text = "تصدير التصميم", color = PureWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(text = "تصدير التصميم", color = primaryTextColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(3.dp))
-            Text(text = "اختر دقة التصدير أو احفظ كمسودة قابلة للتعديل", color = SubtleGray, fontSize = 12.sp)
+            Text(text = "اختر دقة التصدير أو احفظ كمسودة قابلة للتعديل", color = subtleTextColor, fontSize = 12.sp)
 
             Spacer(modifier = Modifier.height(14.dp))
 
             // Resolution Selector
-            Text(text = "دقة التصدير:", color = MutedWhite, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text(text = "دقة التصدير:", color = secondaryTextColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -74,8 +80,8 @@ fun ExportBottomSheet(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) GoldAccent else GlassSurface)
-                            .border(1.dp, if (isSelected) GoldAccent else GlassBorder, RoundedCornerShape(12.dp))
+                            .background(if (isSelected) CherryAccent else cardBg)
+                            .border(1.dp, if (isSelected) CherryAccent else cardBorder, RoundedCornerShape(12.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 selectedResolution = res
@@ -86,13 +92,13 @@ fun ExportBottomSheet(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = res.label,
-                                color = if (isSelected) AmoledBlack else PureWhite,
+                                color = if (isSelected) PureWhite else primaryTextColor,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.5.sp
                             )
                             Text(
                                 text = "${res.width}px",
-                                color = if (isSelected) AmoledBlack.copy(alpha = 0.7f) else SubtleGray,
+                                color = if (isSelected) PureWhite.copy(alpha = 0.85f) else subtleTextColor,
                                 fontSize = 10.sp
                             )
                         }
@@ -108,7 +114,7 @@ fun ExportBottomSheet(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onExportFullCanvas(selectedResolution)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
+                colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = !isExporting
@@ -119,18 +125,18 @@ fun ExportBottomSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Download, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Download, contentDescription = null, tint = PureWhite, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
                                 text = if (state.isTransparentBg) "تصدير الكانفاس الشفاف (PNG)" else "تصدير التصميم بالكامل (${selectedResolution.label})",
-                                color = AmoledBlack,
+                                color = PureWhite,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
                             Text(
                                 text = "بالأبعاد الكاملة مع ضبط الخلفية والظلال الحالي",
-                                color = AmoledBlack.copy(alpha = 0.75f),
+                                color = PureWhite.copy(alpha = 0.85f),
                                 fontSize = 10.sp
                             )
                         }
@@ -146,9 +152,9 @@ fun ExportBottomSheet(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onExportSticker(selectedResolution)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                 shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = !isExporting
             ) {
@@ -158,11 +164,11 @@ fun ExportBottomSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(text = "ملصق شفاف مقصوص (Sticker PNG)", color = PureWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(text = "مفرغ بدون خلفية ومقصوص بدقة حول الخط", color = SubtleGray, fontSize = 10.sp)
+                            Text(text = "ملصق شفاف مقصوص (Sticker PNG)", color = primaryTextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(text = "مفرغ بدون خلفية ومقصوص بدقة حول الخط", color = subtleTextColor, fontSize = 10.sp)
                         }
                     }
                 }
@@ -176,15 +182,15 @@ fun ExportBottomSheet(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onSaveProject()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                 shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
                 modifier = Modifier.fillMaxWidth().height(46.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Save, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Save, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "حفظ كمسودة محلية", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                    Text(text = "حفظ كمسودة في التطبيق", color = primaryTextColor, fontWeight = FontWeight.Medium, fontSize = 13.sp)
                 }
             }
 
@@ -196,15 +202,15 @@ fun ExportBottomSheet(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onShareAtharProject()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                 shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, GlassBorder),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
                 modifier = Modifier.fillMaxWidth().height(46.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.FolderZip, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.FolderZip, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "مشاركة ملف المشروع (.athar)", color = GoldAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(text = "مشاركة ملف المشروع (.athar)", color = CherryAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
 
