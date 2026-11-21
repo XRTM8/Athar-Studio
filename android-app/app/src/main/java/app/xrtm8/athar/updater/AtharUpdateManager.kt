@@ -5,11 +5,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
+import app.xrtm8.athar.BuildConfig
 import app.xrtm8.athar.MainActivity
 import app.xrtm8.athar.model.UpdateInfo
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +32,48 @@ class AtharUpdateManager(private val context: Context) {
         private const val NOTIFICATION_ID = 1001
         private const val GITHUB_REPO = "XRTM8/DESIGN"
         private const val RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+
+        data class ReleaseAsset(val name: String, val downloadUrl: String)
+
+        /**
+         * Intelligently selects the optimal APK asset matching device architecture.
+         * Prioritizes ARM64-v8a native build on 64-bit devices, falling back to universal or first available APK.
+         */
+        fun selectBestApkAsset(
+            assets: List<ReleaseAsset>,
+            deviceAbis: Array<String>? = null
+        ): String? {
+            if (assets.isEmpty()) return null
+            if (assets.size == 1) return assets.first().downloadUrl
+
+            val supportedAbis = deviceAbis ?: Build.SUPPORTED_ABIS ?: emptyArray()
+            val isArm64 = supportedAbis.any {
+                it.contains("arm64", ignoreCase = true) || it.contains("aarch64", ignoreCase = true)
+            }
+
+            if (isArm64) {
+                val arm64Asset = assets.find {
+                    it.name.contains("arm64", ignoreCase = true) ||
+                    it.name.contains("aarch64", ignoreCase = true) ||
+                    it.name.contains("arm64-v8a", ignoreCase = true)
+                }
+                if (arm64Asset != null) {
+                    try {
+                        Log.i(TAG, "Selected native ARM64-v8a asset: ${arm64Asset.name}")
+                    } catch (_: Throwable) {
+                        // Safe in unit tests
+                    }
+                    return arm64Asset.downloadUrl
+                }
+            }
+
+            val universalAsset = assets.find { it.name.contains("universal", ignoreCase = true) }
+            if (universalAsset != null) {
+                return universalAsset.downloadUrl
+            }
+
+            return assets.first().downloadUrl
+        }
     }
 
     private val _updateState = MutableStateFlow<UpdateInfo?>(null)
@@ -78,7 +122,7 @@ class AtharUpdateManager(private val context: Context) {
         return false
     }
 
-    suspend fun checkForUpdates(currentVersionName: String = "1.9.0", showNotificationOnFound: Boolean = true): UpdateInfo? {
+    suspend fun checkForUpdates(currentVersionName: String = BuildConfig.VERSION_NAME, showNotificationOnFound: Boolean = true): UpdateInfo? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL(RELEASES_API_URL)
@@ -95,19 +139,20 @@ class AtharUpdateManager(private val context: Context) {
                     val tagName = json.optString("tag_name", "").trim()
                     val body = json.optString("body", "تحسينات جديدة وتأثيرات إضافية")
 
-                    var downloadUrl = ""
+                    val apkAssets = ArrayList<ReleaseAsset>()
                     val assets = json.optJSONArray("assets")
                     if (assets != null) {
                         for (i in 0 until assets.length()) {
                             val asset = assets.getJSONObject(i)
                             val name = asset.optString("name", "")
-                            if (name.endsWith(".apk", ignoreCase = true)) {
-                                downloadUrl = asset.optString("browser_download_url", "")
-                                break
+                            val dUrl = asset.optString("browser_download_url", "")
+                            if (name.endsWith(".apk", ignoreCase = true) && dUrl.isNotEmpty()) {
+                                apkAssets.add(ReleaseAsset(name, dUrl))
                             }
                         }
                     }
 
+                    val downloadUrl = selectBestApkAsset(apkAssets) ?: ""
                     val cleanTag = tagName.removePrefix("v")
 
                     if (isNewerVersion(tagName, currentVersionName) && downloadUrl.isNotEmpty()) {
@@ -219,18 +264,20 @@ class AtharUpdateManager(private val context: Context) {
                     }
                 }
 
-                // Security Integrity Verification
+                _downloadProgress.value = null
+
+                // Verify package integrity and matching packageName before triggering installation
                 val pm = context.packageManager
-                val pkgInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, 0)
-                if (pkgInfo == null || pkgInfo.packageName != context.packageName) {
+                val archiveInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, 0)
+                if (archiveInfo == null || archiveInfo.packageName != context.packageName) {
                     apkFile.delete()
-                    throw SecurityException("حزمة التحديث غير صالحة أو غير مطابقة لتطبيق أَثَــر")
+                    Log.e(TAG, "Downloaded APK failed archive integrity check or package mismatch: ${archiveInfo?.packageName}")
+                    return@withContext
                 }
 
-                _downloadProgress.value = 1.0f
                 installApk(apkFile)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to download update APK", e)
+                Log.e(TAG, "Download and install failed: ${e.message}")
                 _downloadProgress.value = null
             }
         }
@@ -238,18 +285,19 @@ class AtharUpdateManager(private val context: Context) {
 
     private fun installApk(file: File) {
         try {
-            val uri: Uri = FileProvider.getUriForFile(
+            val contentUri: Uri = FileProvider.getUriForFile(
                 context,
-                "app.xrtm8.athar.fileprovider",
+                "${context.packageName}.fileprovider",
                 file
             )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
+
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, "application/vnd.android.package-archive")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
             }
-            context.startActivity(intent)
+            context.startActivity(installIntent)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch APK installer", e)
+            Log.e(TAG, "Launch installer failed: ${e.message}")
         }
     }
 

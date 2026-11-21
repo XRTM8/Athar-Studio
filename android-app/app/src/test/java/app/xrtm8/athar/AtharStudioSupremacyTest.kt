@@ -189,4 +189,29 @@ class AtharStudioSupremacyTest {
         org.junit.Assert.assertSame(r1, r2)
         assertEquals(1, r1.lines.size)
     }
+
+    @Test
+    fun testSelectBestApkAssetArm64Prioritization() {
+        val assets = listOf(
+            app.xrtm8.athar.updater.AtharUpdateManager.Companion.ReleaseAsset("athar-v2.0.1-universal.apk", "https://download/universal"),
+            app.xrtm8.athar.updater.AtharUpdateManager.Companion.ReleaseAsset("athar-v2.0.1-arm64.apk", "https://download/arm64")
+        )
+        // 1. On ARM64-v8a device, should select arm64 APK
+        val chosenArm64 = app.xrtm8.athar.updater.AtharUpdateManager.selectBestApkAsset(
+            assets,
+            deviceAbis = arrayOf("arm64-v8a")
+        )
+        assertEquals("https://download/arm64", chosenArm64)
+
+        // 2. On x86_64 device without x86_64 APK, should fallback to universal
+        val chosenFallback = app.xrtm8.athar.updater.AtharUpdateManager.selectBestApkAsset(
+            assets,
+            deviceAbis = arrayOf("x86_64")
+        )
+        assertEquals("https://download/universal", chosenFallback)
+
+        // 3. Single asset list returns that asset
+        val single = listOf(app.xrtm8.athar.updater.AtharUpdateManager.Companion.ReleaseAsset("athar-latest.apk", "https://download/single"))
+        assertEquals("https://download/single", app.xrtm8.athar.updater.AtharUpdateManager.selectBestApkAsset(single))
+    }
 }

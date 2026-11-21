@@ -14,12 +14,17 @@ android {
         applicationId = "app.xrtm8.athar"
         minSdk = 26
         targetSdk = 34
-        versionCode = 24
-        versionName = "2.0.0"
+        versionCode = 25
+        versionName = "2.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+
+        ndk {
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
         }
     }
 
