@@ -191,6 +191,30 @@ class AtharStudioViewModel : ViewModel() {
         pushHistory(current.copy(layers = remaining, activeLayerId = nextActive))
     }
 
+    fun moveActiveLayerUp() {
+        val current = _canvasState.value
+        val activeId = current.activeLayer.id
+        val index = current.layers.indexOfFirst { it.id == activeId }
+        if (index >= 0 && index < current.layers.size - 1) {
+            val mutable = current.layers.toMutableList()
+            val item = mutable.removeAt(index)
+            mutable.add(index + 1, item)
+            pushHistory(current.copy(layers = mutable))
+        }
+    }
+
+    fun moveActiveLayerDown() {
+        val current = _canvasState.value
+        val activeId = current.activeLayer.id
+        val index = current.layers.indexOfFirst { it.id == activeId }
+        if (index > 0) {
+            val mutable = current.layers.toMutableList()
+            val item = mutable.removeAt(index)
+            mutable.add(index - 1, item)
+            pushHistory(current.copy(layers = mutable))
+        }
+    }
+
     fun selectLayer(layerId: String) {
         if (_canvasState.value.activeLayerId != layerId) {
             _canvasState.update { it.copy(activeLayerId = layerId) }
@@ -838,7 +862,7 @@ class AtharStudioViewModel : ViewModel() {
         resolution: ExportResolution = ExportResolution.HD_1080P,
         isTransparent: Boolean = false,
         isStickerTrimmed: Boolean = true,
-        onShareRequested: Boolean = true
+        onShareRequested: Boolean = false
     ) {
         if (_isExporting.value) return
 

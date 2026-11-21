@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,6 +40,8 @@ fun TextLayerStrip(
     onDuplicateLayer: () -> Unit,
     onDeleteLayer: () -> Unit,
     onSelectLayer: (String) -> Unit,
+    onMoveLayerUp: (() -> Unit)? = null,
+    onMoveLayerDown: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -148,6 +152,52 @@ fun TextLayerStrip(
         }
 
         if (state.layers.size > 1) {
+            if (onMoveLayerUp != null) {
+                Spacer(modifier = Modifier.width(5.dp))
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(GlassSurface)
+                        .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onMoveLayerUp()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = "تقديم الطبقة",
+                        tint = GoldAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            if (onMoveLayerDown != null) {
+                Spacer(modifier = Modifier.width(5.dp))
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(GlassSurface)
+                        .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onMoveLayerDown()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "تأخير الطبقة",
+                        tint = GoldAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.width(6.dp))
 
             // Delete Active Layer Action

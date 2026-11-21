@@ -25,6 +25,7 @@ object AtharProjectManager {
 
     private const val PROJECTS_DIR_NAME = "athar_projects"
     private const val THUMBS_DIR_NAME = "athar_thumbs"
+    private const val ASSETS_DIR_NAME = "athar_project_assets"
     private const val MANIFEST_ENTRY_NAME = "project.json"
     private const val THUMBNAIL_ENTRY_NAME = "thumbnail.png"
     private const val BACKGROUND_ENTRY_NAME = "background.png"
@@ -37,6 +38,12 @@ object AtharProjectManager {
 
     private fun getThumbsDir(context: Context): File {
         val dir = File(context.filesDir, THUMBS_DIR_NAME)
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    private fun getAssetsDir(context: Context): File {
+        val dir = File(context.filesDir, ASSETS_DIR_NAME)
         if (!dir.exists()) dir.mkdirs()
         return dir
     }
@@ -64,17 +71,8 @@ object AtharProjectManager {
         thumbBitmap.recycle()
         FileOutputStream(thumbFile).use { it.write(thumbBytes) }
 
-        // 2. Read Background Image Bytes if exists
-        var bgBytes: ByteArray? = null
-        if (state.backgroundImageUri != null) {
-            try {
-                context.contentResolver.openInputStream(state.backgroundImageUri)?.use { input ->
-                    bgBytes = input.readBytes()
-                }
-            } catch (e: Exception) {
-                // Ignore if failed to read
-            }
-        }
+        // 2. Determine if background image is present
+        val hasBg = state.backgroundImageUri != null
 
         // 3. Create Manifest JSON
         val json = JSONObject().apply {
@@ -82,10 +80,10 @@ object AtharProjectManager {
             put("project_id", projId)
             put("title", title)
             put("created_at", System.currentTimeMillis())
-            put("canvas", AtharProjectSerializer.serializeCanvasState(state, bgBytes != null))
+            put("canvas", AtharProjectSerializer.serializeCanvasState(state, hasBg))
         }
 
-        // 4. Bundle into ZIP Archive (.athar)
+        // 4. Bundle into ZIP Archive (.athar) using direct streaming (Zero OOM)
         ZipOutputStream(FileOutputStream(projectFile)).use { zos ->
             // Write project.json
             zos.putNextEntry(ZipEntry(MANIFEST_ENTRY_NAME))
@@ -97,11 +95,17 @@ object AtharProjectManager {
             zos.write(thumbBytes)
             zos.closeEntry()
 
-            // Write background.png if exists
-            if (bgBytes != null) {
-                zos.putNextEntry(ZipEntry(BACKGROUND_ENTRY_NAME))
-                zos.write(bgBytes)
-                zos.closeEntry()
+            // Stream background image directly if present
+            if (state.backgroundImageUri != null) {
+                try {
+                    context.contentResolver.openInputStream(state.backgroundImageUri)?.use { input ->
+                        zos.putNextEntry(ZipEntry(BACKGROUND_ENTRY_NAME))
+                        input.copyTo(zos, bufferSize = 64 * 1024)
+                        zos.closeEntry()
+                    }
+                } catch (_: Exception) {
+                    // Safe fallback if stream unavailable
+                }
             }
         }
 
@@ -170,13 +174,11 @@ object AtharProjectManager {
                         jsonStr = zis.bufferedReader(Charsets.UTF_8).readText()
                     }
                     BACKGROUND_ENTRY_NAME -> {
-                        cleanOldCache(context)
-                        val bgDir = File(context.cacheDir, "athar_bg_cache")
-                        if (!bgDir.exists()) bgDir.mkdirs()
-                        val bgFile = File(bgDir, "bg_${System.currentTimeMillis()}.png")
+                        val assetsDir = getAssetsDir(context)
+                        val bgFile = File(assetsDir, "bg_${System.currentTimeMillis()}.png")
                         
                         // Zip Slip Security Prevention
-                        if (!bgFile.canonicalPath.startsWith(bgDir.canonicalPath + File.separator)) {
+                        if (!bgFile.canonicalPath.startsWith(assetsDir.canonicalPath + File.separator)) {
                             throw SecurityException("محاولة اختراق تراجعي للمسار: ${entry.name}")
                         }
                         
@@ -204,8 +206,13 @@ object AtharProjectManager {
     suspend fun deleteProject(context: Context, projectId: String): Boolean = withContext(Dispatchers.IO) {
         val projectsDir = getProjectsDir(context)
         val thumbsDir = getThumbsDir(context)
+        val assetsDir = getAssetsDir(context)
         val file = File(projectsDir, "$projectId.athar")
         val thumb = File(thumbsDir, "$projectId.png")
+        
+        // Remove associated background assets if named by ID
+        assetsDir.listFiles { _, name -> name.contains(projectId) }?.forEach { it.delete() }
+
         file.delete() && thumb.delete()
     }
 
@@ -223,36 +230,25 @@ object AtharProjectManager {
 
     /**
      * Automated Cache Eviction Policy.
-     * Prevents unbounded storage growth in athar_bg_cache:
-     * - Deletes files older than 48 hours
-     * - Caps directory size at 50MB max, evicting oldest files first
+     * Safely clears temporary export shares and update downloads:
+     * - Deletes files older than 24 hours in exports/ and updates/
      */
     fun cleanOldCache(context: Context) {
         try {
-            val bgDir = File(context.cacheDir, "athar_bg_cache")
-            if (!bgDir.exists()) return
-            val maxSizeBytes = 50L * 1024L * 1024L // 50MB
-            val files = bgDir.listFiles() ?: return
             val now = System.currentTimeMillis()
-            val twoDaysMs = 48L * 3600L * 1000L
+            val oneDayMs = 24L * 3600L * 1000L
 
-            var totalSize = 0L
-            for (f in files) {
-                if (now - f.lastModified() > twoDaysMs) {
-                    f.delete()
-                } else {
-                    totalSize += f.length()
+            val exportDir = File(context.cacheDir, "exports")
+            if (exportDir.exists()) {
+                exportDir.listFiles()?.forEach { f ->
+                    if (now - f.lastModified() > oneDayMs) f.delete()
                 }
             }
 
-            if (totalSize > maxSizeBytes) {
-                val sorted = files.filter { it.exists() }.sortedBy { it.lastModified() }
-                for (f in sorted) {
-                    if (totalSize <= maxSizeBytes) break
-                    val len = f.length()
-                    if (f.delete()) {
-                        totalSize -= len
-                    }
+            val updatesDir = File(context.cacheDir, "updates")
+            if (updatesDir.exists()) {
+                updatesDir.listFiles()?.forEach { f ->
+                    if (now - f.lastModified() > oneDayMs) f.delete()
                 }
             }
         } catch (e: Exception) {

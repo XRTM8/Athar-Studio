@@ -34,11 +34,11 @@ object PureArabicKashidaEngine {
 
     private val DUAL_JOINING = setOf(
         'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ',
-        'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'ي', 'ى', 'ئ', 'ـ'
+        'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'ي', 'ئ'
     )
 
     private val RIGHT_JOINING = setOf(
-        'ا', 'أ', 'إ', 'آ', 'ٱ', 'د', 'ذ', 'ر', 'ز', 'و', 'ؤ', 'ة'
+        'ا', 'أ', 'إ', 'آ', 'ٱ', 'د', 'ذ', 'ر', 'ز', 'و', 'ؤ', 'ة', 'ى'
     )
 
     private fun isTashkeel(c: Char): Boolean = c in TASHKEEL
@@ -115,35 +115,40 @@ object PureArabicKashidaEngine {
 
         val opps = ArrayList<KashidaOpportunity>()
         var globalId = 0
-        val words = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val lines = text.split("\n")
 
-        for ((wIdx, word) in words.withIndex()) {
-            val tokens = tokenizeWord(word)
-            if (tokens.size < 2) continue
+        for (line in lines) {
+            val words = line.split(" ")
+            for ((wIdx, word) in words.withIndex()) {
+                if (word.length < 2) continue
 
-            for (idx in 0 until tokens.size - 1) {
-                val currC = tokens[idx].char
-                val nextC = tokens[idx + 1].char
-                if (currC in DUAL_JOINING && (nextC in DUAL_JOINING || nextC in RIGHT_JOINING)) {
-                    val isPreFinal = (idx == tokens.size - 2)
-                    val p = getCalligraphicPriority(currC, nextC, isPreFinal)
-                    if (p > 0) {
-                        val isRec = p >= 15
-                        val star = if (isRec) " ★" else ""
-                        val label = "${currC}ـ (${word})$star"
-                        opps.add(
-                            KashidaOpportunity(
-                                globalIndex = globalId,
-                                wordIndex = wIdx,
-                                tokenIndex = idx,
-                                baseChar = currC,
-                                nextChar = nextC,
-                                displayLabel = label,
-                                priority = p,
-                                isRecommended = isRec
+                val tokens = tokenizeWord(word)
+                if (tokens.size < 2) continue
+
+                for (idx in 0 until tokens.size - 1) {
+                    val currC = tokens[idx].char
+                    val nextC = tokens[idx + 1].char
+                    if (currC in DUAL_JOINING && (nextC in DUAL_JOINING || nextC in RIGHT_JOINING)) {
+                        val isPreFinal = (idx == tokens.size - 2)
+                        val p = getCalligraphicPriority(currC, nextC, isPreFinal)
+                        if (p > 0) {
+                            val isRec = p >= 15
+                            val star = if (isRec) " ★" else ""
+                            val label = "${currC}ـ (${word})$star"
+                            opps.add(
+                                KashidaOpportunity(
+                                    globalIndex = globalId,
+                                    wordIndex = wIdx,
+                                    tokenIndex = idx,
+                                    baseChar = currC,
+                                    nextChar = nextC,
+                                    displayLabel = label,
+                                    priority = p,
+                                    isRecommended = isRec
+                                )
                             )
-                        )
-                        globalId++
+                            globalId++
+                        }
                     }
                 }
             }

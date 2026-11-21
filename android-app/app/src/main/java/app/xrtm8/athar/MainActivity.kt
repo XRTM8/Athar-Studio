@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
@@ -37,6 +38,7 @@ enum class AtharScreen {
 class MainActivity : ComponentActivity() {
 
     private lateinit var updateManager: AtharUpdateManager
+    private val studioViewModel: AtharStudioViewModel by viewModels()
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
@@ -77,7 +79,6 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = AmoledBlack
                     ) {
-                        val studioViewModel = remember { AtharStudioViewModel() }
                         var currentScreen by remember {
                             mutableStateOf(if (initialProjectUri != null) AtharScreen.STUDIO else AtharScreen.HOME)
                         }

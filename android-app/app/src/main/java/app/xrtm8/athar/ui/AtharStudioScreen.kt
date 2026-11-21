@@ -171,7 +171,9 @@ fun AtharStudioScreen(
                     onAddLayer = { viewModel.addTextLayer() },
                     onDuplicateLayer = { viewModel.duplicateActiveLayer() },
                     onDeleteLayer = { viewModel.removeActiveLayer() },
-                    onSelectLayer = { viewModel.selectLayer(it) }
+                    onSelectLayer = { viewModel.selectLayer(it) },
+                    onMoveLayerUp = { viewModel.moveActiveLayerUp() },
+                    onMoveLayerDown = { viewModel.moveActiveLayerDown() }
                 )
             }
 

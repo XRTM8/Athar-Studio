@@ -331,7 +331,8 @@ fun CanvasView(
                         val layerRotation = if (isCurrentActive) localRotation else layer.rotationAngle
 
                         val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont)
-                        val textSizePx = layer.fontSize * density
+                        val canvasDensityFactor = canvasWidth / 380f
+                        val textSizePx = (layer.fontSize / 380f) * canvasWidth
                         val alphaFloat = layer.textOpacity.coerceIn(0.15f, 1.0f)
                         val alphaInt = (alphaFloat * 255).toInt()
                         val alphaColorFilter = if (alphaFloat >= 0.999f) null else {
@@ -382,8 +383,9 @@ fun CanvasView(
                         strokePaint.alpha = alphaInt
                         strokePaint.colorFilter = alphaColorFilter
 
-                        if (layer.strokeWidth > 0f) {
-                            strokePaint.strokeWidth = layer.strokeWidth * density
+                        val effectiveStroke = if (layer.isHollowText && layer.strokeWidth <= 0f) 2.0f else layer.strokeWidth
+                        if (effectiveStroke > 0f) {
+                            strokePaint.strokeWidth = (effectiveStroke / 380f) * canvasWidth
                             strokePaint.color = layer.strokeColorLong.toInt()
                         }
 
@@ -403,18 +405,18 @@ fun CanvasView(
                         nativeCanvas.rotate(layerRotation)
                         nativeCanvas.scale(layerScale, layerScale)
 
-                        // Draw Frosted Glass Plaque
+                        // Draw Frosted Glass Plaque with calibrated canvas density
                         TextGlassBackdropRenderer.drawGlassBackdrop(
                             canvas = nativeCanvas,
                             layer = layer,
                             layout = layerLayout,
                             textSizePx = textSizePx,
-                            density = density
+                            density = canvasDensityFactor
                         )
 
-                        val shadowDxPx = layer.shadowDx * density
-                        val shadowDyPx = layer.shadowDy * density
-                        val shadowRadiusInt = (layer.shadowRadius * density).toInt()
+                        val shadowDxPx = (layer.shadowDx / 380f) * canvasWidth
+                        val shadowDyPx = (layer.shadowDy / 380f) * canvasWidth
+                        val shadowRadiusInt = ((layer.shadowRadius / 380f) * canvasWidth).toInt()
                         val shadowBlurFilter = if (shadowRadiusInt > 0) {
                             shadowBlurFilterCache.getOrPut(shadowRadiusInt) {
                                 BlurMaskFilter(shadowRadiusInt.toFloat().coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
@@ -438,9 +440,8 @@ fun CanvasView(
                             }
 
                             // 2. Draw Stroke
-                            val effectiveStroke = if (layer.isHollowText && layer.strokeWidth <= 0f) 2.0f else layer.strokeWidth
                             if (effectiveStroke > 0f) {
-                                strokePaint.strokeWidth = effectiveStroke * density
+                                strokePaint.strokeWidth = (effectiveStroke / 380f) * canvasWidth
                                 strokePaint.color = layer.strokeColorLong.toInt()
                                 if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
                                     CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, strokePaint, layer.curveAngle)
@@ -577,12 +578,20 @@ private fun findHitLayer(
         val cy = canvasH / 2f + (layer.normOffsetY * canvasH)
         val scale = layer.scaleFactor.coerceAtLeast(0.1f)
 
-        val textSizePx = layer.fontSize * density
-        val lines = layer.displayText.split("\n")
-        val lineHeight = textSizePx * layer.lineSpacingMultiplier
-        val totalH = kotlin.math.max(textSizePx, lines.size * lineHeight)
-        val maxChars = lines.maxOfOrNull { it.length } ?: 1
-        val totalW = kotlin.math.max(textSizePx * 2f, maxChars * textSizePx * 0.62f)
+        val scaledTextSize = (layer.fontSize / 380f) * canvasW
+        val testPaint = Paint().apply {
+            textSize = scaledTextSize
+            letterSpacing = layer.letterSpacing
+        }
+        val layout = AtharTextLayout.computeLayout(
+            text = layer.displayText,
+            paint = testPaint,
+            lineSpacingMultiplier = layer.lineSpacingMultiplier,
+            textAlign = layer.textAlign
+        )
+
+        val totalW = layout.maxLineWidth.coerceAtLeast(scaledTextSize * 1.5f)
+        val totalH = (layout.totalHeight + scaledTextSize).coerceAtLeast(scaledTextSize)
 
         val halfW = (totalW / 2f) * scale + pad
         val halfH = (totalH / 2f) * scale + pad

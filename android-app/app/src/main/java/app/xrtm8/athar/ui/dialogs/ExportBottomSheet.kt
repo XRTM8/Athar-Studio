@@ -119,7 +119,7 @@ fun ExportBottomSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Share, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Download, contentDescription = null, tint = AmoledBlack, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(

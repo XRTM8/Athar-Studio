@@ -54,7 +54,7 @@ object AtharExportManager {
         resolution: ExportResolution = ExportResolution.HD_1080P,
         isTransparent: Boolean = false,
         isStickerTrimmed: Boolean = true,
-        onShareRequested: Boolean = true
+        onShareRequested: Boolean = false
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
             val width = resolution.width

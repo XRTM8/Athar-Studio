@@ -52,13 +52,16 @@ jobs:
         run: |
           mkdir -p release
           cp android-app/app/build/outputs/apk/release/app-release.apk release/athar-${{ github.ref_name }}-arm64.apk
+          cp android-app/app/build/outputs/apk/release/app-release.apk release/athar-${{ github.ref_name }}-universal.apk
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           name: "Athar Studio ${{ github.ref_name }}"
-          files: release/athar-${{ github.ref_name }}-arm64.apk
+          files: |
+            release/athar-${{ github.ref_name }}-arm64.apk
+            release/athar-${{ github.ref_name }}-universal.apk
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

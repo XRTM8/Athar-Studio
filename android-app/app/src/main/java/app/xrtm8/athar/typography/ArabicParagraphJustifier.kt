@@ -134,14 +134,18 @@ object ArabicParagraphJustifier {
 
         var remaining = totalKashidas
         var round = 0
-        while (remaining > 0 && round < 4) {
+        val maxPerOpp = kotlin.math.max(8, (totalKashidas / opps.size) + 4)
+        while (remaining > 0 && round < 30) {
+            var allocatedThisRound = 0
             for (idx in sortedIndices) {
                 if (remaining <= 0) break
-                if (countPerOpp[idx] < 5) {
+                if (countPerOpp[idx] < maxPerOpp) {
                     countPerOpp[idx]++
                     remaining--
+                    allocatedThisRound++
                 }
             }
+            if (allocatedThisRound == 0) break
             round++
         }
 

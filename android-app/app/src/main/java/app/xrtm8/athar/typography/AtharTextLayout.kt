@@ -35,7 +35,8 @@ object AtharTextLayout {
         val typefaceHash: Int,
         val letterSpacing: Float,
         val lineSpacingMultiplier: Float,
-        val textAlign: TextAlignOption
+        val textAlign: TextAlignOption,
+        val maxWidth: Float
     )
 
     private const val MAX_CACHE_ENTRIES = 128
@@ -54,6 +55,7 @@ object AtharTextLayout {
         lineSpacingMultiplier: Float = 1.0f,
         textAlign: TextAlignOption = TextAlignOption.CENTER,
         fallbackTextSize: Float = 32f,
+        maxWidth: Float = Float.MAX_VALUE,
         measureText: ((String) -> Float)? = null
     ): TypographyLayoutResult {
         val textSize = try {
@@ -78,18 +80,14 @@ object AtharTextLayout {
             typefaceHash = typefaceHash,
             letterSpacing = letterSpacing,
             lineSpacingMultiplier = lineSpacingMultiplier,
-            textAlign = textAlign
+            textAlign = textAlign,
+            maxWidth = maxWidth
         )
 
         val cached = cache[key]
         if (cached != null) {
             return cached
         }
-
-        val lines = text.split("\n")
-        val lineHeight = textSize * lineSpacingMultiplier
-        val totalHeight = (lines.size - 1) * lineHeight
-        val startY = -totalHeight / 2f + (textSize * 0.35f)
 
         val measurer: (String) -> Float = measureText ?: { line ->
             try {
@@ -99,6 +97,42 @@ object AtharTextLayout {
                 line.length * 15f
             }
         }
+
+        val rawLines = text.split("\n")
+        val lines = if (maxWidth > 0f && maxWidth < Float.MAX_VALUE) {
+            val wrapped = ArrayList<String>()
+            for (rawLine in rawLines) {
+                if (measurer(rawLine) <= maxWidth) {
+                    wrapped.add(rawLine)
+                } else {
+                    val words = rawLine.split(" ")
+                    var currentLine = StringBuilder()
+                    for (word in words) {
+                        if (currentLine.isEmpty()) {
+                            currentLine.append(word)
+                        } else {
+                            val candidate = currentLine.toString() + " " + word
+                            if (measurer(candidate) <= maxWidth) {
+                                currentLine.append(" ").append(word)
+                            } else {
+                                wrapped.add(currentLine.toString())
+                                currentLine = StringBuilder(word)
+                            }
+                        }
+                    }
+                    if (currentLine.isNotEmpty()) {
+                        wrapped.add(currentLine.toString())
+                    }
+                }
+            }
+            wrapped
+        } else {
+            rawLines
+        }
+
+        val lineHeight = textSize * lineSpacingMultiplier
+        val totalHeight = (lines.size - 1) * lineHeight
+        val startY = -totalHeight / 2f + (textSize * 0.35f)
 
         var maxLineWidth = 0f
         lines.forEach { line ->
