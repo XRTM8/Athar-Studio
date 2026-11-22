@@ -18,6 +18,8 @@ class AtharMaskSystemTest {
         masks.forEach { mask ->
             assertTrue("Mask title must not be empty", mask.title.isNotEmpty())
             assertTrue("Asset file must start with masks/", mask.assetFileName.startsWith("masks/"))
+            assertTrue("Asset file must end with .webp", mask.assetFileName.endsWith(".webp"))
+            assertTrue("Thumb file must start with masks/thumbs/", mask.thumbFileName.startsWith("masks/thumbs/"))
             assertTrue("Default opacity must be in valid range", mask.defaultOpacity in 0.1f..1.0f)
             assertNotNull("Must find by ID", AtharMaskCatalog.getById(mask.id))
         }

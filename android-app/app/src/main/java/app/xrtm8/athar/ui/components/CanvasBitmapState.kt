@@ -25,19 +25,28 @@ fun rememberCanvasBackgroundBitmap(
     var processedBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var maskBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(state.maskState.isEnabled, state.maskState.activeMaskId) {
-        val maskId = state.maskState.activeMaskId
-        val def = if (state.maskState.isEnabled && !maskId.isNullOrEmpty()) {
-            app.xrtm8.athar.model.AtharMaskCatalog.getById(maskId)
-        } else {
-            null
+    LaunchedEffect(state.maskState.isEnabled, state.maskState.activeMaskId, state.maskState.customMaskUri) {
+        if (!state.maskState.isEnabled) {
+            maskBitmap = null
+            return@LaunchedEffect
         }
-        maskBitmap = if (def != null) {
-            withContext(Dispatchers.IO) {
-                AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, 1080, 1920)
+        val customUriStr = state.maskState.customMaskUri
+        val maskId = state.maskState.activeMaskId
+        maskBitmap = withContext(Dispatchers.IO) {
+            if (!customUriStr.isNullOrEmpty()) {
+                try {
+                    AtharImageProcessor.decodeSampledBitmap(context, android.net.Uri.parse(customUriStr), 1080, 1920)
+                } catch (e: Exception) {
+                    null
+                }
+            } else if (!maskId.isNullOrEmpty()) {
+                val def = app.xrtm8.athar.model.AtharMaskCatalog.getById(maskId)
+                if (def != null) {
+                    AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, 1080, 1920)
+                } else null
+            } else {
+                null
             }
-        } else {
-            null
         }
     }
 

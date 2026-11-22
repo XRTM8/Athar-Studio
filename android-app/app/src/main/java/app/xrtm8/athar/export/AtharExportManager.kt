@@ -260,9 +260,18 @@ object AtharExportManager {
         }
 
         if (!state.isTransparentBg && state.maskState.isEffectActive) {
-            val maskDef = app.xrtm8.athar.model.AtharMaskCatalog.getById(state.maskState.activeMaskId)
-            val maskBitmap = maskDef?.let { def ->
-                AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, width, height)
+            val customUriStr = state.maskState.customMaskUri
+            val maskBitmap = if (!customUriStr.isNullOrEmpty()) {
+                try {
+                    AtharImageProcessor.decodeSampledBitmap(context, android.net.Uri.parse(customUriStr), width, height)
+                } catch (e: Exception) {
+                    null
+                }
+            } else {
+                val maskDef = app.xrtm8.athar.model.AtharMaskCatalog.getById(state.maskState.activeMaskId)
+                maskDef?.let { def ->
+                    AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, width, height)
+                }
             }
             try {
                 app.xrtm8.athar.core.AtharMaskRenderer.drawMaskAndGradient(

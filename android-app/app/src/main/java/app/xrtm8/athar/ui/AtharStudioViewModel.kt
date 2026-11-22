@@ -1081,8 +1081,26 @@ class AtharStudioViewModel : ViewModel() {
             maskState = current.copy(
                 isEnabled = true,
                 activeMaskId = maskId,
+                customMaskUri = null,
                 blendMode = newBlend,
                 opacity = newOpacity
+            )
+        ))
+    }
+
+    fun setCustomMaskUri(uri: android.net.Uri?) {
+        val current = _canvasState.value.maskState
+        if (uri == null) {
+            pushHistory(_canvasState.value.copy(
+                maskState = current.copy(customMaskUri = null)
+            ))
+            return
+        }
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(
+                isEnabled = true,
+                customMaskUri = uri.toString(),
+                activeMaskId = null
             )
         ))
     }

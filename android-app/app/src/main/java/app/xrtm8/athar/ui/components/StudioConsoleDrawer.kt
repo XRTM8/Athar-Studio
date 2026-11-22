@@ -68,6 +68,7 @@ fun StudioConsoleDrawer(
     onPickImage: () -> Unit,
     onRemoveImage: () -> Unit,
     onPickCollagePhoto: (String) -> Unit = {},
+    onPickCustomMask: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -195,7 +196,8 @@ fun StudioConsoleDrawer(
                             viewModel = viewModel,
                             onPickImage = onPickImage,
                             onRemoveImage = onRemoveImage,
-                            onPickCollagePhoto = onPickCollagePhoto
+                            onPickCollagePhoto = onPickCollagePhoto,
+                            onPickCustomMask = onPickCustomMask
                         )
 
                         else -> TransformPositionPanel(

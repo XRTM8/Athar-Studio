@@ -221,6 +221,7 @@ object AtharProjectSerializer {
             val m = state.maskState
             put("mask_enabled", m.isEnabled)
             if (m.activeMaskId != null) put("mask_id", m.activeMaskId)
+            if (m.customMaskUri != null) put("mask_custom_uri", m.customMaskUri)
             put("mask_opacity", m.opacity.toDouble())
             put("mask_blend", m.blendMode.name)
             put("mask_hue_shift", m.hueShift.toDouble())
@@ -508,6 +509,7 @@ object AtharProjectSerializer {
         val deserializedMask = AtharMaskState(
             isEnabled = c.optBoolean("mask_enabled", false),
             activeMaskId = c.optString("mask_id", "").takeIf { it.isNotEmpty() },
+            customMaskUri = c.optString("mask_custom_uri", "").takeIf { it.isNotEmpty() },
             opacity = c.optDouble("mask_opacity", 0.75).toFloat(),
             blendMode = maskBlend,
             hueShift = c.optDouble("mask_hue_shift", 0.0).toFloat(),

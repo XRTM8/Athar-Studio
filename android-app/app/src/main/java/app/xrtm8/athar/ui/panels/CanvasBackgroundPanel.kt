@@ -57,6 +57,7 @@ fun CanvasBackgroundPanel(
     onPickImage: () -> Unit,
     onRemoveImage: () -> Unit,
     onPickCollagePhoto: (String) -> Unit = {},
+    onPickCustomMask: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -150,6 +151,7 @@ fun CanvasBackgroundPanel(
                 1 -> MaskPanel(
                     state = state.maskState,
                     onSelectMask = { viewModel.selectMask(it) },
+                    onPickCustomMask = onPickCustomMask,
                     onOpacityChange = { viewModel.setMaskOpacity(it) },
                     onBlendModeChange = { viewModel.setMaskBlendMode(it) },
                     onHueShiftChange = { viewModel.setMaskHueShift(it) },

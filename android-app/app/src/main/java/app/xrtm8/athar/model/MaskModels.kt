@@ -43,6 +43,7 @@ data class AtharMaskDefinition(
     val title: String,
     val category: MaskCategory,
     val assetFileName: String,
+    val thumbFileName: String = assetFileName.replace("masks/", "masks/thumbs/"),
     val defaultBlendMode: MaskBlendMode = MaskBlendMode.SCREEN,
     val defaultOpacity: Float = 0.75f
 )
@@ -50,6 +51,7 @@ data class AtharMaskDefinition(
 data class AtharMaskState(
     val isEnabled: Boolean = false,
     val activeMaskId: String? = null,
+    val customMaskUri: String? = null,
     val opacity: Float = 0.75f,
     val blendMode: MaskBlendMode = MaskBlendMode.SCREEN,
     val hueShift: Float = 0f, // -180f to +180f
@@ -61,7 +63,7 @@ data class AtharMaskState(
     val rotationDegrees: Int = 0, // 0, 90, 180, 270
     val blackGradient: BlackGradientState = BlackGradientState()
 ) {
-    val isMaskActive: Boolean get() = isEnabled && !activeMaskId.isNullOrEmpty() && opacity > 0.01f
+    val isMaskActive: Boolean get() = isEnabled && (!activeMaskId.isNullOrEmpty() || !customMaskUri.isNullOrEmpty()) && opacity > 0.01f
     val isEffectActive: Boolean get() = isMaskActive || blackGradient.isEffectActive
 }
 
@@ -71,7 +73,7 @@ object AtharMaskCatalog {
             id = "solar_dust",
             title = "غبار كهرماني",
             category = MaskCategory.LIGHT_LEAKS,
-            assetFileName = "masks/mask_solar_dust.jpg",
+            assetFileName = "masks/mask_solar_dust.webp",
             defaultBlendMode = MaskBlendMode.SCREEN,
             defaultOpacity = 0.75f
         ),
@@ -79,7 +81,7 @@ object AtharMaskCatalog {
             id = "prism_flares",
             title = "انكسار موشوري",
             category = MaskCategory.PRISM_BOKEH,
-            assetFileName = "masks/mask_prism_flares.jpg",
+            assetFileName = "masks/mask_prism_flares.webp",
             defaultBlendMode = MaskBlendMode.SCREEN,
             defaultOpacity = 0.80f
         ),
@@ -87,7 +89,7 @@ object AtharMaskCatalog {
             id = "sunset_leak",
             title = "حرق شمس وفيلم",
             category = MaskCategory.LIGHT_LEAKS,
-            assetFileName = "masks/mask_sunset_leak.jpg",
+            assetFileName = "masks/mask_sunset_leak.webp",
             defaultBlendMode = MaskBlendMode.SCREEN,
             defaultOpacity = 0.80f
         ),
@@ -95,7 +97,7 @@ object AtharMaskCatalog {
             id = "antique_linen",
             title = "قماش كتاب معتق",
             category = MaskCategory.TEXTURES,
-            assetFileName = "masks/mask_antique_linen.jpg",
+            assetFileName = "masks/mask_antique_linen.webp",
             defaultBlendMode = MaskBlendMode.OVERLAY,
             defaultOpacity = 0.60f
         ),
@@ -103,7 +105,7 @@ object AtharMaskCatalog {
             id = "dark_mesh",
             title = "نسيج كربوني",
             category = MaskCategory.TEXTURES,
-            assetFileName = "masks/mask_dark_mesh.jpg",
+            assetFileName = "masks/mask_dark_mesh.webp",
             defaultBlendMode = MaskBlendMode.OVERLAY,
             defaultOpacity = 0.50f
         ),
@@ -111,7 +113,7 @@ object AtharMaskCatalog {
             id = "chroma_dream",
             title = "طيف لوني حالم",
             category = MaskCategory.PRISM_BOKEH,
-            assetFileName = "masks/mask_chroma_dream.jpg",
+            assetFileName = "masks/mask_chroma_dream.webp",
             defaultBlendMode = MaskBlendMode.SCREEN,
             defaultOpacity = 0.75f
         ),
@@ -119,7 +121,7 @@ object AtharMaskCatalog {
             id = "cyan_burn",
             title = "وهج أزرق سينمائي",
             category = MaskCategory.LIGHT_LEAKS,
-            assetFileName = "masks/mask_cyan_burn.jpg",
+            assetFileName = "masks/mask_cyan_burn.webp",
             defaultBlendMode = MaskBlendMode.SCREEN,
             defaultOpacity = 0.80f
         ),
@@ -127,7 +129,7 @@ object AtharMaskCatalog {
             id = "crt_scanlines",
             title = "ضوضاء وتلفاز",
             category = MaskCategory.TEXTURES,
-            assetFileName = "masks/mask_crt_scanlines.jpg",
+            assetFileName = "masks/mask_crt_scanlines.webp",
             defaultBlendMode = MaskBlendMode.SCREEN,
             defaultOpacity = 0.50f
         ),
@@ -135,7 +137,7 @@ object AtharMaskCatalog {
             id = "window_shadow",
             title = "ظل نافذة وستارة",
             category = MaskCategory.SHADOWS,
-            assetFileName = "masks/mask_window_shadow.jpg",
+            assetFileName = "masks/mask_window_shadow.webp",
             defaultBlendMode = MaskBlendMode.MULTIPLY,
             defaultOpacity = 0.75f
         ),
@@ -143,7 +145,7 @@ object AtharMaskCatalog {
             id = "halftone_wave",
             title = "تنقيط مطبعي ريترو",
             category = MaskCategory.TEXTURES,
-            assetFileName = "masks/mask_halftone_wave.jpg",
+            assetFileName = "masks/mask_halftone_wave.webp",
             defaultBlendMode = MaskBlendMode.OVERLAY,
             defaultOpacity = 0.55f
         ),
@@ -151,7 +153,7 @@ object AtharMaskCatalog {
             id = "fluted_glass",
             title = "زجاج مضلع مشبر",
             category = MaskCategory.PAPER_GLASS,
-            assetFileName = "masks/mask_fluted_glass.jpg",
+            assetFileName = "masks/mask_fluted_glass.webp",
             defaultBlendMode = MaskBlendMode.OVERLAY,
             defaultOpacity = 0.65f
         ),
@@ -159,7 +161,7 @@ object AtharMaskCatalog {
             id = "folded_poster",
             title = "ثنيات ملصق مطوي",
             category = MaskCategory.PAPER_GLASS,
-            assetFileName = "masks/mask_folded_poster.jpg",
+            assetFileName = "masks/mask_folded_poster.webp",
             defaultBlendMode = MaskBlendMode.MULTIPLY,
             defaultOpacity = 0.70f
         )

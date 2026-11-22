@@ -85,19 +85,23 @@ fun AtharStudioScreen(
     LaunchedEffect(Unit) { viewModel.loadCustomFonts(context) }
 
     var pendingCollageCellId by remember { mutableStateOf<String?>(null) }
+    var isPickingCustomMask by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
             val cellId = pendingCollageCellId
-            if (cellId != null) {
+            if (isPickingCustomMask) {
+                viewModel.setCustomMaskUri(uri)
+            } else if (cellId != null) {
                 viewModel.setCollageCellPhoto(cellId, uri)
             } else {
                 pendingCropImageUri = uri
             }
         }
         pendingCollageCellId = null
+        isPickingCustomMask = false
     }
 
     val projectImportLauncher = rememberLauncherForActivityResult(
@@ -195,15 +199,16 @@ fun AtharStudioScreen(
                             onOpenTextEditor = { showTextDialog = true },
                             onOpenFontBrowser = { showFontBrowser = true },
                             onPickImage = {
-                                pendingCollageCellId = null
+                                isPickingCustomMask = false; pendingCollageCellId = null
                                 photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             },
-                            onRemoveImage = {
-                                viewModel.setBackgroundImageUri(null)
-                                Toast.makeText(context, "تمت إزالة صورة الخلفية", Toast.LENGTH_SHORT).show()
-                            },
+                            onRemoveImage = { viewModel.setBackgroundImageUri(null); Toast.makeText(context, "تمت إزالة صورة الخلفية", Toast.LENGTH_SHORT).show() },
                             onPickCollagePhoto = { cellId ->
-                                pendingCollageCellId = cellId
+                                isPickingCustomMask = false; pendingCollageCellId = cellId
+                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
+                            onPickCustomMask = {
+                                isPickingCustomMask = true; pendingCollageCellId = null
                                 photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             }
                         )
