@@ -1,0 +1,20 @@
+# Build outputs
+android-app/app/build/
+android-app/.gradle/
+android-app/local.properties
+core-engine/target/
+
+# OS and IDE files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Keystore & Secrets
+keystore/
+*.jks
+*.keystore
+keystore.properties
+
+# Release APK build artifacts
+release/

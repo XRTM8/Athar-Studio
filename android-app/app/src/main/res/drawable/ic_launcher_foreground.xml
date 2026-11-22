@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Subtle Cherry Crimson Under-glow Behind Calligraphy -->
+    <path
+        android:fillColor="#22FF3366"
+        android:pathData="M54,52m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0" />
+
+    <!-- Pure Platinum Crown Diamond (Nuqta / Madd Accent) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,22 L62,30 L54,38 L46,30 Z" />
+
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M54,25 L59,30 L54,35 L49,30 Z" />
+
+    <!-- Royal Alif Calligraphic Nib Stroke in Cherry Crimson -->
+    <path
+        android:fillColor="#E02447"
+        android:pathData="M51,42 C51,42 58,43 58,46 L57,75 C57,80 49,82 49,82 C49,82 53,78 53,74 L54,48 C54,45 51,42 51,42 Z" />
+
+    <!-- Secondary Soft Velvet Shadow for Calligraphic Alif -->
+    <path
+        android:fillColor="#9C1030"
+        android:pathData="M50,44 C50,44 54,45 54,47 L53,73 C53,76 49,78 49,78 C49,78 51,75 51,72 L52,48 C52,46 50,44 50,44 Z" />
+
+    <!-- Dynamic Flowing Kashida & Calligraphic Tail Ribbon -->
+    <path
+        android:fillColor="#E02447"
+        android:pathData="M36,68 C44,65 55,64 66,70 C74,74 78,71 78,71 C78,71 73,76 64,74 C54,71 45,72 36,68 Z" />
+
+    <!-- Deep Crimson Velvet Accent on Tail Swash -->
+    <path
+        android:fillColor="#9C1030"
+        android:pathData="M38,69 C45,66 54,66 63,71 C68,73 72,72 72,72 C72,72 68,74 62,73 C53,71 45,72 38,69 Z" />
+
+    <!-- Radiant Ruby Tip Dot (Nuqta) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,64 L74,68 L70,72 L66,68 Z" />
+
+</vector>
