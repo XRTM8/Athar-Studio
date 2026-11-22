@@ -39,7 +39,8 @@ data class CanvasState(
     val patternState: PatternState = PatternState(),
     val cinematicGlowState: CinematicGlowState = CinematicGlowState(),
     val filmGrainState: FilmGrainState = FilmGrainState(),
-    val collageState: CollageState = CollageState()
+    val collageState: CollageState = CollageState(),
+    val maskState: AtharMaskState = AtharMaskState()
 ) {
     val activeLayer: TextLayer
         get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()

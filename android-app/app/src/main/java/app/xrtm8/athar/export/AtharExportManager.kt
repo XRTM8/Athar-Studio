@@ -258,6 +258,26 @@ object AtharExportManager {
                 density = exportDensity
             )
         }
+
+        if (!state.isTransparentBg && state.maskState.isEffectActive) {
+            val maskDef = app.xrtm8.athar.model.AtharMaskCatalog.getById(state.maskState.activeMaskId)
+            val maskBitmap = maskDef?.let { def ->
+                AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, width, height)
+            }
+            try {
+                app.xrtm8.athar.core.AtharMaskRenderer.drawMaskAndGradient(
+                    canvas = canvas,
+                    state = state.maskState,
+                    width = width.toFloat(),
+                    height = height.toFloat(),
+                    maskBitmap = maskBitmap
+                )
+            } finally {
+                if (maskBitmap != null && !maskBitmap.isRecycled) {
+                    maskBitmap.recycle()
+                }
+            }
+        }
     }
 
     private fun drawLayers(context: Context, canvas: Canvas, layers: List<TextLayer>, width: Int, height: Int) {

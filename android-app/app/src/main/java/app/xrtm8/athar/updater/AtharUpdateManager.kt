@@ -30,7 +30,7 @@ class AtharUpdateManager(private val context: Context) {
         private const val TAG = "AtharUpdateManager"
         private const val CHANNEL_ID = "athar_updates"
         private const val NOTIFICATION_ID = 1001
-        private const val GITHUB_REPO = "XRTM8/DESIGN"
+        private const val GITHUB_REPO = "XRTM8/Athar-Studio"
         private const val RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 
         data class ReleaseAsset(val name: String, val downloadUrl: String)

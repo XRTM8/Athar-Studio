@@ -12,7 +12,8 @@ import kotlinx.coroutines.withContext
 data class CanvasBitmapHolder(
     val rawBitmap: Bitmap?,
     val processedBitmap: Bitmap?,
-    val cellBitmaps: Map<String, Bitmap>
+    val cellBitmaps: Map<String, Bitmap>,
+    val maskBitmap: Bitmap? = null
 )
 
 @Composable
@@ -22,6 +23,23 @@ fun rememberCanvasBackgroundBitmap(
 ): CanvasBitmapHolder {
     var rawBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var processedBgBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var maskBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(state.maskState.isEnabled, state.maskState.activeMaskId) {
+        val maskId = state.maskState.activeMaskId
+        val def = if (state.maskState.isEnabled && !maskId.isNullOrEmpty()) {
+            app.xrtm8.athar.model.AtharMaskCatalog.getById(maskId)
+        } else {
+            null
+        }
+        maskBitmap = if (def != null) {
+            withContext(Dispatchers.IO) {
+                AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, 1080, 1920)
+            }
+        } else {
+            null
+        }
+    }
 
     val cellPhotos = state.collageState.cells.mapNotNull { cell -> cell.imageUri?.let { cell.id to it } }
     val cellBitmaps by produceState(emptyMap<String, Bitmap>(), cellPhotos) {
@@ -79,5 +97,10 @@ fun rememberCanvasBackgroundBitmap(
         processedBgBitmap = next
     }
 
-    return CanvasBitmapHolder(rawBitmap = rawBgBitmap, processedBitmap = processedBgBitmap, cellBitmaps = cellBitmaps)
+    return CanvasBitmapHolder(
+        rawBitmap = rawBgBitmap,
+        processedBitmap = processedBgBitmap,
+        cellBitmaps = cellBitmaps,
+        maskBitmap = maskBitmap
+    )
 }

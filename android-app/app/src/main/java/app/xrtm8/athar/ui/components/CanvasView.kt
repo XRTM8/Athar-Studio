@@ -176,7 +176,11 @@ fun CanvasView(
                     CanvasBackgroundRenderer.drawBackground(native, rawState, canvasW, canvasH, density, bitmaps.rawBitmap, paints.bgPaint)
                 } else {
                     // AFTER MODE: Full active design
-                    CanvasBackgroundRenderer.drawBackground(native, stateForBg, canvasW, canvasH, density, bitmaps.processedBitmap, paints.bgPaint, bitmaps.cellBitmaps)
+                    CanvasBackgroundRenderer.drawBackground(
+                        native, stateForBg, canvasW, canvasH, density,
+                        bitmaps.processedBitmap, paints.bgPaint, bitmaps.cellBitmaps,
+                        bitmaps.maskBitmap
+                    )
 
                     if (state.showGridGuides || state.isFramingMode) {
                         CanvasGuidesRenderer.drawGridGuides(native, canvasW, canvasH, paints.gridPaint)

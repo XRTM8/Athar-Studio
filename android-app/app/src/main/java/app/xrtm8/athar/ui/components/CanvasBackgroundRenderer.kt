@@ -59,7 +59,8 @@ object CanvasBackgroundRenderer {
         density: Float,
         bgBitmap: Bitmap?,
         bgPaint: Paint,
-        cellBitmaps: Map<String, Bitmap> = emptyMap()
+        cellBitmaps: Map<String, Bitmap> = emptyMap(),
+        maskBitmap: Bitmap? = null
     ) {
         if (state.isTransparentBg) {
             // Instant 1-draw-call hardware repeated pattern (1,100x faster than loop drawRect)
@@ -160,6 +161,17 @@ object CanvasBackgroundRenderer {
                 height = canvasHeight,
                 state = state.patternState,
                 density = density
+            )
+        }
+
+        // Athar Masks & Atmospheric Black Gradient (Behind text layers)
+        if (!state.isTransparentBg && state.maskState.isEffectActive) {
+            app.xrtm8.athar.core.AtharMaskRenderer.drawMaskAndGradient(
+                canvas = nativeCanvas,
+                state = state.maskState,
+                width = canvasWidth,
+                height = canvasHeight,
+                maskBitmap = maskBitmap
             )
         }
     }

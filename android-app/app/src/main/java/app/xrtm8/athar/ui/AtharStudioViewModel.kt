@@ -1063,6 +1063,130 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     // ==========================================
+    // PicsArt-Style Athar Mask Studio & Atmospheric Black Gradient
+    // ==========================================
+
+    fun selectMask(maskId: String?) {
+        val current = _canvasState.value.maskState
+        if (maskId == null) {
+            pushHistory(_canvasState.value.copy(
+                maskState = current.copy(isEnabled = false, activeMaskId = null)
+            ))
+            return
+        }
+        val def = app.xrtm8.athar.model.AtharMaskCatalog.getById(maskId)
+        val newBlend = def?.defaultBlendMode ?: current.blendMode
+        val newOpacity = def?.defaultOpacity ?: current.opacity
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(
+                isEnabled = true,
+                activeMaskId = maskId,
+                blendMode = newBlend,
+                opacity = newOpacity
+            )
+        ))
+    }
+
+    fun setMaskOpacity(opacity: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(opacity = opacity.coerceIn(0f, 1f))) }
+    }
+
+    fun setMaskBlendMode(mode: app.xrtm8.athar.model.MaskBlendMode) {
+        pushHistory(_canvasState.value.copy(
+            maskState = _canvasState.value.maskState.copy(blendMode = mode)
+        ))
+    }
+
+    fun setMaskHueShift(hue: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(hueShift = hue.coerceIn(-180f, 180f))) }
+    }
+
+    fun setMaskOffsetX(x: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(offsetX = x.coerceIn(-1f, 1f))) }
+    }
+
+    fun setMaskOffsetY(y: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(offsetY = y.coerceIn(-1f, 1f))) }
+    }
+
+    fun setMaskScale(scale: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(scale = scale.coerceIn(0.5f, 3.0f))) }
+    }
+
+    fun toggleMaskFlipH() {
+        val current = _canvasState.value.maskState
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(isFlippedH = !current.isFlippedH)
+        ))
+    }
+
+    fun toggleMaskFlipV() {
+        val current = _canvasState.value.maskState
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(isFlippedV = !current.isFlippedV)
+        ))
+    }
+
+    fun rotateMask90() {
+        val current = _canvasState.value.maskState
+        val nextDeg = (current.rotationDegrees + 90) % 360
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(rotationDegrees = nextDeg)
+        ))
+    }
+
+    fun setBlackGradientEnabled(enabled: Boolean) {
+        val current = _canvasState.value.maskState
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(
+                blackGradient = current.blackGradient.copy(isEnabled = enabled)
+            )
+        ))
+    }
+
+    fun setBlackGradientOpacity(opacity: Float) {
+        markSliderChange()
+        _canvasState.update {
+            it.copy(
+                maskState = it.maskState.copy(
+                    blackGradient = it.maskState.blackGradient.copy(opacity = opacity.coerceIn(0f, 1f))
+                )
+            )
+        }
+    }
+
+    fun setBlackGradientPlacement(placement: app.xrtm8.athar.model.BlackGradientPlacement) {
+        val current = _canvasState.value.maskState
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(
+                blackGradient = current.blackGradient.copy(placement = placement)
+            )
+        ))
+    }
+
+    fun setBlackGradientCoverage(coverage: Float) {
+        markSliderChange()
+        _canvasState.update {
+            it.copy(
+                maskState = it.maskState.copy(
+                    blackGradient = it.maskState.blackGradient.copy(coverage = coverage.coerceIn(0.15f, 1.0f))
+                )
+            )
+        }
+    }
+
+    fun resetMask() {
+        pushHistory(_canvasState.value.copy(
+            maskState = app.xrtm8.athar.model.AtharMaskState()
+        ))
+    }
+
+    // ==========================================
     // Lightroom-Grade Cinematic Effects (Glow, Motion Streaks, Grain)
     // ==========================================
 

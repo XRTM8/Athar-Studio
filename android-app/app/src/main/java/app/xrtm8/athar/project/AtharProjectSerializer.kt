@@ -216,6 +216,26 @@ object AtharProjectSerializer {
                 cellsArr.put(cellObj)
             }
             put("collage_cells", cellsArr)
+
+            // Masks & Atmospheric Black Gradient
+            val m = state.maskState
+            put("mask_enabled", m.isEnabled)
+            if (m.activeMaskId != null) put("mask_id", m.activeMaskId)
+            put("mask_opacity", m.opacity.toDouble())
+            put("mask_blend", m.blendMode.name)
+            put("mask_hue_shift", m.hueShift.toDouble())
+            put("mask_offset_x", m.offsetX.toDouble())
+            put("mask_offset_y", m.offsetY.toDouble())
+            put("mask_scale", m.scale.toDouble())
+            put("mask_flipped_h", m.isFlippedH)
+            put("mask_flipped_v", m.isFlippedV)
+            put("mask_rotation", m.rotationDegrees)
+
+            val bgGrad = m.blackGradient
+            put("mask_bg_grad_enabled", bgGrad.isEnabled)
+            put("mask_bg_grad_opacity", bgGrad.opacity.toDouble())
+            put("mask_bg_grad_placement", bgGrad.placement.name)
+            put("mask_bg_grad_coverage", bgGrad.coverage.toDouble())
         }
     }
 
@@ -479,6 +499,32 @@ object AtharProjectSerializer {
             frameColorLong = c.optLong("collage_frame_color", 0xFF0D0F14)
         )
 
+        val maskBlendStr = c.optString("mask_blend", MaskBlendMode.SCREEN.name)
+        val maskBlend = try { MaskBlendMode.valueOf(maskBlendStr) } catch (e: Exception) { MaskBlendMode.SCREEN }
+
+        val bgGradPlacementStr = c.optString("mask_bg_grad_placement", BlackGradientPlacement.BOTTOM.name)
+        val bgGradPlacement = try { BlackGradientPlacement.valueOf(bgGradPlacementStr) } catch (e: Exception) { BlackGradientPlacement.BOTTOM }
+
+        val deserializedMask = AtharMaskState(
+            isEnabled = c.optBoolean("mask_enabled", false),
+            activeMaskId = c.optString("mask_id", "").takeIf { it.isNotEmpty() },
+            opacity = c.optDouble("mask_opacity", 0.75).toFloat(),
+            blendMode = maskBlend,
+            hueShift = c.optDouble("mask_hue_shift", 0.0).toFloat(),
+            offsetX = c.optDouble("mask_offset_x", 0.0).toFloat(),
+            offsetY = c.optDouble("mask_offset_y", 0.0).toFloat(),
+            scale = c.optDouble("mask_scale", 1.0).toFloat(),
+            isFlippedH = c.optBoolean("mask_flipped_h", false),
+            isFlippedV = c.optBoolean("mask_flipped_v", false),
+            rotationDegrees = c.optInt("mask_rotation", 0),
+            blackGradient = BlackGradientState(
+                isEnabled = c.optBoolean("mask_bg_grad_enabled", false),
+                opacity = c.optDouble("mask_bg_grad_opacity", 0.60).toFloat(),
+                placement = bgGradPlacement,
+                coverage = c.optDouble("mask_bg_grad_coverage", 0.55).toFloat()
+            )
+        )
+
         return CanvasState(
             layers = if (layers.isNotEmpty()) layers else listOf(TextLayer()),
             activeLayerId = activeLayerId,
@@ -513,7 +559,8 @@ object AtharProjectSerializer {
             patternState = deserializedPattern,
             cinematicGlowState = deserializedGlow,
             filmGrainState = deserializedGrain,
-            collageState = deserializedCollage
+            collageState = deserializedCollage,
+            maskState = deserializedMask
         )
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.AutoAwesomeMotion
 import androidx.compose.material.icons.filled.Flare
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Palette
@@ -42,6 +43,7 @@ import app.xrtm8.athar.ui.panels.background.CanvasFramingSection
 import app.xrtm8.athar.ui.panels.background.CinematicEffectsPanel
 import app.xrtm8.athar.ui.panels.background.CollagePanel
 import app.xrtm8.athar.ui.panels.background.ColorMixPanel
+import app.xrtm8.athar.ui.panels.background.MaskPanel
 import app.xrtm8.athar.ui.panels.background.PatternPanel
 import app.xrtm8.athar.ui.theme.*
 
@@ -74,12 +76,13 @@ fun CanvasBackgroundPanel(
         ) {
             listOf(
                 0 to ("الكانفاس" to Icons.Default.AspectRatio),
-                1 to ("كولاج" to Icons.Default.GridView),
-                2 to ("سينمائي" to Icons.Default.Flare),
-                3 to ("باترن" to Icons.Default.Texture),
-                4 to ("الضبط" to Icons.Default.Tune),
-                5 to ("خلط الألوان" to Icons.Default.Palette),
-                6 to ("الفلاتر" to Icons.Default.PhotoFilter)
+                1 to ("أقنعة" to Icons.Default.AutoAwesomeMotion),
+                2 to ("كولاج" to Icons.Default.GridView),
+                3 to ("سينمائي" to Icons.Default.Flare),
+                4 to ("باترن" to Icons.Default.Texture),
+                5 to ("الضبط" to Icons.Default.Tune),
+                6 to ("خلط الألوان" to Icons.Default.Palette),
+                7 to ("الفلاتر" to Icons.Default.PhotoFilter)
             ).forEach { (idx, item) ->
                 val (title, icon) = item
                 val isSelected = subSection == idx
@@ -144,7 +147,26 @@ fun CanvasBackgroundPanel(
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
-                1 -> CollagePanel(
+                1 -> MaskPanel(
+                    state = state.maskState,
+                    onSelectMask = { viewModel.selectMask(it) },
+                    onOpacityChange = { viewModel.setMaskOpacity(it) },
+                    onBlendModeChange = { viewModel.setMaskBlendMode(it) },
+                    onHueShiftChange = { viewModel.setMaskHueShift(it) },
+                    onOffsetXChange = { viewModel.setMaskOffsetX(it) },
+                    onOffsetYChange = { viewModel.setMaskOffsetY(it) },
+                    onScaleChange = { viewModel.setMaskScale(it) },
+                    onToggleFlipH = { viewModel.toggleMaskFlipH() },
+                    onToggleFlipV = { viewModel.toggleMaskFlipV() },
+                    onRotate90 = { viewModel.rotateMask90() },
+                    onToggleBlackGradient = { viewModel.setBlackGradientEnabled(it) },
+                    onBlackGradientOpacityChange = { viewModel.setBlackGradientOpacity(it) },
+                    onBlackGradientPlacementChange = { viewModel.setBlackGradientPlacement(it) },
+                    onBlackGradientCoverageChange = { viewModel.setBlackGradientCoverage(it) },
+                    onResetMask = { viewModel.resetMask() }
+                )
+
+                2 -> CollagePanel(
                     state = state.collageState,
                     onLayoutChange = { viewModel.setCollageLayout(it) },
                     onSelectCell = { viewModel.selectCollageCell(it) },
@@ -156,7 +178,7 @@ fun CanvasBackgroundPanel(
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
-                2 -> CinematicEffectsPanel(
+                3 -> CinematicEffectsPanel(
                     glowState = state.cinematicGlowState,
                     grainState = state.filmGrainState,
                     onGlowChange = { viewModel.setCinematicGlow(it) },
@@ -172,7 +194,7 @@ fun CanvasBackgroundPanel(
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
-                3 -> PatternPanel(
+                4 -> PatternPanel(
                     state = state.patternState,
                     onPatternTypeChange = { viewModel.setPatternType(it) },
                     onOpacityChange = { viewModel.setPatternOpacity(it) },
@@ -183,7 +205,7 @@ fun CanvasBackgroundPanel(
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
-                4 -> PhotoAdjustmentsPanel(
+                5 -> PhotoAdjustmentsPanel(
                     state = state,
                     onBlurChange = { viewModel.setBackgroundBlur(it) },
                     onDimChange = { viewModel.setBackgroundDim(it) },
@@ -195,7 +217,7 @@ fun CanvasBackgroundPanel(
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
-                5 -> ColorMixPanel(
+                6 -> ColorMixPanel(
                     state = state.colorMixState,
                     onChannelAdjust = { ch, h, s, l -> viewModel.setColorMixChannel(ch, h, s, l) },
                     onIsolateChannel = { viewModel.setIsolatedColorChannel(it) },

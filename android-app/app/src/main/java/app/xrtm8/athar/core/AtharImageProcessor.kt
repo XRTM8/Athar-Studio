@@ -47,6 +47,30 @@ object AtharImageProcessor {
         }
     }
 
+    fun decodeSampledAssetBitmap(context: Context, assetPath: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+        return try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.assets.open(assetPath).use {
+                BitmapFactory.decodeStream(it, null, options)
+            }
+            var inSampleSize = 1
+            while ((options.outHeight / inSampleSize) > reqHeight * 1.5 ||
+                (options.outWidth / inSampleSize) > reqWidth * 1.5
+            ) {
+                inSampleSize *= 2
+            }
+            val finalOptions = BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            context.assets.open(assetPath).use {
+                BitmapFactory.decodeStream(it, null, finalOptions)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /**
      * Builds a single consolidated ColorMatrixColorFilter applying:
      * 1. Saturation / Grayscale
