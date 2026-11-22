@@ -40,6 +40,7 @@ fun BlackGradientSection(
     onPlacementChange: (BlackGradientPlacement) -> Unit,
     onOpacityChange: (Float) -> Unit,
     onCoverageChange: (Float) -> Unit,
+    onSliderChangeFinished: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -133,7 +134,8 @@ fun BlackGradientSection(
                     onValueChange = onOpacityChange,
                     valueRange = 0f..1f,
                     valueDisplay = "${(gradient.opacity * 100).toInt()}%",
-                    icon = Icons.Default.BrightnessMedium
+                    icon = Icons.Default.BrightnessMedium,
+                    onValueChangeFinished = onSliderChangeFinished
                 )
 
                 // Black Gradient Coverage Slider
@@ -143,7 +145,8 @@ fun BlackGradientSection(
                     onValueChange = onCoverageChange,
                     valueRange = 0.20f..1.0f,
                     valueDisplay = "${(gradient.coverage * 100).toInt()}%",
-                    icon = Icons.Default.LinearScale
+                    icon = Icons.Default.LinearScale,
+                    onValueChangeFinished = onSliderChangeFinished
                 )
             }
         }

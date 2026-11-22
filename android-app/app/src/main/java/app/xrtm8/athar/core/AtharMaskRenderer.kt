@@ -49,6 +49,7 @@ object AtharMaskRenderer {
         cm.set(mat)
     }
 
+    @Synchronized
     fun drawMaskAndGradient(
         canvas: Canvas,
         state: AtharMaskState,

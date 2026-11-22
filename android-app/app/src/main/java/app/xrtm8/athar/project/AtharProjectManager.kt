@@ -34,6 +34,7 @@ object AtharProjectManager {
     private const val MANIFEST_ENTRY_NAME = "project.json"
     private const val THUMBNAIL_ENTRY_NAME = "thumbnail.png"
     private const val BACKGROUND_ENTRY_NAME = "background.png"
+    private const val MASK_ENTRY_NAME = "mask.png"
 
     private fun getProjectsDir(context: Context): File {
         val dir = File(context.filesDir, PROJECTS_DIR_NAME)
@@ -106,6 +107,11 @@ object AtharProjectManager {
                 writeEntry(MANIFEST_ENTRY_NAME, json.toString(2).toByteArray(Charsets.UTF_8))
                 writeEntry(THUMBNAIL_ENTRY_NAME, thumbBytes)
                 state.backgroundImageUri?.let { writePhoto(BACKGROUND_ENTRY_NAME, it) }
+                state.maskState.customMaskUri?.let { customUriStr ->
+                    try {
+                        writePhoto(MASK_ENTRY_NAME, Uri.parse(customUriStr))
+                    } catch (_: Exception) {}
+                }
                 state.collageState.cells.forEachIndexed { index, cell ->
                     cell.imageUri?.let { writePhoto("collage/$index", it) }
                 }
@@ -180,7 +186,7 @@ object AtharProjectManager {
                     val name = entry.name
                     if (name == MANIFEST_ENTRY_NAME) {
                         manifest = JSONObject(archive.bufferedReader(Charsets.UTF_8).readText())
-                    } else if (name == BACKGROUND_ENTRY_NAME || name.matches(Regex("collage/[0-9]+"))) {
+                    } else if (name == BACKGROUND_ENTRY_NAME || name == MASK_ENTRY_NAME || name.matches(Regex("collage/[0-9]+"))) {
                         require(name !in photos) { "صورة مكررة في المشروع" }
                         val photo = File.createTempFile("photo-", ".img", getAssetsDir(context))
                         photos[name] = photo
@@ -195,6 +201,9 @@ object AtharProjectManager {
                 for (index in 0 until cells.length()) {
                     photos["collage/$index"]?.let { cells.getJSONObject(index).put("uri", Uri.fromFile(it).toString()) }
                 }
+            }
+            photos[MASK_ENTRY_NAME]?.let {
+                canvas.put("mask_custom_uri", Uri.fromFile(it).toString())
             }
             AtharProjectSerializer.deserializeCanvasState(canvas, photos[BACKGROUND_ENTRY_NAME]?.let { Uri.fromFile(it) })
         } catch (e: Exception) {

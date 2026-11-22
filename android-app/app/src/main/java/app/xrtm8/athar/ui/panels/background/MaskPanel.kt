@@ -40,6 +40,7 @@ fun MaskPanel(
     onBlackGradientPlacementChange: (BlackGradientPlacement) -> Unit,
     onBlackGradientCoverageChange: (Float) -> Unit,
     onResetMask: () -> Unit,
+    onSliderChangeFinished: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -92,7 +93,8 @@ fun MaskPanel(
             onScaleChange = onScaleChange,
             onToggleFlipH = onToggleFlipH,
             onToggleFlipV = onToggleFlipV,
-            onRotate90 = onRotate90
+            onRotate90 = onRotate90,
+            onSliderChangeFinished = onSliderChangeFinished
         )
 
         HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
@@ -103,7 +105,8 @@ fun MaskPanel(
             onToggle = onToggleBlackGradient,
             onPlacementChange = onBlackGradientPlacementChange,
             onOpacityChange = onBlackGradientOpacityChange,
-            onCoverageChange = onBlackGradientCoverageChange
+            onCoverageChange = onBlackGradientCoverageChange,
+            onSliderChangeFinished = onSliderChangeFinished
         )
     }
 }

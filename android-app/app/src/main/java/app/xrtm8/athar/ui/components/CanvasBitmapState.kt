@@ -26,13 +26,15 @@ fun rememberCanvasBackgroundBitmap(
     var maskBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(state.maskState.isEnabled, state.maskState.activeMaskId, state.maskState.customMaskUri) {
+        val oldMask = maskBitmap
         if (!state.maskState.isEnabled) {
             maskBitmap = null
+            if (oldMask != null && !oldMask.isRecycled) oldMask.recycle()
             return@LaunchedEffect
         }
         val customUriStr = state.maskState.customMaskUri
         val maskId = state.maskState.activeMaskId
-        maskBitmap = withContext(Dispatchers.IO) {
+        val loaded = withContext(Dispatchers.IO) {
             if (!customUriStr.isNullOrEmpty()) {
                 try {
                     AtharImageProcessor.decodeSampledBitmap(context, android.net.Uri.parse(customUriStr), 1080, 1920)
@@ -48,6 +50,10 @@ fun rememberCanvasBackgroundBitmap(
                 null
             }
         }
+        maskBitmap = loaded
+        if (oldMask != null && oldMask != loaded && !oldMask.isRecycled) {
+            oldMask.recycle()
+        }
     }
 
     val cellPhotos = state.collageState.cells.mapNotNull { cell -> cell.imageUri?.let { cell.id to it } }
@@ -60,8 +66,13 @@ fun rememberCanvasBackgroundBitmap(
     }
 
     LaunchedEffect(state.backgroundImageUri) {
+        val oldBg = rawBgBitmap
         val uri = state.backgroundImageUri
-        rawBgBitmap = uri?.let { withContext(Dispatchers.IO) { AtharImageProcessor.decodeSampledBitmap(context, it, 1080, 1920) } }
+        val loaded = uri?.let { withContext(Dispatchers.IO) { AtharImageProcessor.decodeSampledBitmap(context, it, 1080, 1920) } }
+        rawBgBitmap = loaded
+        if (oldBg != null && oldBg != loaded && !oldBg.isRecycled) {
+            oldBg.recycle()
+        }
     }
 
     LaunchedEffect(rawBgBitmap, state.backgroundBlur, state.colorMixState, state.cinematicGlowState, state.filmGrainState) {
@@ -103,7 +114,21 @@ fun rememberCanvasBackgroundBitmap(
         } else {
             null
         }
+        val oldProcessed = processedBgBitmap
         processedBgBitmap = next
+        if (oldProcessed != null && oldProcessed != next && oldProcessed != base && !oldProcessed.isRecycled) {
+            oldProcessed.recycle()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (maskBitmap?.isRecycled == false) maskBitmap?.recycle()
+            if (rawBgBitmap?.isRecycled == false) rawBgBitmap?.recycle()
+            if (processedBgBitmap?.isRecycled == false && processedBgBitmap != rawBgBitmap) {
+                processedBgBitmap?.recycle()
+            }
+        }
     }
 
     return CanvasBitmapHolder(

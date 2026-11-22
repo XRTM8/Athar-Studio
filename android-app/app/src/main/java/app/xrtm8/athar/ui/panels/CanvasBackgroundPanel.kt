@@ -165,7 +165,8 @@ fun CanvasBackgroundPanel(
                     onBlackGradientOpacityChange = { viewModel.setBlackGradientOpacity(it) },
                     onBlackGradientPlacementChange = { viewModel.setBlackGradientPlacement(it) },
                     onBlackGradientCoverageChange = { viewModel.setBlackGradientCoverage(it) },
-                    onResetMask = { viewModel.resetMask() }
+                    onResetMask = { viewModel.resetMask() },
+                    onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 
                 2 -> CollagePanel(

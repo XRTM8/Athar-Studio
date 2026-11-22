@@ -43,6 +43,7 @@ fun MaskAdjustmentsSection(
     onToggleFlipH: () -> Unit,
     onToggleFlipV: () -> Unit,
     onRotate90: () -> Unit,
+    onSliderChangeFinished: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -62,7 +63,8 @@ fun MaskAdjustmentsSection(
                 onValueChange = onOpacityChange,
                 valueRange = 0f..1f,
                 valueDisplay = "${(state.opacity * 100).toInt()}%",
-                icon = Icons.Default.Opacity
+                icon = Icons.Default.Opacity,
+                onValueChangeFinished = onSliderChangeFinished
             )
 
             // Scale Slider
@@ -72,7 +74,8 @@ fun MaskAdjustmentsSection(
                 onValueChange = onScaleChange,
                 valueRange = 0.5f..2.5f,
                 valueDisplay = String.format(java.util.Locale.US, "%.1fx", state.scale),
-                icon = Icons.Default.ZoomIn
+                icon = Icons.Default.ZoomIn,
+                onValueChangeFinished = onSliderChangeFinished
             )
 
             // Offset X Slider
@@ -82,7 +85,8 @@ fun MaskAdjustmentsSection(
                 onValueChange = onOffsetXChange,
                 valueRange = -1f..1f,
                 valueDisplay = String.format(java.util.Locale.US, "%+.2f", state.offsetX),
-                icon = Icons.Default.SwapHoriz
+                icon = Icons.Default.SwapHoriz,
+                onValueChangeFinished = onSliderChangeFinished
             )
 
             // Offset Y Slider
@@ -92,7 +96,8 @@ fun MaskAdjustmentsSection(
                 onValueChange = onOffsetYChange,
                 valueRange = -1f..1f,
                 valueDisplay = String.format(java.util.Locale.US, "%+.2f", state.offsetY),
-                icon = Icons.Default.SwapVert
+                icon = Icons.Default.SwapVert,
+                onValueChangeFinished = onSliderChangeFinished
             )
 
             // Hue Shift Slider (Only when mask is active)
@@ -102,7 +107,8 @@ fun MaskAdjustmentsSection(
                 onValueChange = onHueShiftChange,
                 valueRange = -180f..180f,
                 valueDisplay = "${state.hueShift.toInt()}°",
-                icon = Icons.Default.Palette
+                icon = Icons.Default.Palette,
+                onValueChangeFinished = onSliderChangeFinished
             )
 
             // Quick Transform Buttons: Flip H, Flip V, Rotate 90

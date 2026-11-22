@@ -115,4 +115,48 @@ class AtharMaskSystemTest {
         assertEquals("دائري (Radial)", BlackGradientPlacement.RADIAL.label)
         assertEquals("شريطين (Cinematic Bars)", BlackGradientPlacement.VERTICAL_SPLIT.label)
     }
+
+    @Test
+    fun testMaskUndoRedoWorkflow() {
+        val vm = app.xrtm8.athar.ui.AtharStudioViewModel()
+        assertFalse(vm.canvasState.value.maskState.isEnabled)
+        assertFalse(vm.canUndo.value)
+
+        // 1. Select mask
+        vm.selectMask("solar_dust")
+        assertTrue(vm.canvasState.value.maskState.isEnabled)
+        assertEquals("solar_dust", vm.canvasState.value.maskState.activeMaskId)
+        assertTrue(vm.canUndo.value)
+
+        // 2. Adjust slider (opacity) and commit history checkpoint
+        val origOpacity = vm.canvasState.value.maskState.opacity
+        vm.setMaskOpacity(0.35f)
+        assertEquals(0.35f, vm.canvasState.value.maskState.opacity, 0.001f)
+        vm.commitHistoryCheckpoint()
+
+        // 3. Undo slider drag
+        vm.undo()
+        assertEquals(origOpacity, vm.canvasState.value.maskState.opacity, 0.001f)
+        assertTrue(vm.canRedo.value)
+
+        // 4. Redo slider drag
+        vm.redo()
+        assertEquals(0.35f, vm.canvasState.value.maskState.opacity, 0.001f)
+
+        // 5. Black Gradient toggle & slider
+        vm.setBlackGradientEnabled(true)
+        assertTrue(vm.canvasState.value.maskState.blackGradient.isEnabled)
+        vm.setBlackGradientCoverage(0.90f)
+        vm.commitHistoryCheckpoint()
+        assertEquals(0.90f, vm.canvasState.value.maskState.blackGradient.coverage, 0.001f)
+
+        vm.undo()
+        // Coverage restored to default
+        assertEquals(0.55f, vm.canvasState.value.maskState.blackGradient.coverage, 0.001f)
+
+        // 6. Reset mask
+        vm.resetMask()
+        assertFalse(vm.canvasState.value.maskState.isEnabled)
+        assertFalse(vm.canvasState.value.maskState.blackGradient.isEnabled)
+    }
 }
