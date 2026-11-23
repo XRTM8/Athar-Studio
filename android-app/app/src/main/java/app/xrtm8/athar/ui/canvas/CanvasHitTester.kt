@@ -69,4 +69,24 @@ object CanvasHitTester {
         }
         return null
     }
+
+    /**
+     * Detects if the user tapped inside any collage cell on the canvas.
+     */
+    fun findHitCollageCell(
+        touchX: Float,
+        touchY: Float,
+        canvasW: Float,
+        canvasH: Float,
+        state: CanvasState
+    ): String? {
+        val collage = state.collageState
+        if (!collage.isEnabled || canvasW <= 0f || canvasH <= 0f) return null
+        val normX = touchX / canvasW
+        val normY = touchY / canvasH
+        return collage.cells.firstOrNull { cell ->
+            normX >= cell.leftNorm && normX <= cell.rightNorm &&
+            normY >= cell.topNorm && normY <= cell.bottomNorm
+        }?.id
+    }
 }

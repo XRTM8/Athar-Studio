@@ -180,4 +180,60 @@ class CollageFramingAndEffectsTest {
         assertEquals(-0.20f, restoredC2.photoOffsetY, 0.001f)
         assertEquals(1.4f, restoredC2.photoScale, 0.001f)
     }
+
+    @Test
+    fun testCommitCollageCellFramingAndUndoRedo() {
+        val vm = AtharStudioViewModel()
+        vm.setCollageLayout(CollageLayoutType.DIPTYCH_V)
+
+        val cellId = vm.canvasState.value.collageState.cells[0].id
+        vm.commitCollageCellFraming(cellId, 0.40f, -0.60f, 2.2f)
+
+        val committed = vm.canvasState.value.collageState.cells.first { it.id == cellId }
+        assertEquals(0.40f, committed.photoOffsetX, 0.001f)
+        assertEquals(-0.60f, committed.photoOffsetY, 0.001f)
+        assertEquals(2.2f, committed.photoScale, 0.001f)
+
+        // Undo -> restores initial state
+        vm.undo()
+        val undone = vm.canvasState.value.collageState.cells.first { it.id == cellId }
+        assertEquals(0f, undone.photoOffsetX, 0.001f)
+        assertEquals(0f, undone.photoOffsetY, 0.001f)
+        assertEquals(1.0f, undone.photoScale, 0.001f)
+
+        // Redo -> restores committed state
+        vm.redo()
+        val redone = vm.canvasState.value.collageState.cells.first { it.id == cellId }
+        assertEquals(0.40f, redone.photoOffsetX, 0.001f)
+        assertEquals(-0.60f, redone.photoOffsetY, 0.001f)
+        assertEquals(2.2f, redone.photoScale, 0.001f)
+    }
+
+    @Test
+    fun testCanvasHitTesterCollageCellDetection() {
+        val cellLeft = CollageCell("cell_left", leftNorm = 0f, topNorm = 0f, rightNorm = 0.5f, bottomNorm = 1f)
+        val cellRight = CollageCell("cell_right", leftNorm = 0.5f, topNorm = 0f, rightNorm = 1f, bottomNorm = 1f)
+
+        val state = CanvasState(
+            collageState = CollageState(
+                layout = CollageLayoutType.DIPTYCH_V,
+                cells = listOf(cellLeft, cellRight)
+            )
+        )
+
+        val canvasW = 1000f
+        val canvasH = 1000f
+
+        // Tap on left cell (x = 250, y = 500)
+        val hitLeft = app.xrtm8.athar.ui.canvas.CanvasHitTester.findHitCollageCell(250f, 500f, canvasW, canvasH, state)
+        assertEquals("cell_left", hitLeft)
+
+        // Tap on right cell (x = 750, y = 500)
+        val hitRight = app.xrtm8.athar.ui.canvas.CanvasHitTester.findHitCollageCell(750f, 500f, canvasW, canvasH, state)
+        assertEquals("cell_right", hitRight)
+
+        // When collage is disabled
+        val disabledState = CanvasState(collageState = CollageState(layout = CollageLayoutType.NONE))
+        assertNull(app.xrtm8.athar.ui.canvas.CanvasHitTester.findHitCollageCell(250f, 500f, canvasW, canvasH, disabledState))
+    }
 }

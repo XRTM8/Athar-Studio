@@ -2,9 +2,8 @@ package app.xrtm8.athar.ui
 
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.*
+import androidx.activity.result.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
@@ -182,7 +181,9 @@ fun AtharStudioScreen(
                         modifier = Modifier.fillMaxSize(),
                         onTransformFinished = { x, y, scale, rot -> viewModel.commitTransform(x, y, scale, rot) },
                         onPhotoFramingFinished = { px, py, pScale -> viewModel.commitPhotoFraming(px, py, pScale) },
+                        onCollageCellFramingFinished = { id, x, y, s -> viewModel.commitCollageCellFraming(id, x, y, s) },
                         onSelectLayer = { layerId -> viewModel.selectLayer(layerId) },
+                        onSelectCollageCell = { cellId -> viewModel.selectCollageCell(cellId) },
                         onDoubleTap = { showTextDialog = true }
                     )
                 }

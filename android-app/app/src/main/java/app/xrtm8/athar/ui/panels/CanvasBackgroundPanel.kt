@@ -178,6 +178,8 @@ fun CanvasBackgroundPanel(
                     onCellScaleChange = { id, s -> viewModel.setCollageCellPhotoScale(id, s) },
                     onResetCellFraming = { viewModel.resetCollageCellFraming(it) },
                     onRemoveCellPhoto = { viewModel.removeCollageCellPhoto(it) },
+                    isFramingMode = state.isFramingMode,
+                    onToggleFramingMode = { viewModel.toggleFramingMode(it) },
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 

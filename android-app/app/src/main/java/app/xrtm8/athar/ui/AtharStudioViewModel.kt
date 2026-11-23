@@ -1332,6 +1332,18 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    fun commitCollageCellFraming(cellId: String, offsetX: Float, offsetY: Float, scale: Float) {
+        val cur = _canvasState.value.collageState
+        val updated = cur.cells.map {
+            if (it.id == cellId) it.copy(
+                photoOffsetX = offsetX.coerceIn(-1f, 1f),
+                photoOffsetY = offsetY.coerceIn(-1f, 1f),
+                photoScale = scale.coerceIn(0.5f, 4.0f)
+            ) else it
+        }
+        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
+    }
+
     fun resetCollageCellFraming(cellId: String) {
         val cur = _canvasState.value.collageState
         val updated = cur.cells.map {

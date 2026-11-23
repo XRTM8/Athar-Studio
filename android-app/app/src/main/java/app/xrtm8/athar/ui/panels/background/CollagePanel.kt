@@ -44,6 +44,8 @@ fun CollagePanel(
     onCellScaleChange: (String, Float) -> Unit = { _, _ -> },
     onResetCellFraming: (String) -> Unit = {},
     onRemoveCellPhoto: (String) -> Unit = {},
+    isFramingMode: Boolean = false,
+    onToggleFramingMode: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -168,6 +170,8 @@ fun CollagePanel(
                     onResetFraming = { onResetCellFraming(activeCell.id) },
                     onPickPhoto = { onPickCellPhoto(activeCell.id) },
                     onRemovePhoto = { onRemoveCellPhoto(activeCell.id) },
+                    isFramingMode = isFramingMode,
+                    onToggleFramingMode = onToggleFramingMode,
                     onSliderChangeFinished = onSliderChangeFinished
                 )
             }

@@ -40,6 +40,8 @@ fun CollageFramingSection(
     onPickPhoto: () -> Unit,
     onRemovePhoto: () -> Unit,
     modifier: Modifier = Modifier,
+    isFramingMode: Boolean = false,
+    onToggleFramingMode: ((Boolean) -> Unit)? = null,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
@@ -134,6 +136,26 @@ fun CollageFramingSection(
             }
 
             if (hasPhoto && cell != null) {
+                if (onToggleFramingMode != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isFramingMode) "وضع اللمس المباشر (سحب وتكبير) ✓" else "تفعيل السحب المباشر باللمس",
+                            color = if (isFramingMode) CherryAccent else MutedWhite,
+                            fontSize = 11.sp,
+                            fontWeight = if (isFramingMode) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Switch(
+                            checked = isFramingMode,
+                            onCheckedChange = onToggleFramingMode,
+                            colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = BurgundyAccent)
+                        )
+                    }
+                }
+
                 // Vertical Pan Slider (صعود ونزول الصورة)
                 StudioSlider(
                     title = "تحريك رأسي (صعود ونزول الصورة)",

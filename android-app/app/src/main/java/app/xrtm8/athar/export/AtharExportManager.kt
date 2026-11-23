@@ -106,7 +106,10 @@ object AtharExportManager {
                 if (uri != null) {
                     val cw = ((cell.rightNorm - cell.leftNorm) * width).toInt().coerceAtLeast(32)
                     val ch = ((cell.bottomNorm - cell.topNorm) * height).toInt().coerceAtLeast(32)
-                    val bmp = AtharImageProcessor.decodeSampledBitmap(context, uri, cw, ch)
+                    val scale = cell.photoScale.coerceIn(1.0f, 4.0f)
+                    val sampleW = (cw * scale).toInt().coerceAtLeast(32)
+                    val sampleH = (ch * scale).toInt().coerceAtLeast(32)
+                    val bmp = AtharImageProcessor.decodeSampledBitmap(context, uri, sampleW, sampleH)
                     if (bmp != null) {
                         cellBitmaps[cell.id] = bmp
                     }
@@ -141,7 +144,10 @@ object AtharExportManager {
         } else {
             val bgUri = state.backgroundImageUri
             if (bgUri != null) {
-            var srcBitmap = AtharImageProcessor.decodeSampledBitmap(context, bgUri, width, height)
+            val bgScale = state.bgPhotoScale.coerceIn(1.0f, 4.0f)
+            val targetW = (width * bgScale).toInt().coerceAtLeast(32)
+            val targetH = (height * bgScale).toInt().coerceAtLeast(32)
+            var srcBitmap = AtharImageProcessor.decodeSampledBitmap(context, bgUri, targetW, targetH)
             if (srcBitmap != null) {
                 if (state.backgroundBlur > 0.5f) {
                     val blurR = (state.backgroundBlur * (width / 1080f)).toInt().coerceIn(1, 40)

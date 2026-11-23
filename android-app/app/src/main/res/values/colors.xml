@@ -1,6 +1,4 @@
 <resources>
-    <color name="mada_gold">#E5C07B</color>
-    <color name="mada_black">#0D0D11</color>
-    <color name="mada_card">#17171F</color>
-    <color name="mada_text">#FFFFFF</color>
+    <color name="ic_launcher_background">#0D0F14</color>
+    <color name="cherry_accent">#8B0000</color>
 </resources>

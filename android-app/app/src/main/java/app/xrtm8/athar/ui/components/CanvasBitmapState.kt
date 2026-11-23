@@ -57,11 +57,21 @@ fun rememberCanvasBackgroundBitmap(
     }
 
     val cellPhotos = state.collageState.cells.mapNotNull { cell -> cell.imageUri?.let { cell.id to it } }
-    val cellBitmaps by produceState(emptyMap<String, Bitmap>(), cellPhotos) {
-        value = withContext(Dispatchers.IO) {
+    var cellBitmaps by remember { mutableStateOf<Map<String, Bitmap>>(emptyMap()) }
+
+    LaunchedEffect(cellPhotos) {
+        val oldMap = cellBitmaps
+        val newMap = withContext(Dispatchers.IO) {
             cellPhotos.mapNotNull { (id, uri) ->
-                AtharImageProcessor.decodeSampledBitmap(context, uri, 1080, 1920)?.let { id to it }
+                val bmp = AtharImageProcessor.decodeSampledBitmap(context, uri, 1080, 1920)
+                bmp?.let { id to it }
             }.toMap()
+        }
+        cellBitmaps = newMap
+        oldMap.forEach { (id, bmp) ->
+            if (newMap[id] != bmp && !bmp.isRecycled) {
+                bmp.recycle()
+            }
         }
     }
 
@@ -128,6 +138,7 @@ fun rememberCanvasBackgroundBitmap(
             if (processedBgBitmap?.isRecycled == false && processedBgBitmap != rawBgBitmap) {
                 processedBgBitmap?.recycle()
             }
+            cellBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
         }
     }
 
