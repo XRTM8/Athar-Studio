@@ -9,10 +9,27 @@ import android.graphics.RectF
 import app.xrtm8.athar.model.CollageState
 
 /**
- * Editorial Collage Viewport & Export Renderer (< 160 lines).
+ * Editorial Collage Viewport & Export Renderer (< 120 lines).
+ * Zero-allocation, thread-safe Skia rendering supporting photo pan/zoom and atmospheric color filtering.
  */
 object CollageCanvasRenderer {
 
+    private val reusableSrcRect = Rect()
+    private val reusableDstRect = Rect()
+    private val clipPath = Path()
+    private val rectF = RectF()
+
+    private val framePaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+
+    private val placeholderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x25FFFFFF
+        style = Paint.Style.FILL
+    }
+
+    @Synchronized
     fun drawCollage(
         canvas: Canvas,
         state: CollageState,
@@ -24,26 +41,15 @@ object CollageCanvasRenderer {
     ) {
         if (!state.isEnabled) return
 
-        val reusableSrcRect = Rect()
-        val reusableDstRect = Rect()
-        val clipPath = Path()
-        val rectF = RectF()
-        paint.colorFilter = null
-
-        // 1. Draw frame canvas background
-        paint.color = state.frameColorLong.toInt()
-        paint.style = Paint.Style.FILL
-        canvas.drawRect(0f, 0f, width, height, paint)
+        // 1. Draw frame canvas background using dedicated framePaint
+        framePaint.color = state.frameColorLong.toInt()
+        canvas.drawRect(0f, 0f, width, height, framePaint)
 
         val spacing = state.spacingDp * density
         val radius = state.cornerRadiusDp * density
 
-        val placeholderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0x25FFFFFF
-            style = Paint.Style.FILL
-        }
-
-        // 2. Render each cell
+        // 2. Render each cell with precision framing (photoOffsetX, photoOffsetY, photoScale)
+        // and preserve caller's atmospheric colorFilter (Film preset, Dim, Grading) on cell photos
         state.cells.forEach { cell ->
             val left = (cell.leftNorm * width) + (spacing / 2f)
             val top = (cell.topNorm * height) + (spacing / 2f)

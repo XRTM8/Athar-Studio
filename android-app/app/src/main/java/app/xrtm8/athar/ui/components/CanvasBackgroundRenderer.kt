@@ -66,6 +66,19 @@ object CanvasBackgroundRenderer {
             // Instant 1-draw-call hardware repeated pattern (1,100x faster than loop drawRect)
             nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, getCheckerboardPaint(density))
         } else if (state.collageState.isEnabled) {
+            // Apply unified composite atmospheric filter (Film presets, Dimming, Color Grading) to collage cells
+            bgPaint.colorFilter = FilmPresetEngine.createCompositeFilter(
+                preset = state.filmPreset,
+                dim = state.backgroundDim,
+                brightness = state.backgroundBrightness,
+                contrast = state.backgroundContrast,
+                saturation = state.backgroundSaturation,
+                isGrayscale = state.backgroundGrayscale,
+                colorGradingEnabled = state.colorGradingEnabled,
+                liftR = state.liftRed, liftG = state.liftGreen, liftB = state.liftBlue,
+                gammaR = state.gammaRed, gammaG = state.gammaGreen, gammaB = state.gammaBlue,
+                gainR = state.gainRed, gainG = state.gainGreen, gainB = state.gainBlue
+            )
             CollageCanvasRenderer.drawCollage(
                 canvas = nativeCanvas,
                 state = state.collageState,
@@ -75,6 +88,9 @@ object CanvasBackgroundRenderer {
                 cellBitmaps = cellBitmaps,
                 paint = bgPaint
             )
+            if (state.backgroundVignette > 0f) {
+                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
+            }
         } else if (bgBitmap != null) {
             // Apply composite adjustments combined with Film Preset ColorMatrix and 3-Way Color Wheels
             bgPaint.colorFilter = FilmPresetEngine.createCompositeFilter(

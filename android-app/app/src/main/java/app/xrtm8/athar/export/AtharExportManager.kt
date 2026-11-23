@@ -113,7 +113,20 @@ object AtharExportManager {
                 }
             }
             val density = width / 380f
-            val collagePaint = Paint(Paint.FILTER_BITMAP_FLAG)
+            val collagePaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
+                colorFilter = FilmPresetEngine.createCompositeFilter(
+                    preset = state.filmPreset,
+                    dim = state.backgroundDim,
+                    brightness = state.backgroundBrightness,
+                    contrast = state.backgroundContrast,
+                    saturation = state.backgroundSaturation,
+                    isGrayscale = state.backgroundGrayscale,
+                    colorGradingEnabled = state.colorGradingEnabled,
+                    liftR = state.liftRed, liftG = state.liftGreen, liftB = state.liftBlue,
+                    gammaR = state.gammaRed, gammaG = state.gammaGreen, gammaB = state.gammaBlue,
+                    gainR = state.gainRed, gainG = state.gainGreen, gainB = state.gainBlue
+                )
+            }
             app.xrtm8.athar.ui.components.CollageCanvasRenderer.drawCollage(
                 canvas = canvas,
                 state = state.collageState,

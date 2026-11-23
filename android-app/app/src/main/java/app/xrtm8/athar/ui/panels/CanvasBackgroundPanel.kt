@@ -1,13 +1,8 @@
 package app.xrtm8.athar.ui.panels
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -178,6 +173,11 @@ fun CanvasBackgroundPanel(
                     onCornerRadiusChange = { viewModel.setCollageCornerRadius(it) },
                     onFrameColorChange = { viewModel.setCollageFrameColor(it) },
                     onResetCollage = { viewModel.resetCollage() },
+                    onCellOffsetYChange = { id, y -> viewModel.setCollageCellPhotoOffset(id, state.collageState.cells.find { it.id == id }?.photoOffsetX ?: 0f, y) },
+                    onCellOffsetXChange = { id, x -> viewModel.setCollageCellPhotoOffset(id, x, state.collageState.cells.find { it.id == id }?.photoOffsetY ?: 0f) },
+                    onCellScaleChange = { id, s -> viewModel.setCollageCellPhotoScale(id, s) },
+                    onResetCellFraming = { viewModel.resetCollageCellFraming(it) },
+                    onRemoveCellPhoto = { viewModel.removeCollageCellPhoto(it) },
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 

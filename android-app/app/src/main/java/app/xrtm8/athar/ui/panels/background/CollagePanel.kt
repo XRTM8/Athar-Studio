@@ -39,10 +39,17 @@ fun CollagePanel(
     onCornerRadiusChange: (Float) -> Unit,
     onFrameColorChange: (Long) -> Unit,
     onResetCollage: () -> Unit,
+    onCellOffsetYChange: (String, Float) -> Unit = { _, _ -> },
+    onCellOffsetXChange: (String, Float) -> Unit = { _, _ -> },
+    onCellScaleChange: (String, Float) -> Unit = { _, _ -> },
+    onResetCellFraming: (String) -> Unit = {},
+    onRemoveCellPhoto: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    val activeCell = state.cells.find { it.id == state.activeCellId } ?: state.cells.firstOrNull()
+    val activeIndex = state.cells.indexOfFirst { it.id == (activeCell?.id ?: "") }.coerceAtLeast(0)
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Layout Templates Row
@@ -106,7 +113,7 @@ fun CollagePanel(
         if (state.isEnabled) {
             // Cells management list
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(text = "الصور في الكولاج (اضغط لإضافة أو استبدال)", color = SubtleGray, fontSize = 11.5.sp)
+                Text(text = "الصور في الكولاج (اضغط لتأطير الصورة أو استبدالها)", color = SubtleGray, fontSize = 11.5.sp)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -114,16 +121,18 @@ fun CollagePanel(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     state.cells.forEachIndexed { idx, cell ->
-                        val isSelected = state.activeCellId == cell.id
+                        val isSelected = (activeCell?.id ?: state.activeCellId) == cell.id
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(if (isSelected) StudioSurfaceElevated else StudioSurface)
-                                .border(1.dp, if (isSelected) BurgundyAccent else GlassBorder, RoundedCornerShape(10.dp))
+                                .border(1.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     onSelectCell(cell.id)
-                                    onPickCellPhoto(cell.id)
+                                    if (cell.imageUri == null) {
+                                        onPickCellPhoto(cell.id)
+                                    }
                                 }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
@@ -146,6 +155,21 @@ fun CollagePanel(
                         }
                     }
                 }
+            }
+
+            // Cell Framing Controls (صعود/نزول، يمين/يسار، زوم)
+            if (activeCell != null) {
+                CollageFramingSection(
+                    cell = activeCell,
+                    cellIndex = activeIndex,
+                    onOffsetYChange = { onCellOffsetYChange(activeCell.id, it) },
+                    onOffsetXChange = { onCellOffsetXChange(activeCell.id, it) },
+                    onScaleChange = { onCellScaleChange(activeCell.id, it) },
+                    onResetFraming = { onResetCellFraming(activeCell.id) },
+                    onPickPhoto = { onPickCellPhoto(activeCell.id) },
+                    onRemovePhoto = { onRemoveCellPhoto(activeCell.id) },
+                    onSliderChangeFinished = onSliderChangeFinished
+                )
             }
 
             // Spacing & Corner Radius Sliders
