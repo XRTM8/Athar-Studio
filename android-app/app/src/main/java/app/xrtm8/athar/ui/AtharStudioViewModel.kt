@@ -1158,6 +1158,37 @@ class AtharStudioViewModel : ViewModel() {
         ))
     }
 
+    fun setMaskRotationDegrees(degrees: Int) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(rotationDegrees = ((degrees % 360) + 360) % 360)) }
+    }
+
+    fun setMaskContrast(contrast: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(contrast = contrast.coerceIn(0.5f, 2.5f))) }
+    }
+
+    fun toggleMaskInvert() {
+        val current = _canvasState.value.maskState
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(isInverted = !current.isInverted)
+        ))
+    }
+
+    fun setMaskTintColor(colorLong: Long?) {
+        val current = _canvasState.value.maskState
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(tintColorLong = colorLong)
+        ))
+    }
+
+    fun toggleMaskLuminanceMode() {
+        val current = _canvasState.value.maskState
+        pushHistory(_canvasState.value.copy(
+            maskState = current.copy(isLuminanceMode = !current.isLuminanceMode)
+        ))
+    }
+
     fun setBlackGradientEnabled(enabled: Boolean) {
         val current = _canvasState.value.maskState
         pushHistory(_canvasState.value.copy(

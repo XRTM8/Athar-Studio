@@ -70,7 +70,11 @@ fun GradientScrimSection(
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onToggleGradientScrim(it)
                 },
-                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = PureWhite,
+                    checkedTrackColor = BurgundyAccent,
+                    uncheckedTrackColor = StudioSurface
+                )
             )
         }
 
@@ -91,8 +95,8 @@ fun GradientScrimSection(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(9.dp))
-                            .background(if (isSelected) CherryAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
+                            .background(if (isSelected) BurgundyAccent else GlassSurface)
+                            .border(0.5.dp, if (isSelected) BurgundyAccent else GlassBorder, RoundedCornerShape(9.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onGradientScrimDirectionChange(dir)
@@ -101,7 +105,7 @@ fun GradientScrimSection(
                     ) {
                         Text(
                             text = dir.label,
-                            color = if (isSelected) AmoledBlack else PureWhite,
+                            color = if (isSelected) PureWhite else MutedWhite,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
@@ -125,8 +129,8 @@ fun GradientScrimSection(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(CherryAccent.copy(alpha = 0.2f))
-                        .border(1.dp, CherryAccent, RoundedCornerShape(10.dp))
+                        .background(BurgundyAccent.copy(alpha = 0.2f))
+                        .border(1.dp, BurgundyAccent, RoundedCornerShape(10.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             showCustomScrimColorDialog = true
@@ -136,13 +140,13 @@ fun GradientScrimSection(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "لون ظل مخصص",
-                        tint = CherryAccent,
+                        tint = BurgundyAccent,
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "مخصص",
-                        color = CherryAccent,
+                        color = BurgundyAccent,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -161,8 +165,8 @@ fun GradientScrimSection(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) CherryAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
+                            .background(if (isSelected) BurgundyAccent else GlassSurface)
+                            .border(0.5.dp, if (isSelected) BurgundyAccent else GlassBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onGradientScrimColorChange(colorLong)
@@ -174,12 +178,12 @@ fun GradientScrimSection(
                                 .size(10.dp)
                                 .clip(CircleShape)
                                 .background(Color(colorLong.toInt()))
-                                .border(0.5.dp, if (isSelected) AmoledBlack else PureWhite, CircleShape)
+                                .border(0.5.dp, if (isSelected) PureWhite else MutedWhite, CircleShape)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = name,
-                            color = if (isSelected) AmoledBlack else PureWhite,
+                            color = if (isSelected) PureWhite else MutedWhite,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

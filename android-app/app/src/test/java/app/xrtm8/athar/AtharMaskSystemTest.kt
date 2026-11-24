@@ -21,6 +21,7 @@ class AtharMaskSystemTest {
             assertTrue("Asset file must end with .webp", mask.assetFileName.endsWith(".webp"))
             assertTrue("Thumb file must start with masks/thumbs/", mask.thumbFileName.startsWith("masks/thumbs/"))
             assertTrue("Default opacity must be in valid range", mask.defaultOpacity in 0.1f..1.0f)
+            assertNotNull("Must have procedural type in Mask 2.0", mask.proceduralType)
             assertNotNull("Must find by ID", AtharMaskCatalog.getById(mask.id))
         }
 
@@ -53,6 +54,10 @@ class AtharMaskSystemTest {
         assertFalse(defaultState.isFlippedH)
         assertFalse(defaultState.isFlippedV)
         assertEquals(0, defaultState.rotationDegrees)
+        assertEquals(1.0f, defaultState.contrast, 0.001f)
+        assertFalse(defaultState.isInverted)
+        assertNull(defaultState.tintColorLong)
+        assertFalse(defaultState.isLuminanceMode)
         assertFalse(defaultState.blackGradient.isEnabled)
         assertFalse(defaultState.blackGradient.isEffectActive)
     }
@@ -71,6 +76,10 @@ class AtharMaskSystemTest {
             isFlippedH = true,
             isFlippedV = false,
             rotationDegrees = 90,
+            contrast = 1.45f,
+            isInverted = true,
+            tintColorLong = 0xFFFFD54FL,
+            isLuminanceMode = true,
             blackGradient = BlackGradientState(
                 isEnabled = true,
                 opacity = 0.70f,
@@ -98,6 +107,10 @@ class AtharMaskSystemTest {
         assertTrue(restored.isFlippedH)
         assertFalse(restored.isFlippedV)
         assertEquals(90, restored.rotationDegrees)
+        assertEquals(1.45f, restored.contrast, 0.01f)
+        assertTrue(restored.isInverted)
+        assertEquals(0xFFFFD54FL, restored.tintColorLong)
+        assertTrue(restored.isLuminanceMode)
 
         assertTrue(restored.blackGradient.isEnabled)
         assertEquals(0.70f, restored.blackGradient.opacity, 0.01f)
@@ -158,5 +171,58 @@ class AtharMaskSystemTest {
         vm.resetMask()
         assertFalse(vm.canvasState.value.maskState.isEnabled)
         assertFalse(vm.canvasState.value.maskState.blackGradient.isEnabled)
+    }
+
+    @Test
+    fun testMaskStudio2AdvancedFeatures() {
+        val vm = app.xrtm8.athar.ui.AtharStudioViewModel()
+        vm.selectMask("window_shadow")
+        assertTrue(vm.canvasState.value.maskState.isEnabled)
+        assertEquals(ProceduralMaskType.WINDOW_BLINDS, vm.canvasState.value.maskState.proceduralType)
+
+        // 1. Contrast
+        vm.setMaskContrast(1.85f)
+        assertEquals(1.85f, vm.canvasState.value.maskState.contrast, 0.001f)
+
+        // 2. Invert toggle
+        assertFalse(vm.canvasState.value.maskState.isInverted)
+        vm.toggleMaskInvert()
+        assertTrue(vm.canvasState.value.maskState.isInverted)
+        vm.toggleMaskInvert()
+        assertFalse(vm.canvasState.value.maskState.isInverted)
+
+        // 3. Tint Color
+        assertNull(vm.canvasState.value.maskState.tintColorLong)
+        vm.setMaskTintColor(0xFFFFD54FL)
+        assertEquals(0xFFFFD54FL, vm.canvasState.value.maskState.tintColorLong)
+        vm.setMaskTintColor(null)
+        assertNull(vm.canvasState.value.maskState.tintColorLong)
+
+        // 4. Luminance mode
+        assertFalse(vm.canvasState.value.maskState.isLuminanceMode)
+        vm.toggleMaskLuminanceMode()
+        assertTrue(vm.canvasState.value.maskState.isLuminanceMode)
+
+        // 5. Rotation free degrees
+        vm.setMaskRotationDegrees(135)
+        assertEquals(135, vm.canvasState.value.maskState.rotationDegrees)
+
+        // 6. Blend mode ADD check
+        vm.setMaskBlendMode(MaskBlendMode.ADD)
+        assertEquals(MaskBlendMode.ADD, vm.canvasState.value.maskState.blendMode)
+        assertEquals(android.graphics.PorterDuff.Mode.ADD, vm.canvasState.value.maskState.blendMode.porterDuffMode)
+    }
+
+    @Test
+    fun testProceduralMaskTypesIntegrity() {
+        val types = ProceduralMaskType.values()
+        assertEquals(12, types.size)
+        val catalogTypes = AtharMaskCatalog.ALL_MASKS.mapNotNull { it.proceduralType }.toSet()
+        assertEquals("All 12 procedural types must be mapped in catalog", 12, catalogTypes.size)
+
+        // Verify each ProceduralMaskType is represented in catalog
+        types.forEach { type ->
+            assertTrue("Type $type must be represented in catalog", catalogTypes.contains(type))
+        }
     }
 }

@@ -231,6 +231,10 @@ object AtharProjectSerializer {
             put("mask_flipped_h", m.isFlippedH)
             put("mask_flipped_v", m.isFlippedV)
             put("mask_rotation", m.rotationDegrees)
+            put("mask_contrast", m.contrast.toDouble())
+            put("mask_inverted", m.isInverted)
+            if (m.tintColorLong != null) put("mask_tint_color", m.tintColorLong)
+            put("mask_luminance_mode", m.isLuminanceMode)
 
             val bgGrad = m.blackGradient
             put("mask_bg_grad_enabled", bgGrad.isEnabled)
@@ -519,6 +523,10 @@ object AtharProjectSerializer {
             isFlippedH = c.optBoolean("mask_flipped_h", false),
             isFlippedV = c.optBoolean("mask_flipped_v", false),
             rotationDegrees = c.optInt("mask_rotation", 0),
+            contrast = c.optDouble("mask_contrast", 1.0).toFloat(),
+            isInverted = c.optBoolean("mask_inverted", false),
+            tintColorLong = if (c.has("mask_tint_color")) c.optLong("mask_tint_color") else null,
+            isLuminanceMode = c.optBoolean("mask_luminance_mode", false),
             blackGradient = BlackGradientState(
                 isEnabled = c.optBoolean("mask_bg_grad_enabled", false),
                 opacity = c.optDouble("mask_bg_grad_opacity", 0.60).toFloat(),

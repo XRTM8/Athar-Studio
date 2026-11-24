@@ -14,6 +14,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.core.AtharImageProcessor
+import app.xrtm8.athar.core.AtharProceduralMaskRenderer
 import app.xrtm8.athar.model.AtharMaskDefinition
 import app.xrtm8.athar.ui.theme.GlassSurface
 import kotlinx.coroutines.Dispatchers
@@ -33,14 +34,18 @@ fun MaskThumbnailView(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var bitmap by remember(maskDef.thumbFileName) {
+    var bitmap by remember(maskDef.id) {
         mutableStateOf(MaskThumbnailCache.get(maskDef.thumbFileName))
     }
 
-    LaunchedEffect(maskDef.thumbFileName) {
+    LaunchedEffect(maskDef.id) {
         if (bitmap == null) {
             val loaded = withContext(Dispatchers.IO) {
-                AtharImageProcessor.decodeSampledAssetBitmap(context, maskDef.thumbFileName, 120, 120)
+                if (maskDef.proceduralType != null) {
+                    AtharProceduralMaskRenderer.generateThumbnailBitmap(maskDef.proceduralType, 120)
+                } else {
+                    AtharImageProcessor.decodeSampledAssetBitmap(context, maskDef.thumbFileName, 120, 120)
+                }
             }
             if (loaded != null) {
                 MaskThumbnailCache.put(maskDef.thumbFileName, loaded)

@@ -169,7 +169,6 @@ fun StudioConsoleDrawer(
 
                         1 -> StyleEffectsPanel(
                             state = canvasState,
-                            onSelectEffect = { viewModel.setEffect(it) },
                             onSelectCustomColor = { viewModel.setCustomColor(it) },
                             onStrokeWidthChange = { viewModel.setStrokeWidth(it) },
                             onStrokeColorChange = { viewModel.setStrokeColor(it) },

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import app.xrtm8.athar.core.AtharPaletteExtractor
 import app.xrtm8.athar.core.PureArabicKashidaEngine
+import app.xrtm8.athar.model.CanvasGradientDirection
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextLayer
@@ -140,5 +141,29 @@ class CriticalFixesRegressionTest {
 
         vm.setBoxWidthRatio(0.75f)
         assertEquals(0.75f, vm.canvasState.value.activeLayer.boxWidthRatio, 0.001f)
+    }
+
+    @Test
+    fun testGradientScrimViewModelOperations() {
+        val vm = AtharStudioViewModel()
+        assertFalse(vm.canvasState.value.gradientScrim.isEnabled)
+
+        vm.setGradientScrimEnabled(true)
+        assertTrue(vm.canvasState.value.gradientScrim.isEnabled)
+
+        vm.setGradientScrimDirection(CanvasGradientDirection.TOP_TO_BOTTOM)
+        assertEquals(CanvasGradientDirection.TOP_TO_BOTTOM, vm.canvasState.value.gradientScrim.direction)
+
+        vm.setGradientScrimDirection(CanvasGradientDirection.LEFT_TO_RIGHT)
+        assertEquals(CanvasGradientDirection.LEFT_TO_RIGHT, vm.canvasState.value.gradientScrim.direction)
+
+        vm.setGradientScrimColor(0xFF0A1128L)
+        assertEquals(0xFF0A1128L, vm.canvasState.value.gradientScrim.colorLong)
+
+        vm.setGradientScrimOpacity(0.75f)
+        assertEquals(0.75f, vm.canvasState.value.gradientScrim.opacity, 0.001f)
+
+        vm.setGradientScrimMidpoint(0.40f)
+        assertEquals(0.40f, vm.canvasState.value.gradientScrim.midpoint, 0.001f)
     }
 }

@@ -43,7 +43,6 @@ import app.xrtm8.athar.ui.theme.*
 @Composable
 fun StyleEffectsPanel(
     state: CanvasState,
-    onSelectEffect: ((VisualEffect) -> Unit)? = null,
     onSelectCustomColor: (Long?) -> Unit,
     onStrokeWidthChange: (Float) -> Unit,
     onStrokeColorChange: (Long) -> Unit,

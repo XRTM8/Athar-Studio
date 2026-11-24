@@ -162,4 +162,69 @@ class AtharProjectSerializerExtendedTest {
         val restored = AtharProjectSerializer.deserializeCanvasState(json)
         assertEquals(0.65f, restored.activeLayer.boxWidthRatio, 0.001f)
     }
+
+    @Test
+    fun testV281MasksAndScrimCompatibility() {
+        // 1. Legacy v2.7.0 JSON without masks or scrim
+        val legacyJson = JSONObject("""
+            {
+                "version": 2,
+                "raw_text": "مشروع قديم",
+                "stretch_level": 3
+            }
+        """.trimIndent())
+        val legacyRestored = AtharProjectSerializer.deserializeCanvasState(legacyJson)
+        assertFalse(legacyRestored.gradientScrim.isEnabled)
+        assertFalse(legacyRestored.maskState.isEnabled)
+        assertEquals(1.0f, legacyRestored.maskState.contrast, 0.001f)
+        assertFalse(legacyRestored.maskState.isInverted)
+        org.junit.Assert.assertNull(legacyRestored.maskState.tintColorLong)
+
+        // 2. Full v2.8.1 state round-trip
+        val v281State = CanvasState(
+            gradientScrim = app.xrtm8.athar.model.CanvasGradientScrim(
+                isEnabled = true,
+                direction = app.xrtm8.athar.model.CanvasGradientDirection.LEFT_TO_RIGHT,
+                colorLong = 0xFF0A1128L,
+                opacity = 0.85f,
+                midpoint = 0.45f
+            ),
+            maskState = app.xrtm8.athar.model.AtharMaskState(
+                isEnabled = true,
+                activeMaskId = "window_shadow",
+                opacity = 0.90f,
+                contrast = 1.75f,
+                isInverted = true,
+                tintColorLong = 0xFFFFD54FL,
+                isLuminanceMode = true,
+                scale = 1.6f,
+                offsetX = -0.2f,
+                offsetY = 0.3f,
+                rotationDegrees = 90
+            )
+        )
+        val json = AtharProjectSerializer.serializeCanvasState(v281State, false)
+        val restored = AtharProjectSerializer.deserializeCanvasState(json)
+
+        // Verify Scrim
+        assertTrue(restored.gradientScrim.isEnabled)
+        assertEquals(app.xrtm8.athar.model.CanvasGradientDirection.LEFT_TO_RIGHT, restored.gradientScrim.direction)
+        assertEquals(0xFF0A1128L, restored.gradientScrim.colorLong)
+        assertEquals(0.85f, restored.gradientScrim.opacity, 0.001f)
+        assertEquals(0.45f, restored.gradientScrim.midpoint, 0.001f)
+
+        // Verify Mask 2.0
+        assertTrue(restored.maskState.isEnabled)
+        assertEquals("window_shadow", restored.maskState.activeMaskId)
+        assertEquals(app.xrtm8.athar.model.ProceduralMaskType.WINDOW_BLINDS, restored.maskState.proceduralType)
+        assertEquals(0.90f, restored.maskState.opacity, 0.001f)
+        assertEquals(1.75f, restored.maskState.contrast, 0.001f)
+        assertTrue(restored.maskState.isInverted)
+        assertEquals(0xFFFFD54FL, restored.maskState.tintColorLong)
+        assertTrue(restored.maskState.isLuminanceMode)
+        assertEquals(1.6f, restored.maskState.scale, 0.001f)
+        assertEquals(-0.2f, restored.maskState.offsetX, 0.001f)
+        assertEquals(0.3f, restored.maskState.offsetY, 0.001f)
+        assertEquals(90, restored.maskState.rotationDegrees)
+    }
 }

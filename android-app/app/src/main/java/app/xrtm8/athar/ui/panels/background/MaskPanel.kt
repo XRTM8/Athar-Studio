@@ -27,6 +27,10 @@ fun MaskPanel(
     onSelectMask: (String?) -> Unit,
     onPickCustomMask: () -> Unit,
     onOpacityChange: (Float) -> Unit,
+    onContrastChange: (Float) -> Unit = {},
+    onToggleInvert: () -> Unit = {},
+    onTintColorChange: (Long?) -> Unit = {},
+    onToggleLuminanceMode: () -> Unit = {},
     onBlendModeChange: (MaskBlendMode) -> Unit,
     onHueShiftChange: (Float) -> Unit,
     onOffsetXChange: (Float) -> Unit,
@@ -82,10 +86,14 @@ fun MaskPanel(
             onPickCustomMask = onPickCustomMask
         )
 
-        // 3. Fine-tuning adjustments (Opacity, Scale, Offsets, Hue, Flip, Rotate, Blend Mode)
+        // 3. Fine-tuning adjustments (Opacity, Contrast, Invert, Tint, Luminance, Scale, Offsets, Hue, Flip, Rotate, Blend Mode)
         MaskAdjustmentsSection(
             state = state,
             onOpacityChange = onOpacityChange,
+            onContrastChange = onContrastChange,
+            onToggleInvert = onToggleInvert,
+            onTintColorChange = onTintColorChange,
+            onToggleLuminanceMode = onToggleLuminanceMode,
             onBlendModeChange = onBlendModeChange,
             onHueShiftChange = onHueShiftChange,
             onOffsetXChange = onOffsetXChange,
