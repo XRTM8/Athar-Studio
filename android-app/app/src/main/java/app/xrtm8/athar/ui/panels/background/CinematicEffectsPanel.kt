@@ -20,19 +20,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CinematicGlowState
 import app.xrtm8.athar.model.FilmGrainState
+import app.xrtm8.athar.model.GlitchEffectState
 import app.xrtm8.athar.model.GlowStyle
 import app.xrtm8.athar.ui.components.StudioSlider
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * Lightroom-Grade Cinematic Effects Panel (< 250 lines):
+ * Lightroom-Grade Cinematic & Glitch Effects Panel (< 250 lines):
  * - Glow, Motion Light Streaks, Halation, Warmth.
  * - Organic Silver Halide Film Grain (Grain, Size, Roughness).
+ * - Analog Glitch, RGB Split, CRT Scanlines & Digital Noise.
  */
 @Composable
 fun CinematicEffectsPanel(
     glowState: CinematicGlowState,
     grainState: FilmGrainState,
+    glitchState: GlitchEffectState = GlitchEffectState(),
     onGlowChange: (Float) -> Unit,
     onRangeChange: (Float) -> Unit,
     onSpreadChange: (Float) -> Unit,
@@ -43,6 +46,13 @@ fun CinematicEffectsPanel(
     onGrainSizeChange: (Float) -> Unit,
     onGrainRoughnessChange: (Float) -> Unit,
     onResetGrain: () -> Unit,
+    onGlitchRgbSplitChange: (Float) -> Unit = {},
+    onGlitchSliceJitterChange: (Float) -> Unit = {},
+    onGlitchScanlinesChange: (Float) -> Unit = {},
+    onGlitchNoiseChange: (Float) -> Unit = {},
+    onGlitchPixelateChange: (Float) -> Unit = {},
+    onRandomizeGlitchSeed: () -> Unit = {},
+    onResetGlitch: () -> Unit = {},
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -224,5 +234,18 @@ fun CinematicEffectsPanel(
                 )
             }
         }
+
+        // Section 3: Analog Glitch, RGB Split & CRT
+        GlitchEffectsSection(
+            state = glitchState,
+            onRgbSplitChange = onGlitchRgbSplitChange,
+            onSliceJitterChange = onGlitchSliceJitterChange,
+            onScanlinesChange = onGlitchScanlinesChange,
+            onNoiseChange = onGlitchNoiseChange,
+            onPixelateChange = onGlitchPixelateChange,
+            onRandomizeSeed = onRandomizeGlitchSeed,
+            onReset = onResetGlitch,
+            onSliderChangeFinished = onSliderChangeFinished
+        )
     }
 }

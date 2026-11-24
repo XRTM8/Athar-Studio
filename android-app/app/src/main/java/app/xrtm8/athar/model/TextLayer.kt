@@ -50,5 +50,9 @@ data class TextLayer(
     val isHollowText: Boolean = false,
     val boxWidthRatio: Float = 0.85f,
     val customFontPath: String? = null,
-    val customFontName: String? = null
+    val customFontName: String? = null,
+    val stylisticSet: Int = 0,
+    val enableSwash: Boolean = false,
+    val enableDiscretionaryLigatures: Boolean = false,
+    val wordSpacing: Float = 0f
 )

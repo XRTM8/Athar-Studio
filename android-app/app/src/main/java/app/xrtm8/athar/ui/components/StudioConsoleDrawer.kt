@@ -164,6 +164,10 @@ fun StudioConsoleDrawer(
                             onToggleCurvedText = { viewModel.toggleCurvedText(it) },
                             onCurveAngleChange = { viewModel.setCurveAngle(it) },
                             onAutoBalanceBlock = { viewModel.autoBalanceTypographicBlock() },
+                            onStylisticSetChange = { viewModel.setStylisticSet(it) },
+                            onToggleSwash = { viewModel.toggleSwash(it) },
+                            onToggleDiscretionaryLigatures = { viewModel.toggleDiscretionaryLigatures(it) },
+                            onWordSpacingChange = { viewModel.setWordSpacing(it) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
 

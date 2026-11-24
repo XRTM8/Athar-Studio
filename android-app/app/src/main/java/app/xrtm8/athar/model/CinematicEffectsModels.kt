@@ -27,3 +27,16 @@ data class FilmGrainState(
     val isEnabled: Boolean get() = grain > 0.5f
     val isDefault: Boolean get() = grain == 0f && size == 47f && roughness == 50f
 }
+
+data class GlitchEffectState(
+    val rgbSplit: Float = 0f,
+    val sliceJitter: Float = 0f,
+    val scanlines: Float = 0f,
+    val noise: Float = 0f,
+    val pixelate: Float = 0f,
+    val seed: Long = 1337L
+) {
+    val isEnabled: Boolean get() = rgbSplit > 0.5f || sliceJitter > 0.5f || scanlines > 0.5f || noise > 0.5f || pixelate > 0.5f
+    val isDefault: Boolean get() = rgbSplit == 0f && sliceJitter == 0f && scanlines == 0f && noise == 0f && pixelate == 0f && seed == 1337L
+}
+

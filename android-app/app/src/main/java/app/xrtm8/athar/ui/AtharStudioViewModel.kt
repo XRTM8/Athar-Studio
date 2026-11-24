@@ -398,6 +398,23 @@ class AtharStudioViewModel : ViewModel() {
         updateActiveLayer { it.copy(boxWidthRatio = ratio.coerceIn(0.30f, 1.0f)) }
     }
 
+    fun setStylisticSet(set: Int) {
+        pushActiveLayerHistory { it.copy(stylisticSet = set.coerceIn(0, 20)) }
+    }
+
+    fun toggleSwash(enabled: Boolean) {
+        pushActiveLayerHistory { it.copy(enableSwash = enabled) }
+    }
+
+    fun toggleDiscretionaryLigatures(enabled: Boolean) {
+        pushActiveLayerHistory { it.copy(enableDiscretionaryLigatures = enabled) }
+    }
+
+    fun setWordSpacing(spacing: Float) {
+        markSliderChange()
+        updateActiveLayer { it.copy(wordSpacing = spacing.coerceIn(-20f, 60f)) }
+    }
+
     fun toggleGlassBackdrop(enabled: Boolean) {
         pushActiveLayerHistory { it.copy(enableGlassBackdrop = enabled) }
     }
@@ -1289,6 +1306,48 @@ class AtharStudioViewModel : ViewModel() {
     fun resetFilmGrain() {
         pushHistory(_canvasState.value.copy(
             filmGrainState = app.xrtm8.athar.model.FilmGrainState()
+        ))
+    }
+
+    // ==========================================
+    // Analog Glitch, RGB Split & CRT
+    // ==========================================
+
+    fun setGlitchRgbSplit(split: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(rgbSplit = split.coerceIn(0f, 100f))) }
+    }
+
+    fun setGlitchSliceJitter(jitter: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(sliceJitter = jitter.coerceIn(0f, 100f))) }
+    }
+
+    fun setGlitchScanlines(scanlines: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(scanlines = scanlines.coerceIn(0f, 100f))) }
+    }
+
+    fun setGlitchNoise(noise: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(noise = noise.coerceIn(0f, 100f))) }
+    }
+
+    fun setGlitchPixelate(pixelate: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(pixelate = pixelate.coerceIn(0f, 100f))) }
+    }
+
+    fun randomizeGlitchSeed() {
+        val newSeed = System.currentTimeMillis()
+        pushHistory(_canvasState.value.copy(
+            glitchEffectState = _canvasState.value.glitchEffectState.copy(seed = newSeed)
+        ))
+    }
+
+    fun resetGlitchEffect() {
+        pushHistory(_canvasState.value.copy(
+            glitchEffectState = app.xrtm8.athar.model.GlitchEffectState()
         ))
     }
 

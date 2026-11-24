@@ -38,7 +38,9 @@ object AtharTextLayout {
         val letterSpacing: Float,
         val lineSpacingMultiplier: Float,
         val textAlign: TextAlignOption,
-        val maxWidth: Float
+        val maxWidth: Float,
+        val fontFeatures: String? = null,
+        val wordSpacing: Float = 0f
     )
 
     private const val MAX_CACHE_ENTRIES = 128
@@ -76,6 +78,17 @@ object AtharTextLayout {
             0f
         }
 
+        val fontFeatures = try {
+            paint?.fontFeatureSettings
+        } catch (_: Throwable) {
+            null
+        }
+        val wordSpacing = try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) paint?.wordSpacing ?: 0f else 0f
+        } catch (_: Throwable) {
+            0f
+        }
+
         val key = LayoutKey(
             text = text,
             textSize = textSize,
@@ -85,7 +98,9 @@ object AtharTextLayout {
             letterSpacing = letterSpacing,
             lineSpacingMultiplier = lineSpacingMultiplier,
             textAlign = textAlign,
-            maxWidth = maxWidth
+            maxWidth = maxWidth,
+            fontFeatures = fontFeatures,
+            wordSpacing = wordSpacing
         )
 
         val cached = cache[key]

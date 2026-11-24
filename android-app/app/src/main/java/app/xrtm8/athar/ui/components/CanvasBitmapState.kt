@@ -85,7 +85,7 @@ fun rememberCanvasBackgroundBitmap(
         }
     }
 
-    LaunchedEffect(rawBgBitmap, state.backgroundBlur, state.colorMixState, state.cinematicGlowState, state.filmGrainState) {
+    LaunchedEffect(rawBgBitmap, state.backgroundBlur, state.colorMixState, state.cinematicGlowState, state.filmGrainState, state.glitchEffectState) {
         val base = rawBgBitmap
         val next = if (base != null) {
             withContext(Dispatchers.Default) {
@@ -117,6 +117,14 @@ fun rememberCanvasBackgroundBitmap(
                         current.recycle()
                     }
                     current = grained
+                }
+
+                if (state.glitchEffectState.isEnabled) {
+                    val glitched = app.xrtm8.athar.core.AtharGlitchEngine.processBitmap(current, state.glitchEffectState)
+                    if (current != base && current != glitched && !current.isRecycled) {
+                        current.recycle()
+                    }
+                    current = glitched
                 }
 
                 current

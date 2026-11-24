@@ -40,7 +40,8 @@ data class CanvasState(
     val cinematicGlowState: CinematicGlowState = CinematicGlowState(),
     val filmGrainState: FilmGrainState = FilmGrainState(),
     val collageState: CollageState = CollageState(),
-    val maskState: AtharMaskState = AtharMaskState()
+    val maskState: AtharMaskState = AtharMaskState(),
+    val glitchEffectState: GlitchEffectState = GlitchEffectState()
 ) {
     val activeLayer: TextLayer
         get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()
@@ -90,6 +91,10 @@ data class CanvasState(
     val isHollowText: Boolean get() = activeLayer.isHollowText
     val customFontPath: String? get() = activeLayer.customFontPath
     val customFontName: String? get() = activeLayer.customFontName
+    val stylisticSet: Int get() = activeLayer.stylisticSet
+    val enableSwash: Boolean get() = activeLayer.enableSwash
+    val enableDiscretionaryLigatures: Boolean get() = activeLayer.enableDiscretionaryLigatures
+    val wordSpacing: Float get() = activeLayer.wordSpacing
 
     // Convenience constructor for legacy / single-layer callers
     constructor(

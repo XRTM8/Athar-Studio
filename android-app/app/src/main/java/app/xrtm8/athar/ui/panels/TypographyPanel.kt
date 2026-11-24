@@ -44,6 +44,10 @@ fun TypographyPanel(
     onToggleCurvedText: (Boolean) -> Unit = {},
     onCurveAngleChange: (Float) -> Unit = {},
     onAutoBalanceBlock: (() -> Unit)? = null,
+    onStylisticSetChange: (Int) -> Unit = {},
+    onToggleSwash: (Boolean) -> Unit = {},
+    onToggleDiscretionaryLigatures: (Boolean) -> Unit = {},
+    onWordSpacingChange: (Float) -> Unit = {},
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -123,6 +127,23 @@ fun TypographyPanel(
             onOpacityChange = onOpacityChange,
             onToggleCurvedText = onToggleCurvedText,
             onCurveAngleChange = onCurveAngleChange,
+            onSliderChangeFinished = onSliderChangeFinished
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 7. OpenType Stylistic Sets, Swash & Micro-Spacing
+        TypographyOpenTypeSection(
+            stylisticSet = state.stylisticSet,
+            enableSwash = state.enableSwash,
+            enableDiscretionaryLigatures = state.enableDiscretionaryLigatures,
+            wordSpacing = state.wordSpacing,
+            onStylisticSetChange = onStylisticSetChange,
+            onToggleSwash = onToggleSwash,
+            onToggleDiscretionaryLigatures = onToggleDiscretionaryLigatures,
+            onWordSpacingChange = onWordSpacingChange,
             onSliderChangeFinished = onSliderChangeFinished
         )
     }

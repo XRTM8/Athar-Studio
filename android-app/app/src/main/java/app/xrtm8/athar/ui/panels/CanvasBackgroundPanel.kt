@@ -203,6 +203,7 @@ fun CanvasBackgroundPanel(
                 4 -> CinematicEffectsPanel(
                     glowState = state.cinematicGlowState,
                     grainState = state.filmGrainState,
+                    glitchState = state.glitchEffectState,
                     onGlowChange = { viewModel.setCinematicGlow(it) },
                     onRangeChange = { viewModel.setCinematicRange(it) },
                     onSpreadChange = { viewModel.setCinematicSpread(it) },
@@ -213,6 +214,13 @@ fun CanvasBackgroundPanel(
                     onGrainSizeChange = { viewModel.setFilmGrainSize(it) },
                     onGrainRoughnessChange = { viewModel.setFilmGrainRoughness(it) },
                     onResetGrain = { viewModel.resetFilmGrain() },
+                    onGlitchRgbSplitChange = { viewModel.setGlitchRgbSplit(it) },
+                    onGlitchSliceJitterChange = { viewModel.setGlitchSliceJitter(it) },
+                    onGlitchScanlinesChange = { viewModel.setGlitchScanlines(it) },
+                    onGlitchNoiseChange = { viewModel.setGlitchNoise(it) },
+                    onGlitchPixelateChange = { viewModel.setGlitchPixelate(it) },
+                    onRandomizeGlitchSeed = { viewModel.randomizeGlitchSeed() },
+                    onResetGlitch = { viewModel.resetGlitchEffect() },
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
 

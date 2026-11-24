@@ -198,6 +198,14 @@ object AtharExportManager {
                     }
                 }
 
+                if (state.glitchEffectState.isEnabled) {
+                    val glitched = app.xrtm8.athar.core.AtharGlitchEngine.processBitmap(srcBitmap, state.glitchEffectState)
+                    if (glitched != srcBitmap) {
+                        srcBitmap.recycle()
+                        srcBitmap = glitched
+                    }
+                }
+
                 val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
                     colorFilter = FilmPresetEngine.createCompositeFilter(
                         preset = state.filmPreset,

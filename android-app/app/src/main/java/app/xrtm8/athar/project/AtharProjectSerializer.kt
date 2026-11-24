@@ -68,6 +68,10 @@ object AtharProjectSerializer {
                     put("box_width_ratio", layer.boxWidthRatio.toDouble())
                     put("custom_font_path", layer.customFontPath ?: "")
                     put("custom_font_name", layer.customFontName ?: "")
+                    put("stylistic_set", layer.stylisticSet)
+                    put("enable_swash", layer.enableSwash)
+                    put("enable_dlig", layer.enableDiscretionaryLigatures)
+                    put("word_spacing", layer.wordSpacing.toDouble())
                 }
                 layersArray.put(lObj)
             }
@@ -112,6 +116,10 @@ object AtharProjectSerializer {
             put("box_width_ratio", active.boxWidthRatio.toDouble())
             put("custom_font_path", active.customFontPath ?: "")
             put("custom_font_name", active.customFontName ?: "")
+            put("stylistic_set", active.stylisticSet)
+            put("enable_swash", active.enableSwash)
+            put("enable_dlig", active.enableDiscretionaryLigatures)
+            put("word_spacing", active.wordSpacing.toDouble())
 
             // Global Canvas Keys
             put("show_grid_guides", state.showGridGuides)
@@ -193,6 +201,15 @@ object AtharProjectSerializer {
             put("film_grain", grain.grain.toDouble())
             put("grain_size", grain.size.toDouble())
             put("grain_roughness", grain.roughness.toDouble())
+
+            // Analog Glitch, RGB Split & CRT
+            val glitch = state.glitchEffectState
+            put("glitch_rgb_split", glitch.rgbSplit.toDouble())
+            put("glitch_slice_jitter", glitch.sliceJitter.toDouble())
+            put("glitch_scanlines", glitch.scanlines.toDouble())
+            put("glitch_noise", glitch.noise.toDouble())
+            put("glitch_pixelate", glitch.pixelate.toDouble())
+            put("glitch_seed", glitch.seed)
 
             // Editorial Photo Collage
             val col = state.collageState
@@ -347,7 +364,11 @@ object AtharProjectSerializer {
                         isHollowText = isHollow,
                         boxWidthRatio = lObj.optDouble("box_width_ratio", 0.85).toFloat(),
                         customFontPath = customFontPath,
-                        customFontName = customFontName
+                        customFontName = customFontName,
+                        stylisticSet = lObj.optInt("stylistic_set", 0),
+                        enableSwash = lObj.optBoolean("enable_swash", false),
+                        enableDiscretionaryLigatures = lObj.optBoolean("enable_dlig", false),
+                        wordSpacing = lObj.optDouble("word_spacing", 0.0).toFloat()
                     )
                 )
             }
@@ -411,7 +432,11 @@ object AtharProjectSerializer {
                     glassBackdropPadding = c.optDouble("glass_backdrop_padding", 22.0).toFloat(),
                     boxWidthRatio = c.optDouble("box_width_ratio", 0.85).toFloat(),
                     customFontPath = customFontPath,
-                    customFontName = customFontName
+                    customFontName = customFontName,
+                    stylisticSet = c.optInt("stylistic_set", 0),
+                    enableSwash = c.optBoolean("enable_swash", false),
+                    enableDiscretionaryLigatures = c.optBoolean("enable_dlig", false),
+                    wordSpacing = c.optDouble("word_spacing", 0.0).toFloat()
                 )
             )
         }
@@ -470,6 +495,15 @@ object AtharProjectSerializer {
             grain = c.optDouble("film_grain", 0.0).toFloat(),
             size = c.optDouble("grain_size", 47.0).toFloat(),
             roughness = c.optDouble("grain_roughness", 50.0).toFloat()
+        )
+
+        val deserializedGlitch = app.xrtm8.athar.model.GlitchEffectState(
+            rgbSplit = c.optDouble("glitch_rgb_split", 0.0).toFloat(),
+            sliceJitter = c.optDouble("glitch_slice_jitter", 0.0).toFloat(),
+            scanlines = c.optDouble("glitch_scanlines", 0.0).toFloat(),
+            noise = c.optDouble("glitch_noise", 0.0).toFloat(),
+            pixelate = c.optDouble("glitch_pixelate", 0.0).toFloat(),
+            seed = c.optLong("glitch_seed", 1337L)
         )
 
         val colLayoutStr = c.optString("collage_layout", app.xrtm8.athar.model.CollageLayoutType.NONE.name)
@@ -570,7 +604,8 @@ object AtharProjectSerializer {
             cinematicGlowState = deserializedGlow,
             filmGrainState = deserializedGrain,
             collageState = deserializedCollage,
-            maskState = deserializedMask
+            maskState = deserializedMask,
+            glitchEffectState = deserializedGlitch
         )
     }
 }

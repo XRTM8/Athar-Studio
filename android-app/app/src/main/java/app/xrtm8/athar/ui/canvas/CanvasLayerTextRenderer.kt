@@ -75,6 +75,30 @@ object CanvasLayerTextRenderer {
         strokePaint.isFakeBoldText = layer.isBold
         strokePaint.textSkewX = basePaint.textSkewX
 
+        // OpenType Features: Stylistic Sets (ss01..ss20), Swash, and Discretionary Ligatures
+        val fontFeatures = buildString {
+            if (layer.stylisticSet in 1..20) {
+                append(String.format(java.util.Locale.US, "\"ss%02d\" 1, ", layer.stylisticSet))
+            }
+            if (layer.enableSwash) {
+                append("\"swsh\" 1, ")
+            }
+            if (layer.enableDiscretionaryLigatures) {
+                append("\"dlig\" 1, ")
+            }
+        }.trimEnd(',', ' ').ifEmpty { null }
+
+        basePaint.fontFeatureSettings = fontFeatures
+        shadowPaint.fontFeatureSettings = fontFeatures
+        strokePaint.fontFeatureSettings = fontFeatures
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && layer.wordSpacing != 0f) {
+            val wordSpacingPx = (layer.wordSpacing / 380f) * canvasWidth
+            basePaint.wordSpacing = wordSpacingPx
+            shadowPaint.wordSpacing = wordSpacingPx
+            strokePaint.wordSpacing = wordSpacingPx
+        }
+
         val effectiveStroke = if (layer.isHollowText && layer.strokeWidth <= 0f) 2.0f else layer.strokeWidth
         if (effectiveStroke > 0f) {
             strokePaint.strokeWidth = (effectiveStroke / 380f) * canvasWidth
