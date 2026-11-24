@@ -216,72 +216,29 @@ fun ArabicTextEditorDialog(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Harakat & Islamic Glyphs Toolbar
+            // Harakat, Quranic Marks & Islamic Glyphs Palette
             Text(
-                text = "التشكيل والحركات والرموز الإسلامية:",
-                color = MutedWhite,
+                text = "التشكيل المتقدم وعلامات المصحف والزخارف:",
+                color = secondaryTextColor,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             )
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Robust marks with base Tatweel so they render flawlessly across all Android devices
-            val marks = listOf(
-                "ـَ" to "َ",   // الفتحة
-                "ـُ" to "ُ",   // الضمة
-                "ـِ" to "ِ",   // الكسرة
-                "ـّ" to "ّ",   // الشدة
-                "ـْ" to "ْ",   // السكون
-                "ـً" to "ً",   // تنوين الفتح
-                "ـٌ" to "ٌ",   // تنوين الضم
-                "ـٍ" to "ٍ",   // تنوين الكسر
-                "ـ" to "ـ",    // تطويل / كشيدة
-                "ﷺ" to "ﷺ",
-                "ﷻ" to "ﷻ",
-                "﷽" to "﷽",
-                "۞" to "۞",
-                "۝" to "۝"
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                marks.forEach { (displayGlyph, insertChar) ->
-                    Box(
-                        modifier = Modifier
-                            .height(38.dp)
-                            .widthIn(min = 44.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(GlassSurface)
-                            .border(0.5.dp, GlassBorderActive, RoundedCornerShape(10.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                val currentText = textFieldValue.text
-                                val sel = textFieldValue.selection
-                                val start = sel.min.coerceIn(0, currentText.length)
-                                val end = sel.max.coerceIn(0, currentText.length)
-                                val newText = currentText.replaceRange(start, end, insertChar)
-                                val newCursor = start + insertChar.length
-                                textFieldValue = TextFieldValue(
-                                    text = newText,
-                                    selection = TextRange(newCursor)
-                                )
-                            }
-                            .padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = displayGlyph,
-                            color = GoldAccent,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+            ArabicDiacriticsPalette(
+                onInsertGlyph = { insertChar ->
+                    val currentText = textFieldValue.text
+                    val sel = textFieldValue.selection
+                    val start = sel.min.coerceIn(0, currentText.length)
+                    val end = sel.max.coerceIn(0, currentText.length)
+                    val newText = currentText.replaceRange(start, end, insertChar)
+                    val newCursor = start + insertChar.length
+                    textFieldValue = TextFieldValue(
+                        text = newText,
+                        selection = TextRange(newCursor)
+                    )
                 }
-            }
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 

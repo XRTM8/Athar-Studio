@@ -82,6 +82,18 @@ object AtharExportManager {
         }
     }
 
+    suspend fun exportPdf(
+        context: Context,
+        state: CanvasState,
+        onShareRequested: Boolean = false
+    ): Result<String> = AtharPdfExporter.exportPdf(context, state, onShareRequested)
+
+    suspend fun exportSvg(
+        context: Context,
+        state: CanvasState,
+        onShareRequested: Boolean = false
+    ): Result<String> = AtharSvgExporter.exportSvg(context, state, onShareRequested)
+
     internal fun renderDesign(context: Context, state: CanvasState, width: Int, transparent: Boolean): Bitmap {
         val height = (width / (state.aspectRatio.ratio ?: (9f / 16f))).toInt()
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -96,7 +108,7 @@ object AtharExportManager {
         }
     }
 
-    private fun drawBackground(context: Context, canvas: Canvas, state: CanvasState, width: Int, height: Int) {
+    internal fun drawBackground(context: Context, canvas: Canvas, state: CanvasState, width: Int, height: Int) {
         var photoDrawn = false
 
         if (state.collageState.isEnabled) {
@@ -316,7 +328,7 @@ object AtharExportManager {
         }
     }
 
-    private fun drawLayers(context: Context, canvas: Canvas, layers: List<TextLayer>, width: Int, height: Int) {
+    internal fun drawLayers(context: Context, canvas: Canvas, layers: List<TextLayer>, width: Int, height: Int) {
         val density = width / 380f
         val paints = CanvasPaintPool(density)
         for (layer in layers) {

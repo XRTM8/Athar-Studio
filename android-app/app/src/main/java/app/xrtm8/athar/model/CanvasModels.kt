@@ -7,6 +7,7 @@ enum class CanvasAspectRatio(val label: String, val ratio: Float?) {
     SQUARE_1_1("مربع 1:1", 1f),
     PORTRAIT_4_5("بورتريه 4:5", 4f / 5f),
     LANDSCAPE_16_9("عرضي 16:9", 16f / 9f),
+    PRINT_A4("مستند A4 (طباعة)", 1f / 1.4142f),
     WALLPAPER_9_19_5("خلفية 9:19.5", 9f / 19.5f),
     FREE("حر / شفاف", null)
 }

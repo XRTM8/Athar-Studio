@@ -30,6 +30,8 @@ fun ExportBottomSheet(
     onDismiss: () -> Unit,
     onExportFullCanvas: (ExportResolution) -> Unit,
     onExportSticker: (ExportResolution) -> Unit,
+    onExportPdf: () -> Unit,
+    onExportSvg: () -> Unit,
     onSaveProject: () -> Unit,
     onShareAtharProject: () -> Unit
 ) {
@@ -174,9 +176,69 @@ fun ExportBottomSheet(
                 }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 3. Export Vector PDF (Print-Ready 300 DPI)
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onExportPdf()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = cardBg),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = !isExporting
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(text = "مستند فيكتور للطباعة (Vector PDF)", color = primaryTextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(text = "دقة متجهة صافية 100% جاهزة للمطابع دون أي بكسلة", color = subtleTextColor, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 4. Export Vector SVG (Figma & Illustrator Compatible)
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onExportSvg()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = cardBg),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = !isExporting
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Polyline, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(text = "ملف فيكتور مفتوح (Vector SVG)", color = primaryTextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(text = "متوافق مع Figma و Illustrator مع نصوص قابلة للتعديل", color = subtleTextColor, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 3. Save to Local Drafts
+            // 5. Save to Local Drafts
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)

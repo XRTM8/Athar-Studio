@@ -517,8 +517,30 @@ class AtharStudioViewModel : ViewModel() {
     // Global Canvas & Photo Background Operations
     // ==========================================
 
-    fun setAspectRatio(ratio: CanvasAspectRatio) {
-        pushHistory(_canvasState.value.copy(aspectRatio = ratio))
+    fun setAspectRatio(ratio: CanvasAspectRatio, autoRefit: Boolean = true) {
+        val oldRatio = _canvasState.value.aspectRatio
+        if (ratio == oldRatio) return
+
+        if (!autoRefit || oldRatio.ratio == null || ratio.ratio == null) {
+            pushHistory(_canvasState.value.copy(aspectRatio = ratio))
+            return
+        }
+
+        val oldH = 1080f / oldRatio.ratio
+        val newH = 1080f / ratio.ratio
+        val heightFactor = newH / oldH
+
+        val refittedLayers = _canvasState.value.layers.map { layer ->
+            val newNormY = (layer.normOffsetY * heightFactor).coerceIn(-0.42f, 0.42f)
+            val newScale = if (heightFactor < 1.0f) {
+                (layer.scaleFactor * heightFactor.coerceAtLeast(0.70f)).coerceIn(0.2f, 3.0f)
+            } else {
+                layer.scaleFactor
+            }
+            layer.copy(normOffsetY = newNormY, scaleFactor = newScale)
+        }
+
+        pushHistory(_canvasState.value.copy(aspectRatio = ratio, layers = refittedLayers))
     }
 
     fun setSolidBgColor(colorLong: Long?) {
@@ -1485,6 +1507,42 @@ class AtharStudioViewModel : ViewModel() {
                 _exportMessage.value = result.getOrNull()
             } else {
                 _exportMessage.value = "فشل التصدير: ${result.exceptionOrNull()?.message}"
+            }
+        }
+    }
+
+    fun exportPdf(context: Context, onShareRequested: Boolean = false) {
+        if (_isExporting.value) return
+        viewModelScope.launch {
+            _isExporting.value = true
+            val result = AtharExportManager.exportPdf(
+                context = context,
+                state = _canvasState.value,
+                onShareRequested = onShareRequested
+            )
+            _isExporting.value = false
+            if (result.isSuccess) {
+                _exportMessage.value = result.getOrNull()
+            } else {
+                _exportMessage.value = "فشل تصدير PDF: ${result.exceptionOrNull()?.message}"
+            }
+        }
+    }
+
+    fun exportSvg(context: Context, onShareRequested: Boolean = false) {
+        if (_isExporting.value) return
+        viewModelScope.launch {
+            _isExporting.value = true
+            val result = AtharExportManager.exportSvg(
+                context = context,
+                state = _canvasState.value,
+                onShareRequested = onShareRequested
+            )
+            _isExporting.value = false
+            if (result.isSuccess) {
+                _exportMessage.value = result.getOrNull()
+            } else {
+                _exportMessage.value = "فشل تصدير SVG: ${result.exceptionOrNull()?.message}"
             }
         }
     }

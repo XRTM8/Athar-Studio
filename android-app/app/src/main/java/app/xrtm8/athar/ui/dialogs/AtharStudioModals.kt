@@ -90,6 +90,8 @@ fun AtharStudioModals(
             onDismiss = onDismissExportSheet,
             onExportFullCanvas = { requestExport(it, false) },
             onExportSticker = { requestExport(it, true) },
+            onExportPdf = { viewModel.exportPdf(context); onDismissExportSheet() },
+            onExportSvg = { viewModel.exportSvg(context); onDismissExportSheet() },
             onSaveProject = { viewModel.saveCurrentProject(context); onDismissExportSheet() },
             onShareAtharProject = { viewModel.exportProjectAsAthar(context); onDismissExportSheet() }
         )
