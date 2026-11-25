@@ -24,8 +24,8 @@ import java.util.concurrent.ConcurrentHashMap
 object MaskThumbnailCache {
     private val cache = ConcurrentHashMap<String, Bitmap>()
 
-    fun get(path: String): Bitmap? = cache[path]
-    fun put(path: String, bmp: Bitmap) { cache[path] = bmp }
+    fun get(key: String): Bitmap? = cache[key]
+    fun put(key: String, bmp: Bitmap) { cache[key] = bmp }
 }
 
 @Composable
@@ -35,20 +35,23 @@ fun MaskThumbnailView(
 ) {
     val context = LocalContext.current
     var bitmap by remember(maskDef.id) {
-        mutableStateOf(MaskThumbnailCache.get(maskDef.thumbFileName))
+        mutableStateOf(MaskThumbnailCache.get(maskDef.id))
     }
 
     LaunchedEffect(maskDef.id) {
         if (bitmap == null) {
             val loaded = withContext(Dispatchers.IO) {
-                if (maskDef.proceduralType != null) {
-                    AtharProceduralMaskRenderer.generateThumbnailBitmap(maskDef.proceduralType, 120)
-                } else {
+                val procType = maskDef.proceduralType
+                if (procType != null) {
+                    AtharProceduralMaskRenderer.generateThumbnailBitmap(procType, 120)
+                } else if (maskDef.thumbFileName.isNotBlank()) {
                     AtharImageProcessor.decodeSampledAssetBitmap(context, maskDef.thumbFileName, 120, 120)
+                } else {
+                    null
                 }
             }
             if (loaded != null) {
-                MaskThumbnailCache.put(maskDef.thumbFileName, loaded)
+                MaskThumbnailCache.put(maskDef.id, loaded)
                 bitmap = loaded
             }
         }

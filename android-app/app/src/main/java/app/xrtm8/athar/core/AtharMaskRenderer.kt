@@ -1,26 +1,80 @@
 package app.xrtm8.athar.core
 
+import android.content.Context
 import android.graphics.*
+import android.net.Uri
+import android.util.LruCache
+import app.xrtm8.athar.model.AtharMaskCatalog
+import app.xrtm8.athar.model.AtharMaskDefinition
 import app.xrtm8.athar.model.AtharMaskState
 import app.xrtm8.athar.model.BlackGradientPlacement
+import app.xrtm8.athar.model.MaskBlendMode
 import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
- * Zero-allocation, hardware-accelerated Skia mask & atmospheric gradient renderer (Mask Studio 2.0).
+ * Hardware-accelerated & 4K-parity Skia mask & atmospheric gradient renderer (Mask Studio 3.0).
  * Features:
- * - Mathematical procedural vector & optical Skia masks rendered at native canvas resolution (up to 4K).
- * - Full professional control pipeline: contrast, invert, solid tinting, luminance cutout, hue shift,
- *   spatial transforms (scale, offset X/Y, rotation, flips), and advanced blend modes.
- * - Hardware-accelerated atmospheric directional black gradients.
+ * - Procedural perspective sunlight gobos & vector frames at infinite resolution (LRU-cached blur).
+ * - High-res studio WebP smoke, botanical, and caustic textures capped at <= 1440px to prevent 4K OOM.
+ * - Full control pipeline: opacity, contrast, softness, warmth, invert, tint, luminance cutout,
+ *   hue shift, API-level-aware blend modes (including SOFT_LIGHT & COLOR_DODGE), and correct
+ *   centered transforms (scale/flip/rotate BEFORE pan translate).
  */
 object AtharMaskRenderer {
 
-    private val reusableMatrix = Matrix()
-    private val reusablePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG)
-    private val reusableGradientPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG).apply {
-        style = Paint.Style.FILL
+    const val MAX_MASK_ASSET_DIM_PX = 1440
+
+    private val reusableMatrix by lazy(LazyThreadSafetyMode.NONE) { Matrix() }
+    private val reusablePaint by lazy(LazyThreadSafetyMode.NONE) {
+        Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG)
     }
-    private val reusableColorMatrix = ColorMatrix()
+    private val reusableGradientPaint by lazy(LazyThreadSafetyMode.NONE) {
+        Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+    }
+    private val blurredBitmapCache by lazy(LazyThreadSafetyMode.NONE) { object : LruCache<String, Bitmap>(2) {} }
+
+    /**
+     * Returns true only when [maskDef] requires decoding a WebP bitmap from assets.
+     * Procedural masks ignore asset files and render directly via AtharProceduralMaskRenderer.
+     */
+    fun shouldDecodeAssetBitmap(maskDef: AtharMaskDefinition?): Boolean {
+        return maskDef != null && maskDef.requiresAssetBitmap
+    }
+
+    /**
+     * Capped asset mask decoder (<= 1440px) so 4K exports upscale smoothly with bilinear filtering
+     * and stay under ~8 MB RAM.
+     */
+    fun decodeCappedAssetBitmap(
+        context: Context,
+        maskDef: AtharMaskDefinition?,
+        targetWidth: Int,
+        targetHeight: Int
+    ): Bitmap? {
+        if (!shouldDecodeAssetBitmap(maskDef)) return null
+        val def = maskDef ?: return null
+        val reqW = targetWidth.coerceIn(64, MAX_MASK_ASSET_DIM_PX)
+        val reqH = targetHeight.coerceIn(64, MAX_MASK_ASSET_DIM_PX)
+        return AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, reqW, reqH)
+    }
+
+    /**
+     * Capped custom user mask decoder (<= 1440px) for safe memory usage during 4K export.
+     */
+    fun decodeCappedUriBitmap(
+        context: Context,
+        uri: Uri,
+        targetWidth: Int,
+        targetHeight: Int
+    ): Bitmap? {
+        val reqW = targetWidth.coerceIn(64, MAX_MASK_ASSET_DIM_PX)
+        val reqH = targetHeight.coerceIn(64, MAX_MASK_ASSET_DIM_PX)
+        return AtharImageProcessor.decodeSampledBitmap(context, uri, reqW, reqH)
+    }
 
     private fun applyHueRotation(cm: ColorMatrix, degrees: Float) {
         cm.reset()
@@ -50,17 +104,22 @@ object AtharMaskRenderer {
     }
 
     fun buildColorFilter(state: AtharMaskState): ColorFilter? {
+        val isProcedural = state.proceduralType != null
+        val defWarmth = AtharMaskCatalog.getById(state.activeMaskId)?.defaultWarmth ?: 0.35f
+        val warmthDelta = if (isProcedural || state.tintColorLong != null) 0f else (state.warmth - defWarmth)
+
         val hasAdjustments = state.hueShift != 0f ||
                 state.contrast != 1.0f ||
                 state.isInverted ||
                 state.tintColorLong != null ||
-                state.isLuminanceMode
+                state.isLuminanceMode ||
+                kotlin.math.abs(warmthDelta) > 0.02f
 
         if (!hasAdjustments) return null
 
         val cm = ColorMatrix()
 
-        // 1. Luminance mode (converts texture brightness to alpha/grayscale)
+        // 1. Luminance mode (converts texture brightness to grayscale)
         if (state.isLuminanceMode) {
             val lumR = 0.299f
             val lumG = 0.587f
@@ -95,7 +154,31 @@ object AtharMaskRenderer {
             cm.postConcat(hueCm)
         }
 
-        // 4. Contrast
+        // 4. Warmth temperature curve for raster WebP / custom masks (relative to neutral defaultWarmth)
+        if (kotlin.math.abs(warmthDelta) > 0.02f) {
+            val isMultiplyLike = state.blendMode == MaskBlendMode.MULTIPLY || state.blendMode == MaskBlendMode.DARKEN
+            val rScale: Float
+            val gScale: Float
+            val bScale: Float
+            if (isMultiplyLike) {
+                // Keep sunlit white near 1.0 while gently shifting blue/warm balance
+                rScale = if (warmthDelta < 0f) (1f + warmthDelta * 0.08f).coerceIn(0.88f, 1.0f) else 1.0f
+                gScale = 1.0f - kotlin.math.abs(warmthDelta) * 0.04f
+                bScale = if (warmthDelta > 0f) (1f - warmthDelta * 0.14f).coerceIn(0.84f, 1.0f) else 1.0f
+            } else {
+                rScale = (1f + warmthDelta * 0.22f).coerceIn(0.75f, 1.25f)
+                gScale = (1f + warmthDelta * 0.02f).coerceIn(0.88f, 1.06f)
+                bScale = (1f - warmthDelta * 0.34f).coerceIn(0.55f, 1.28f)
+            }
+            cm.postConcat(ColorMatrix(floatArrayOf(
+                rScale, 0f, 0f, 0f, 0f,
+                0f, gScale, 0f, 0f, 0f,
+                0f, 0f, bScale, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            )))
+        }
+
+        // 5. Contrast
         if (state.contrast != 1.0f) {
             val c = state.contrast.coerceIn(0.5f, 2.5f)
             val t = (1f - c) * 0.5f * 255f
@@ -108,7 +191,7 @@ object AtharMaskRenderer {
             cm.postConcat(contrastMatrix)
         }
 
-        // 5. Invert Mask
+        // 6. Invert Mask
         if (state.isInverted) {
             val invertMatrix = ColorMatrix(floatArrayOf(
                 -1f, 0f, 0f, 0f, 255f,
@@ -122,6 +205,33 @@ object AtharMaskRenderer {
         return ColorMatrixColorFilter(cm)
     }
 
+    private fun getSoftenedRasterBitmap(src: Bitmap, state: AtharMaskState): Bitmap {
+        val defSoftness = AtharMaskCatalog.getById(state.activeMaskId)?.defaultSoftness ?: 0.0f
+        val extraSoft = (state.softness - defSoftness).coerceAtLeast(0f)
+        if (extraSoft <= 0.04f || src.isRecycled) return src
+
+        val radius = (extraSoft * 24f).roundToInt().coerceIn(0, 24)
+        if (radius < 2) return src
+
+        val cacheKey = "${System.identityHashCode(src)}_${src.width}x${src.height}_r$radius"
+        val cached = blurredBitmapCache.get(cacheKey)
+        if (cached != null && !cached.isRecycled) return cached
+
+        // Downscale to <= 720px for fast blur and low RAM footprint
+        val maxDim = 720f
+        val scale = min(1f, maxDim / max(src.width, src.height).toFloat())
+        val pw = (src.width * scale).roundToInt().coerceAtLeast(16)
+        val ph = (src.height * scale).roundToInt().coerceAtLeast(16)
+        val work = if (scale < 0.98f) Bitmap.createScaledBitmap(src, pw, ph, true) else src
+        val scaledRadius = (radius * scale).roundToInt().coerceIn(1, 24)
+        val blurred = AtharImageProcessor.fastStackBlur(work, scaledRadius)
+        if (work != src && work != blurred && !work.isRecycled) {
+            work.recycle()
+        }
+        blurredBitmapCache.put(cacheKey, blurred)
+        return blurred
+    }
+
     @Synchronized
     fun drawMaskAndGradient(
         canvas: Canvas,
@@ -132,70 +242,63 @@ object AtharMaskRenderer {
     ) {
         if (!state.isEffectActive || width <= 0f || height <= 0f) return
 
-        // 1. Draw Active Mask (Procedural Vector or Custom Bitmap)
+        // 1. Draw Active Mask (Procedural Vector/Gobo or WebP/Custom Bitmap)
         if (state.isMaskActive) {
             val procType = state.proceduralType
 
-            // Configure reusable paint
+            reusablePaint.reset()
+            reusablePaint.isAntiAlias = true
+            reusablePaint.isFilterBitmap = true
+            reusablePaint.isDither = true
             reusablePaint.alpha = (state.opacity.coerceIn(0f, 1f) * 255).toInt()
-            reusablePaint.xfermode = PorterDuffXfermode(state.blendMode.porterDuffMode)
+            state.blendMode.applyToPaint(reusablePaint)
             reusablePaint.colorFilter = buildColorFilter(state)
 
+            val cx = width * 0.5f
+            val cy = height * 0.5f
+            val scale = state.scale.coerceIn(0.5f, 3.0f)
+            val flipX = if (state.isFlippedH) -1f else 1f
+            val flipY = if (state.isFlippedV) -1f else 1f
+            val transX = state.offsetX.coerceIn(-1f, 1f) * (width * 0.5f)
+            val transY = state.offsetY.coerceIn(-1f, 1f) * (height * 0.5f)
+
             if (procType != null) {
-                // Procedural Vector / Optical Mask (Infinite 4K resolution)
+                // Transform order: scale+flip around center -> rotate around center -> pan translate
                 reusableMatrix.reset()
-                val scale = state.scale.coerceIn(0.5f, 3.0f)
-                val maxShiftX = width * 0.5f
-                val maxShiftY = height * 0.5f
-                val transX = state.offsetX.coerceIn(-1f, 1f) * maxShiftX
-                val transY = state.offsetY.coerceIn(-1f, 1f) * maxShiftY
-
-                reusableMatrix.postScale(scale, scale, width * 0.5f, height * 0.5f)
-                reusableMatrix.postTranslate(transX, transY)
-
-                if (state.isFlippedH || state.isFlippedV) {
-                    val sx = if (state.isFlippedH) -1f else 1f
-                    val sy = if (state.isFlippedV) -1f else 1f
-                    reusableMatrix.postScale(sx, sy, width * 0.5f, height * 0.5f)
-                }
-
+                reusableMatrix.postScale(scale * flipX, scale * flipY, cx, cy)
                 if (state.rotationDegrees != 0) {
-                    reusableMatrix.postRotate(state.rotationDegrees.toFloat(), width * 0.5f, height * 0.5f)
+                    reusableMatrix.postRotate(state.rotationDegrees.toFloat(), cx, cy)
                 }
+                reusableMatrix.postTranslate(transX, transY)
 
                 canvas.save()
                 canvas.concat(reusableMatrix)
-                AtharProceduralMaskRenderer.drawProceduralMask(canvas, procType, width, height, reusablePaint)
+                AtharProceduralMaskRenderer.drawProceduralMask(
+                    canvas = canvas,
+                    type = procType,
+                    width = width,
+                    height = height,
+                    paint = reusablePaint,
+                    softness = state.softness,
+                    warmth = state.warmth
+                )
                 canvas.restore()
-            } else if (maskBitmap != null) {
-                // Custom imported texture or legacy bitmap
-                val bmpW = maskBitmap.width.toFloat()
-                val bmpH = maskBitmap.height.toFloat()
-                if (bmpW > 0 && bmpH > 0) {
+            } else if (maskBitmap != null && !maskBitmap.isRecycled) {
+                val drawBmp = getSoftenedRasterBitmap(maskBitmap, state)
+                val bmpW = drawBmp.width.toFloat()
+                val bmpH = drawBmp.height.toFloat()
+                if (bmpW > 0f && bmpH > 0f) {
+                    val baseScale = max(width / bmpW, height / bmpH) * scale
+                    // Center at origin -> scale+flip -> rotate -> translate to canvas center + pan
                     reusableMatrix.reset()
-                    val baseScale = max(width / bmpW, height / bmpH) * state.scale.coerceIn(0.5f, 3.0f)
-                    val scaledW = bmpW * baseScale
-                    val scaledH = bmpH * baseScale
-
-                    val maxShiftX = width * 0.5f
-                    val maxShiftY = height * 0.5f
-                    val posX = (width - scaledW) / 2f + (state.offsetX.coerceIn(-1f, 1f) * maxShiftX)
-                    val posY = (height - scaledH) / 2f + (state.offsetY.coerceIn(-1f, 1f) * maxShiftY)
-
-                    reusableMatrix.postScale(baseScale, baseScale)
-                    reusableMatrix.postTranslate(posX, posY)
-
-                    if (state.isFlippedH || state.isFlippedV) {
-                        val sx = if (state.isFlippedH) -1f else 1f
-                        val sy = if (state.isFlippedV) -1f else 1f
-                        reusableMatrix.postScale(sx, sy, width / 2f, height / 2f)
-                    }
-
+                    reusableMatrix.postTranslate(-bmpW * 0.5f, -bmpH * 0.5f)
+                    reusableMatrix.postScale(baseScale * flipX, baseScale * flipY)
                     if (state.rotationDegrees != 0) {
-                        reusableMatrix.postRotate(state.rotationDegrees.toFloat(), width / 2f, height / 2f)
+                        reusableMatrix.postRotate(state.rotationDegrees.toFloat())
                     }
+                    reusableMatrix.postTranslate(cx + transX, cy + transY)
 
-                    canvas.drawBitmap(maskBitmap, reusableMatrix, reusablePaint)
+                    canvas.drawBitmap(drawBmp, reusableMatrix, reusablePaint)
                 }
             }
         }
@@ -207,59 +310,37 @@ object AtharMaskRenderer {
 
             reusableGradientPaint.reset()
             reusableGradientPaint.isAntiAlias = true
+            reusableGradientPaint.isDither = true
             reusableGradientPaint.style = Paint.Style.FILL
             reusableGradientPaint.alpha = (grad.opacity.coerceIn(0f, 1f) * 255).toInt()
 
             val shader: Shader = when (grad.placement) {
-                BlackGradientPlacement.BOTTOM -> {
-                    LinearGradient(
-                        0f, height * (1f - cov),
-                        0f, height,
-                        Color.TRANSPARENT, Color.BLACK,
-                        Shader.TileMode.CLAMP
-                    )
-                }
-                BlackGradientPlacement.TOP -> {
-                    LinearGradient(
-                        0f, height * cov,
-                        0f, 0f,
-                        Color.TRANSPARENT, Color.BLACK,
-                        Shader.TileMode.CLAMP
-                    )
-                }
-                BlackGradientPlacement.LEFT -> {
-                    LinearGradient(
-                        width * cov, 0f,
-                        0f, 0f,
-                        Color.TRANSPARENT, Color.BLACK,
-                        Shader.TileMode.CLAMP
-                    )
-                }
-                BlackGradientPlacement.RIGHT -> {
-                    LinearGradient(
-                        width * (1f - cov), 0f,
-                        width, 0f,
-                        Color.TRANSPARENT, Color.BLACK,
-                        Shader.TileMode.CLAMP
-                    )
-                }
-                BlackGradientPlacement.RADIAL -> {
-                    val radius = max(width, height) * 0.75f * cov
-                    RadialGradient(
-                        width / 2f, height / 2f, radius,
-                        intArrayOf(Color.TRANSPARENT, Color.BLACK),
-                        floatArrayOf(0.15f, 1.0f),
-                        Shader.TileMode.CLAMP
-                    )
-                }
-                BlackGradientPlacement.VERTICAL_SPLIT -> {
-                    LinearGradient(
-                        0f, 0f, 0f, height,
-                        intArrayOf(Color.BLACK, Color.TRANSPARENT, Color.TRANSPARENT, Color.BLACK),
-                        floatArrayOf(0f, cov * 0.40f, 1f - (cov * 0.40f), 1f),
-                        Shader.TileMode.CLAMP
-                    )
-                }
+                BlackGradientPlacement.BOTTOM -> LinearGradient(
+                    0f, height * (1f - cov), 0f, height,
+                    Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP
+                )
+                BlackGradientPlacement.TOP -> LinearGradient(
+                    0f, height * cov, 0f, 0f,
+                    Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP
+                )
+                BlackGradientPlacement.LEFT -> LinearGradient(
+                    width * cov, 0f, 0f, 0f,
+                    Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP
+                )
+                BlackGradientPlacement.RIGHT -> LinearGradient(
+                    width * (1f - cov), 0f, width, 0f,
+                    Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP
+                )
+                BlackGradientPlacement.RADIAL -> RadialGradient(
+                    width / 2f, height / 2f, max(width, height) * 0.75f * cov,
+                    intArrayOf(Color.TRANSPARENT, Color.BLACK),
+                    floatArrayOf(0.15f, 1.0f), Shader.TileMode.CLAMP
+                )
+                BlackGradientPlacement.VERTICAL_SPLIT -> LinearGradient(
+                    0f, 0f, 0f, height,
+                    intArrayOf(Color.BLACK, Color.TRANSPARENT, Color.TRANSPARENT, Color.BLACK),
+                    floatArrayOf(0f, cov * 0.40f, 1f - (cov * 0.40f), 1f), Shader.TileMode.CLAMP
+                )
             }
 
             reusableGradientPaint.shader = shader
