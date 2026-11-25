@@ -79,10 +79,7 @@ fun CanvasView(
     }
 
     val bitmaps = rememberCanvasBackgroundBitmap(
-        context = context,
-        state = state,
-        viewportAspectRatio = if (canvasH > 0f) canvasW / canvasH else null,
-        isLiveFramingDrag = isInteracting && effectiveFramingMode
+        context, state, if (canvasH > 0f) canvasW / canvasH else null, isInteracting && effectiveFramingMode
     )
     val paints = rememberCanvasPaints(density)
     val isAmoledWhite = LocalAmoledWhite.current
@@ -100,10 +97,7 @@ fun CanvasView(
         else -> state
     }
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.fillMaxSize().clipToBounds().background(if (isAmoledWhite) WhiteSurface else AmoledBlack)
-    ) {
+    Box(contentAlignment = Alignment.Center, modifier = modifier.fillMaxSize().clipToBounds().background(if (isAmoledWhite) WhiteSurface else AmoledBlack)) {
         Canvas(
             modifier = Modifier
                 .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.fillMaxSize())
@@ -215,7 +209,7 @@ fun CanvasView(
                     CanvasBackgroundRenderer.drawBackground(
                         native, stateForBg, canvasW, canvasH, density, bitmaps.processedBitmap, paints.bgPaint,
                         bitmaps.cellBitmaps, bitmaps.maskBitmap, bitmaps.processedCollagePhotoLayer,
-                        bitmaps.processedCollageBitmap, bitmaps.blurredCellBitmaps, isLiveFramingDrag = isInteracting && effectiveFramingMode
+                        bitmaps.processedCollageBitmap, bitmaps.blurredCellBitmaps, isInteracting && effectiveFramingMode
                     )
                     if (state.collageState.isEnabled && (effectiveFramingMode || tappedCellId != null)) {
                         CollageCanvasRenderer.drawActiveCellHighlight(
@@ -240,12 +234,8 @@ fun CanvasView(
                 }
             }
         }
-
         CollageCanvasActionPills(
-            isComparingBefore = isComparingBefore,
-            isFramingMode = effectiveFramingMode && state.collageState.isEnabled,
-            tappedCellId = tappedCellId,
-            hasCollageEnabled = state.collageState.isEnabled,
+            isComparingBefore, effectiveFramingMode && state.collageState.isEnabled, tappedCellId, state.collageState.isEnabled,
             onEnterFraming = { tappedCellId = null; if (onToggleFramingMode != null) onToggleFramingMode(true) else localQuickFraming = true },
             onExitFraming = { localQuickFraming = false; onToggleFramingMode?.invoke(false) },
             onPickPhoto = onPickCollageCellPhoto?.let { pick -> { id: String -> tappedCellId = null; pick(id) } },

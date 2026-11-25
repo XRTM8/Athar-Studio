@@ -84,13 +84,15 @@ object AtharBackgroundPipeline {
     fun hasColorMix(state: CanvasState): Boolean =
         state.colorMixState.isEnabled && !state.colorMixState.isDefault
 
-    fun hasHeavyCollageCompositeEffects(state: CanvasState): Boolean =
-        hasColorMix(state) ||
-            hasFilmLut(state) ||
+    fun hasSinglePhotoRasterEffects(state: CanvasState): Boolean =
+        hasFilmLut(state) ||
             state.opticalLensState.isEnabled ||
             state.cinematicGlowState.isEnabled ||
             state.filmGrainState.isEnabled ||
             state.glitchEffectState.isEnabled
+
+    fun hasHeavyCollageCompositeEffects(state: CanvasState): Boolean =
+        hasColorMix(state) || hasSinglePhotoRasterEffects(state)
 
     fun hasAnyPixelEffects(state: CanvasState): Boolean =
         state.backgroundBlur > 0.5f || hasHeavyCollageCompositeEffects(state)
@@ -294,6 +296,17 @@ object AtharBackgroundPipeline {
             if (lutDone !== current) {
                 if (current !== input && !current.isRecycled) current.recycle()
                 current = lutDone
+            }
+        }
+
+        if (hasSinglePhotoRasterEffects(state)) {
+            val colorFilter = buildCompositeColorFilter(state, includeFilmMatrix = false)
+            if (colorFilter != null) {
+                val filtered = Bitmap.createBitmap(current.width, current.height, Bitmap.Config.ARGB_8888)
+                val p = Paint(Paint.FILTER_BITMAP_FLAG).apply { this.colorFilter = colorFilter }
+                Canvas(filtered).drawBitmap(current, 0f, 0f, p)
+                if (current !== input && !current.isRecycled) current.recycle()
+                current = filtered
             }
         }
 
@@ -525,7 +538,11 @@ object AtharBackgroundPipeline {
         if (processed !== current && !current.isRecycled) current.recycle()
 
         val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
-            colorFilter = buildCompositeColorFilter(state, includeFilmMatrix = false)
+            colorFilter = if (hasSinglePhotoRasterEffects(state)) {
+                null
+            } else {
+                buildCompositeColorFilter(state, includeFilmMatrix = false)
+            }
         }
         if (processed.width != width || processed.height != height) {
             val m = Matrix().apply {

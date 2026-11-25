@@ -12,6 +12,8 @@ import app.xrtm8.athar.model.CanvasState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.util.Collections
+import java.util.IdentityHashMap
 import kotlin.math.max
 
 data class CanvasBitmapHolder(
@@ -39,7 +41,7 @@ fun rememberCanvasBackgroundBitmap(
         val oldMask = maskBitmap
         if (!state.maskState.isEnabled) {
             maskBitmap = null
-            if (oldMask != null && !oldMask.isRecycled) oldMask.recycle()
+            recycleIfUnused(oldMask)
             return@LaunchedEffect
         }
         val loaded = withContext(Dispatchers.IO) {
@@ -52,7 +54,7 @@ fun rememberCanvasBackgroundBitmap(
             }
         }
         maskBitmap = loaded
-        if (oldMask != null && oldMask != loaded && !oldMask.isRecycled) oldMask.recycle()
+        recycleIfUnused(oldMask, loaded)
     }
 
     val cellPhotos = remember(state.collageState.cells) {
@@ -62,89 +64,78 @@ fun rememberCanvasBackgroundBitmap(
     LaunchedEffect(cellPhotos) {
         val oldMap = cellBitmaps
         val newMap = withContext(Dispatchers.IO) {
-            cellPhotos.mapNotNull { (id, uri) ->
-                AtharImageProcessor.decodeSampledBitmap(context, uri, 1080, 1920)?.let { id to it }
-            }.toMap()
+            cellPhotos.mapNotNull { (id, uri) -> AtharImageProcessor.decodeSampledBitmap(context, uri, 1080, 1920)?.let { id to it } }.toMap()
         }
         cellBitmaps = newMap
         oldMap.forEach { (id, bmp) -> if (newMap[id] != bmp && !bmp.isRecycled) bmp.recycle() }
     }
 
+    var singleStageBlur by remember { mutableStateOf<Bitmap?>(null) }
+    var singleStageMix by remember { mutableStateOf<Bitmap?>(null) }
+
     LaunchedEffect(state.backgroundImageUri) {
         val oldBg = rawBgBitmap
         val loaded = state.backgroundImageUri?.let { withContext(Dispatchers.IO) { AtharImageProcessor.decodeSampledBitmap(context, it, 1080, 1920) } }
         rawBgBitmap = loaded
-        if (oldBg != null && oldBg != loaded && !oldBg.isRecycled) oldBg.recycle()
+        recycleIfUnused(oldBg, loaded, singleStageBlur, singleStageMix, processedBgBitmap)
     }
-
-    // Single-photo multi-stage cache with 540px proxy -> 140ms -> 1080px settle
-    var singleStageBlur by remember { mutableStateOf<Bitmap?>(null) }
-    var singleStageMix by remember { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(rawBgBitmap, state.backgroundBlur, state.collageState.isEnabled) {
         val base = rawBgBitmap
-        singleStageBlur = when {
+        val next = when {
             base == null || state.collageState.isEnabled -> null
             state.backgroundBlur <= 0.5f -> base
             else -> withContext(Dispatchers.Default) { AtharImageProcessor.fastPreviewBlur(base, state.backgroundBlur.toInt().coerceIn(1, 35)) }
         }
+        val prev = singleStageBlur; singleStageBlur = next
+        recycleIfUnused(prev, next, rawBgBitmap, singleStageMix, processedBgBitmap)
     }
 
     LaunchedEffect(singleStageBlur, state.colorMixState, state.collageState.isEnabled) {
         val base = singleStageBlur
-        if (base == null || base.isRecycled || state.collageState.isEnabled) { singleStageMix = null; return@LaunchedEffect }
-        if (!AtharBackgroundPipeline.hasColorMix(state)) { singleStageMix = base; return@LaunchedEffect }
-        runTwoTierBitmapPass(base, 540) { input ->
-            AtharColorMixEngine.processBitmap(input, state.colorMixState)
-        }.also { singleStageMix = it }
-        val maxSide = max(base.width, base.height)
-        if (maxSide > 540) {
-            delay(140L)
-            singleStageMix = withContext(Dispatchers.Default) { AtharColorMixEngine.processBitmap(base, state.colorMixState) }
+        fun setMix(next: Bitmap?) {
+            val prev = singleStageMix; singleStageMix = next
+            recycleIfUnused(prev, next, rawBgBitmap, singleStageBlur, processedBgBitmap)
         }
+        if (base == null || base.isRecycled || state.collageState.isEnabled) { setMix(null); return@LaunchedEffect }
+        if (!AtharBackgroundPipeline.hasColorMix(state)) { setMix(base); return@LaunchedEffect }
+        setMix(runTwoTierBitmapPass(base, 540) { input -> AtharColorMixEngine.processBitmap(input, state.colorMixState) })
+        if (max(base.width, base.height) > 540) { delay(140L); setMix(withContext(Dispatchers.Default) { AtharColorMixEngine.processBitmap(base, state.colorMixState) }) }
     }
 
-    val singleNeedsHeavy = AtharBackgroundPipeline.hasFilmLut(state) || state.opticalLensState.isEnabled ||
-        state.cinematicGlowState.isEnabled || state.filmGrainState.isEnabled || state.glitchEffectState.isEnabled
+    val singleNeedsHeavy = AtharBackgroundPipeline.hasSinglePhotoRasterEffects(state)
     LaunchedEffect(
-        singleStageMix, state.filmPreset, state.filmPresetIntensity, state.opticalLensState,
-        state.cinematicGlowState, state.filmGrainState, state.glitchEffectState, state.collageState.isEnabled
+        singleStageMix, singleNeedsHeavy, state.filmPreset, state.filmPresetIntensity, state.opticalLensState,
+        state.colorGradingEnabled, state.liftRed, state.liftGreen, state.liftBlue, state.gammaRed, state.gammaGreen, state.gammaBlue,
+        state.gainRed, state.gainGreen, state.gainBlue, state.backgroundDim, state.backgroundBrightness, state.backgroundContrast,
+        state.backgroundSaturation, state.backgroundGrayscale, state.cinematicGlowState, state.filmGrainState, state.glitchEffectState,
+        state.collageState.isEnabled
     ) {
         val base = singleStageMix
-        if (base == null || base.isRecycled || state.collageState.isEnabled) { processedBgBitmap = null; return@LaunchedEffect }
-        if (!singleNeedsHeavy) { processedBgBitmap = base; return@LaunchedEffect }
-        processedBgBitmap = runTwoTierBitmapPass(base, 540) { input ->
-            AtharBackgroundPipeline.renderSinglePhotoHeavyEffects(input, state, includeColorMix = false)
+        fun setProcessed(next: Bitmap?) {
+            val prev = processedBgBitmap; processedBgBitmap = next
+            recycleIfUnused(prev, next, rawBgBitmap, singleStageBlur, singleStageMix)
         }
-        if (max(base.width, base.height) > 540) {
-            delay(140L)
-            processedBgBitmap = withContext(Dispatchers.Default) {
-                AtharBackgroundPipeline.renderSinglePhotoHeavyEffects(base, state, includeColorMix = false)
-            }
-        }
+        if (base == null || base.isRecycled || state.collageState.isEnabled) { setProcessed(null); return@LaunchedEffect }
+        if (!singleNeedsHeavy) { setProcessed(base); return@LaunchedEffect }
+        setProcessed(runTwoTierBitmapPass(base, 540) { input -> AtharBackgroundPipeline.renderSinglePhotoHeavyEffects(input, state, false) })
+        if (max(base.width, base.height) > 540) { delay(140L); setProcessed(withContext(Dispatchers.Default) { AtharBackgroundPipeline.renderSinglePhotoHeavyEffects(base, state, false) }) }
     }
 
-    // Collage blur-only fast hardware path
     var blurredCellBitmaps by remember { mutableStateOf<Map<String, Bitmap>>(emptyMap()) }
-    val collageNeedsHeavy = state.collageState.isEnabled && !state.isTransparentBg &&
-        AtharBackgroundPipeline.hasHeavyCollageCompositeEffects(state)
+    val collageNeedsHeavy = state.collageState.isEnabled && !state.isTransparentBg && AtharBackgroundPipeline.hasHeavyCollageCompositeEffects(state)
 
     LaunchedEffect(cellBitmaps, state.backgroundBlur, state.collageState.isEnabled, state.isTransparentBg, collageNeedsHeavy) {
         val old = blurredCellBitmaps
         if (!state.collageState.isEnabled || state.isTransparentBg || collageNeedsHeavy || state.backgroundBlur <= 0.5f) {
-            blurredCellBitmaps = emptyMap()
-            old.values.forEach { if (!it.isRecycled) it.recycle() }
-            return@LaunchedEffect
+            blurredCellBitmaps = emptyMap(); old.values.forEach { if (!it.isRecycled) it.recycle() }; return@LaunchedEffect
         }
         val radius = state.backgroundBlur.toInt().coerceIn(1, 35)
-        val next = withContext(Dispatchers.Default) {
-            cellBitmaps.mapValues { (_, bmp) -> if (bmp.isRecycled) bmp else AtharImageProcessor.fastPreviewBlur(bmp, radius) }
-        }
+        val next = withContext(Dispatchers.Default) { cellBitmaps.mapValues { (_, bmp) -> if (bmp.isRecycled) bmp else AtharImageProcessor.fastPreviewBlur(bmp, radius) } }
         blurredCellBitmaps = next
         old.forEach { (id, bmp) -> if (next[id] != bmp && cellBitmaps[id] != bmp && !bmp.isRecycled) bmp.recycle() }
     }
 
-    // Collage multi-stage cache (Stage 1: PhotoLayer+Blur -> Stage 2: ColorMix -> Stage 3: Film/Grain/Glow/Glitch)
     val effectiveRatio = state.aspectRatio.ratio ?: viewportAspectRatio ?: (9f / 16f)
     var collageStageBase by remember { mutableStateOf<Bitmap?>(null) }
     var collageStageMix by remember { mutableStateOf<Bitmap?>(null) }
@@ -156,34 +147,32 @@ fun rememberCanvasBackgroundBitmap(
         state.collageState.spacingDp, state.collageState.cornerRadiusDp,
         state.backgroundBlur, effectiveRatio, collageNeedsHeavy, isLiveFramingDrag
     ) {
-        if (!collageNeedsHeavy) { collageStageBase = null; return@LaunchedEffect }
+        fun setBase(next: Bitmap?) {
+            val prev = collageStageBase; collageStageBase = next
+            recycleIfUnused(prev, next, collageStageMix, processedCollagePhotoLayer, processedCollageBitmap)
+        }
+        if (!collageNeedsHeavy) { setBase(null); return@LaunchedEffect }
         if (isLiveFramingDrag) return@LaunchedEffect
         val (pw, ph) = AtharBackgroundPipeline.computePreviewSize(effectiveRatio, 540)
-        collageStageBase = withContext(Dispatchers.Default) {
-            AtharBackgroundPipeline.assembleCollagePhotoLayer(pw, ph, state, isPreview = true, { cell, _, _ -> cellBitmaps[cell.id] }, false)
-        }
+        setBase(withContext(Dispatchers.Default) { AtharBackgroundPipeline.assembleCollagePhotoLayer(pw, ph, state, true, { cell, _, _ -> cellBitmaps[cell.id] }, false) })
         delay(140L)
         val (fw, fh) = AtharBackgroundPipeline.computePreviewSize(effectiveRatio, 1080)
-        collageStageBase = withContext(Dispatchers.Default) {
-            AtharBackgroundPipeline.assembleCollagePhotoLayer(fw, fh, state, isPreview = true, { cell, _, _ -> cellBitmaps[cell.id] }, false)
-        }
+        setBase(withContext(Dispatchers.Default) { AtharBackgroundPipeline.assembleCollagePhotoLayer(fw, fh, state, true, { cell, _, _ -> cellBitmaps[cell.id] }, false) })
     }
 
     LaunchedEffect(collageStageBase, state.colorMixState, collageNeedsHeavy) {
         val base = collageStageBase
-        if (base == null || base.isRecycled || !collageNeedsHeavy) { collageStageMix = null; return@LaunchedEffect }
-        if (!AtharBackgroundPipeline.hasColorMix(state)) { collageStageMix = base; return@LaunchedEffect }
-        collageStageMix = runTwoTierBitmapPass(base, 540) { input ->
-            AtharColorMixEngine.processBitmap(input, state.colorMixState)
+        fun setMix(next: Bitmap?) {
+            val prev = collageStageMix; collageStageMix = next
+            recycleIfUnused(prev, next, collageStageBase, processedCollagePhotoLayer, processedCollageBitmap)
         }
-        if (max(base.width, base.height) > 540) {
-            delay(140L)
-            collageStageMix = withContext(Dispatchers.Default) { AtharColorMixEngine.processBitmap(base, state.colorMixState) }
-        }
+        if (base == null || base.isRecycled || !collageNeedsHeavy) { setMix(null); return@LaunchedEffect }
+        if (!AtharBackgroundPipeline.hasColorMix(state)) { setMix(base); return@LaunchedEffect }
+        setMix(runTwoTierBitmapPass(base, 540) { input -> AtharColorMixEngine.processBitmap(input, state.colorMixState) })
+        if (max(base.width, base.height) > 540) { delay(140L); setMix(withContext(Dispatchers.Default) { AtharColorMixEngine.processBitmap(base, state.colorMixState) }) }
     }
 
-    val needsRasterFinal = AtharBackgroundPipeline.hasFilmLut(state) || state.opticalLensState.isEnabled ||
-        state.cinematicGlowState.isEnabled || state.filmGrainState.isEnabled || state.glitchEffectState.isEnabled
+    val needsRasterFinal = singleNeedsHeavy
     LaunchedEffect(
         collageStageMix, needsRasterFinal, collageNeedsHeavy,
         state.collageState.frameColorLong, state.collageState.cells, state.collageState.spacingDp, state.collageState.cornerRadiusDp,
@@ -193,59 +182,58 @@ fun rememberCanvasBackgroundBitmap(
         state.cinematicGlowState, state.filmGrainState, state.glitchEffectState
     ) {
         val mixed = collageStageMix
-        if (mixed == null || mixed.isRecycled || !collageNeedsHeavy) {
-            processedCollagePhotoLayer = null; processedCollageBitmap = null; return@LaunchedEffect
+        fun setFinal(photoLayer: Bitmap?, composite: Bitmap?) {
+            val prevLayer = processedCollagePhotoLayer; val prevComp = processedCollageBitmap
+            processedCollagePhotoLayer = photoLayer; processedCollageBitmap = composite
+            recycleIfUnused(prevLayer, photoLayer, composite, collageStageBase, collageStageMix)
+            recycleIfUnused(prevComp, photoLayer, composite, collageStageBase, collageStageMix)
         }
-        if (!needsRasterFinal) {
-            processedCollagePhotoLayer = mixed; processedCollageBitmap = null; return@LaunchedEffect
-        }
-        processedCollagePhotoLayer = null
-        processedCollageBitmap = runTwoTierBitmapPass(mixed, 540) { input ->
+        if (mixed == null || mixed.isRecycled || !collageNeedsHeavy) { setFinal(null, null); return@LaunchedEffect }
+        if (!needsRasterFinal) { setFinal(mixed, null); return@LaunchedEffect }
+        val proxy = runTwoTierBitmapPass(mixed, 540) { input ->
             AtharBackgroundPipeline.renderCollageCompositeFromMixedLayer(input, state) { cell -> cellBitmaps[cell.id] == null }
         }
+        setFinal(null, proxy)
         if (max(mixed.width, mixed.height) > 540) {
             delay(140L)
-            processedCollageBitmap = withContext(Dispatchers.Default) {
+            val full = withContext(Dispatchers.Default) {
                 AtharBackgroundPipeline.renderCollageCompositeFromMixedLayer(mixed, state) { cell -> cellBitmaps[cell.id] == null }
             }
+            setFinal(null, full)
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            if (maskBitmap?.isRecycled == false) maskBitmap?.recycle()
-            if (rawBgBitmap?.isRecycled == false) rawBgBitmap?.recycle()
-            cellBitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
-            blurredCellBitmaps.values.forEach { if (!it.isRecycled && !cellBitmaps.containsValue(it)) it.recycle() }
+            val toDispose = Collections.newSetFromMap(IdentityHashMap<Bitmap, Boolean>())
+            listOfNotNull(
+                maskBitmap, rawBgBitmap, singleStageBlur, singleStageMix, processedBgBitmap,
+                collageStageBase, collageStageMix, processedCollagePhotoLayer, processedCollageBitmap
+            ).forEach { toDispose.add(it) }
+            toDispose.addAll(cellBitmaps.values)
+            toDispose.addAll(blurredCellBitmaps.values)
+            toDispose.forEach { if (!it.isRecycled) it.recycle() }
         }
     }
 
     return CanvasBitmapHolder(
-        rawBitmap = rawBgBitmap,
-        processedBitmap = processedBgBitmap,
-        cellBitmaps = cellBitmaps,
-        maskBitmap = maskBitmap,
-        blurredCellBitmaps = blurredCellBitmaps,
-        processedCollagePhotoLayer = processedCollagePhotoLayer,
-        processedCollageBitmap = processedCollageBitmap
+        rawBitmap = rawBgBitmap, processedBitmap = processedBgBitmap, cellBitmaps = cellBitmaps,
+        maskBitmap = maskBitmap, blurredCellBitmaps = blurredCellBitmaps,
+        processedCollagePhotoLayer = processedCollagePhotoLayer, processedCollageBitmap = processedCollageBitmap
     )
 }
 
-private suspend fun runTwoTierBitmapPass(
-    base: Bitmap,
-    proxyMaxDim: Int,
-    transform: (Bitmap) -> Bitmap
-): Bitmap = withContext(Dispatchers.Default) {
-    val maxSide = max(base.width, base.height)
-    if (maxSide <= proxyMaxDim) return@withContext transform(base)
-    val scale = proxyMaxDim.toFloat() / maxSide
-    val scaled = Bitmap.createScaledBitmap(
-        base,
-        (base.width * scale).toInt().coerceAtLeast(16),
-        (base.height * scale).toInt().coerceAtLeast(16),
-        true
-    )
-    val result = transform(scaled)
-    if (result !== scaled && !scaled.isRecycled) scaled.recycle()
-    result
+private fun recycleIfUnused(candidate: Bitmap?, vararg keep: Bitmap?) {
+    if (candidate != null && !candidate.isRecycled && keep.none { it === candidate }) candidate.recycle()
 }
+
+private suspend fun runTwoTierBitmapPass(base: Bitmap, proxyMaxDim: Int, transform: (Bitmap) -> Bitmap): Bitmap =
+    withContext(Dispatchers.Default) {
+        val maxSide = max(base.width, base.height)
+        if (maxSide <= proxyMaxDim) return@withContext transform(base)
+        val scale = proxyMaxDim.toFloat() / maxSide
+        val scaled = Bitmap.createScaledBitmap(base, (base.width * scale).toInt().coerceAtLeast(16), (base.height * scale).toInt().coerceAtLeast(16), true)
+        val result = transform(scaled)
+        if (result !== scaled && !scaled.isRecycled) scaled.recycle()
+        result
+    }

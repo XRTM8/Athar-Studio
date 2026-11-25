@@ -225,11 +225,11 @@ object AtharSvgExporter {
         val lines = textToRender.split("\n")
         if (lines.size <= 1) {
             val escaped = escapeXml(textToRender)
-            sb.appendLine("""    <text x="0" y="0" font-family="${escapeXml(cssFamily)}, sans-serif" font-size="$fontSize" font-weight="$effectiveWeight" font-style="${if (layer.isItalic) "italic" else "normal"}" fill="$fillValue" text-anchor="$textAnchor" direction="rtl" letter-spacing="${layer.letterSpacing}px" opacity="${layer.textOpacity}"$extraAttrs $strokeAttr>$escaped</text>""")
+            sb.appendLine("""    <text x="0" y="0" font-family="${escapeXml(cssFamily)}, sans-serif" font-size="$fontSize" font-weight="$effectiveWeight" font-style="${if (layer.isItalic) "italic" else "normal"}" fill="$fillValue" text-anchor="$textAnchor" direction="rtl" letter-spacing="${layer.letterSpacing}em" opacity="${layer.textOpacity}"$extraAttrs $strokeAttr>$escaped</text>""")
         } else {
             val lineHeight = fontSize * layer.lineSpacingMultiplier
             val startY = -((lines.size - 1) * lineHeight) / 2f + (fontSize * 0.35f)
-            sb.appendLine("""    <text x="0" y="$startY" font-family="${escapeXml(cssFamily)}, sans-serif" font-size="$fontSize" font-weight="$effectiveWeight" font-style="${if (layer.isItalic) "italic" else "normal"}" fill="$fillValue" text-anchor="$textAnchor" direction="rtl" letter-spacing="${layer.letterSpacing}px" opacity="${layer.textOpacity}"$extraAttrs $strokeAttr>""")
+            sb.appendLine("""    <text x="0" y="$startY" font-family="${escapeXml(cssFamily)}, sans-serif" font-size="$fontSize" font-weight="$effectiveWeight" font-style="${if (layer.isItalic) "italic" else "normal"}" fill="$fillValue" text-anchor="$textAnchor" direction="rtl" letter-spacing="${layer.letterSpacing}em" opacity="${layer.textOpacity}"$extraAttrs $strokeAttr>""")
             lines.forEachIndexed { idx, line ->
                 val dy = if (idx == 0) 0f else lineHeight
                 sb.appendLine("""      <tspan x="0" dy="$dy">${escapeXml(line)}</tspan>""")

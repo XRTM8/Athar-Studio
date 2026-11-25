@@ -32,6 +32,7 @@ class AtharVectorExportAndFeaturesTest {
                     rotationAngle = 15f,
                     normOffsetX = 0.05f,
                     normOffsetY = -0.1f,
+                    letterSpacing = 0.08f,
                     textAlign = TextAlignOption.CENTER,
                     shadowRadius = 12f,
                     shadowDx = 0f,
@@ -52,6 +53,7 @@ class AtharVectorExportAndFeaturesTest {
         assertTrue(svg.contains("""<feDropShadow"""))
         assertTrue(svg.contains("""direction="rtl""""))
         assertTrue(svg.contains("""text-anchor="middle""""))
+        assertTrue(svg.contains("""letter-spacing="0.08em""""))
         assertTrue(svg.contains("أَثَـرٌ لِلإِبْدَاعِ وَالتَّصْمِيمِ"))
         assertTrue(svg.endsWith("</svg>\n") || svg.endsWith("</svg>"))
     }

@@ -126,7 +126,11 @@ object CanvasBackgroundRenderer {
                 bgPaint.colorFilter = null
             }
         } else if (bgBitmap != null && !bgBitmap.isRecycled) {
-            bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state, includeFilmMatrix = false)
+            bgPaint.colorFilter = if (AtharBackgroundPipeline.hasSinglePhotoRasterEffects(state)) {
+                null
+            } else {
+                AtharBackgroundPipeline.buildCompositeColorFilter(state, includeFilmMatrix = false)
+            }
             CollageCoverFitMath.populateMatrix(
                 outMatrix = bgMatrix,
                 srcW = bgBitmap.width.toFloat(),
