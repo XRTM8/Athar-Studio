@@ -1,89 +1,60 @@
-# أَثَــر | Athar Studio
+# أثر | Athar Studio
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Architecture-Kotlin%20%2B%20Jetpack%20Compose-E5C07B?style=for-the-badge" alt="Architecture" />
-  <img src="https://img.shields.io/badge/Platform-Android%20(Universal%20ABI)-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Platform" />
-  <img src="https://img.shields.io/badge/Min%20SDK-26%20(Android%208.0%2B)-blue?style=for-the-badge" alt="Min SDK" />
-  <img src="https://img.shields.io/badge/License-GPL--3.0-lightgrey?style=for-the-badge" alt="License" />
-</p>
+## العربية
 
-أداة تصميم وكتابة عربية لنظام أندرويد مبنية بلغة **Kotlin** و**Jetpack Compose**، تركز على ضبط الكشيدة العربية السياقية، الطبقات المتعددة، معالجة الصور والأفلام والأقنعة، والتصدير حتى دقة 4K (2160p).
+تطبيق أندرويد لإنشاء تصاميم تعتمد على النص والصورة، مع أدوات مخصصة للكتابة العربية. الكود الأساسي في `android-app/`، بلغة Kotlin وواجهة Jetpack Compose.
 
----
+### الموجود في المستودع
 
-[خطة استقرار سلسلة 2.7 للدعم طويل الأمد](LTS.md)
+- لوحة تصميم بطبقات نص متعددة، وتحريك وتدوير وتغيير حجم العناصر، مع أدوات للمحاذاة والتباعد والتأثيرات.
+- معالجة للنص العربي تشمل اختيار مواضع الكشيدة وضبط الفقرات، وخطوطًا مرفقة مع إمكانية استيراد خطوط TTF وOTF.
+- خلفيات من صور أو ألوان أو تدرجات، وكولاج، وأقنعة، وتعديلات لونية، ومؤثرات عدسات وحبيبات ووهج.
+- حفظ المشاريع واستعادتها بصيغة `.athar` مع الصور والخطوط المستخدمة.
+- تصدير الصور بصيغتي PNG وJPEG، والصفحات بصيغة PDF، والنص والتدرجات بصيغة SVG. تصدير SVG لا يتضمن خلفيات الصور أو المؤثرات النقطية.
+- اختبارات وحدة واختبار Android آلي، ومسار لإصدارات GitHub والتحديث داخل التطبيق.
 
-## الميزات الفعلية
+### البنية والبناء
 
-1. **محرك الكشيدة وموازنة الفقرات (`PureArabicKashidaEngine.kt`, `ArabicParagraphJustifier.kt`):**
-   * تحليل سياق الكلمة العربية لاختيار مواضع التطويل مع الحفاظ على التشكيل ولام الألف ومنع المواضع غير الصحيحة.
-   * موازنة الفقرات بالقياس الفعلي لأبعاد الخط (`Pixel Justification` و`Optical Block Balance`).
+توجد أدوات الرسم والمعالجة في `android-app/app/src/main/java/app/xrtm8/athar/core/`، والتنسيق العربي والخطوط في `typography/`، والحفظ في `project/`، والتصدير في `export/`. التطبيق يستهدف Android 8.0 فأحدث (API 26)، ويستخدم JDK 17 وAndroid SDK 34.
 
-2. **الخطوط العربية والمخصصة (`AtharFontManager.kt`, `SfntFontParser.kt`):**
-   * خطوط عربية مرفقة برخصة SIL OFL 1.1 تشمل خطوطاً متغيرة (`Cairo`) ومتعددة الأوزان (`Tajawal`, `Alexandria`, `Readex Pro`, وغيرها).
-   * استيراد خطوط `.ttf` و`.otf` وتجميع أوزان العائلة الواحدة وتضمينها داخل حزمة المشروع (`.athar`).
-
-3. **مسار معالجة الخلفية والكولاج الموحد (`AtharBackgroundPipeline.kt`):**
-   * تطابق المعالجة بين المعاينة والتصدير (PNG/JPEG بدقة 1080p و2160p وPDF): ضبط لوني، تمويه، تدرج لوني، 3D LUT لأفلام التصوير (`FilmPresetEngine`)، خلط قنوات HSL (`AtharColorMixEngine`)، إضافات عدسات (`AtharOpticalLensEngine`)، وهج وحبيبات وGlitch، وأقنعة ضوئية ودخانية.
-   * كولاج متعدد الخانات مع تأطير باللمس لكل صورة (تغطية 1:1، تدوير 90°، وعكس أفقي) وتصحيح اتجاه EXIF.
-
-4. **تصدير الصور والمستندات (`export/`):**
-   * تصدير صور كاملة (JPEG) أو ملصقات شفافة مقصوصة تلقائياً (PNG).
-   * تصدير صفحات PDF للطباعة (`AtharPdfExporter`).
-   * تصدير النصوص والتدرجات متجهياً كـ SVG مع تحويل النصوص المقوسة والخطوط المخصصة إلى `<path>` (`AtharSvgExporter`) — لا يشمل صور الخلفية أو الفلاتر النقطية.
-
-5. **إدارة المشاريع والتحديث (`project/`, `updater/`):**
-   * حفظ المشاريع كأرشيف مضغوط (`.athar`) وتحديث المشروع المفتوح موضعياً مع تنظيف الأصول المؤقتة، وتضمين الخطوط المخصصة والصور.
-   * فحص التحديثات عبر GitHub Releases مع التحقق من رابط HTTPS وبصمة شهادة توقيع الحزمة قبل التثبيت.
-
----
-
-## هيكلية المشروع
-
-```text
-DESIGN/
-├── android-app/
-│   ├── app/
-│   │   ├── src/main/
-│   │   │   ├── java/app/xrtm8/athar/
-│   │   │   │   ├── core/         # الكشيدة، معالجة الصور، الأفلام 3D LUT، العدسات، الأقنعة، الكولاج
-│   │   │   │   ├── typography/   # قياس النصوص، إدارة الخطوط، محلل SFNT، النص المقوس
-│   │   │   │   ├── model/        # نماذج الحالة والطبقات والفلاتر
-│   │   │   │   ├── export/       # التصدير (PNG/JPEG/PDF/SVG) والحفظ في MediaStore
-│   │   │   │   ├── project/      # حفظ/قراءة .athar وتجزئة JSON والمعاينة المصغرة
-│   │   │   │   ├── updater/      # فحص وتثبيت التحديثات مع التحقق من الشهادة
-│   │   │   │   └── ui/           # الشاشات، اللوحات، المعاينة، وطبقة ViewModel/viewmodel
-│   │   │   ├── assets/           # الخطوط (.ttf) وأصول الأقنعة (.webp)
-│   │   │   └── res/              # الموارد والأيقونات
-│   │   ├── proguard-rules.pro
-│   │   └── build.gradle.kts
-│   └── settings.gradle.kts
-│
-└── .github/workflows/
-    └── release.yml
-```
-
----
-
-## البناء والاختبار
-
-### المتطلبات:
-* **JDK 17**
-* **Android SDK** (compileSdk 34 / targetSdk 34)
-
-### تشغيل الاختبارات وفحص الكود:
-```powershell
+```bash
 cd android-app
-.\gradlew.bat testReleaseUnitTest lintRelease
+./gradlew testReleaseUnitTest
+./gradlew assembleDebug
 ```
 
-### بناء حزمة الإنتاج الموقعة:
-```powershell
+يتطلب بناء إصدار موقّع إعداد مفتاح التوقيع؛ راجع `android-app/app/build.gradle.kts`. توجد تفاصيل إضافية في [وثيقة البنية](android-app/ARCHITECTURE.md). وثيقة [LTS.md](LTS.md) تسجل خطة صيانة قديمة ويجب قراءتها مع رقم الإصدار الحالي في ملف البناء.
+
+الترخيص: [GPL-3.0](LICENSE).
+
+## English
+
+Athar Studio is an Android app for creating text and image compositions, with tools for Arabic typography. The application lives in `android-app/` and uses Kotlin and Jetpack Compose.
+
+### Repository contents
+
+- A canvas with multiple text layers, positioning, rotation, scaling, alignment, spacing, and visual effects.
+- Arabic kashida placement and paragraph justification, bundled fonts, and TTF/OTF import.
+- Image, solid-color, and gradient backgrounds; collage layouts, masks, color adjustments, and lens, grain, and glow effects.
+- `.athar` project save and restore, including referenced images and custom fonts.
+- PNG and JPEG image export, PDF page export, and SVG export for text and gradients. SVG export does not include image backgrounds or raster effects.
+- Unit and Android tests, a GitHub release workflow, and an in-app update path.
+
+### Layout and build
+
+Drawing and image processing are in `android-app/app/src/main/java/app/xrtm8/athar/core/`; Arabic text and fonts are in `typography/`, project storage in `project/`, and output formats in `export/`. The minimum Android version is 8.0 (API 26). The build uses JDK 17 and Android SDK 34.
+
+```bash
 cd android-app
-.\gradlew.bat assembleRelease
+./gradlew testReleaseUnitTest
+./gradlew assembleDebug
 ```
+
+A signed release requires signing key configuration; see `android-app/app/build.gradle.kts`. See the [architecture notes](android-app/ARCHITECTURE.md). [LTS.md](LTS.md) records an older maintenance plan; check the build file for the current version.
+
+License: [GPL-3.0](LICENSE).
+
 
 ---
 
-## الترخيص
-المشروع مرخص تحت رخصة **GNU General Public License v3.0**.
+للتواصل / Contact: [@MA.XRT](https://www.instagram.com/ma.xrt/)
