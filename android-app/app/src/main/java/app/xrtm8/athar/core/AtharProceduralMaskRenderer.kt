@@ -1,28 +1,39 @@
 package app.xrtm8.athar.core
 
 import android.graphics.*
+import android.util.LruCache
+import app.xrtm8.athar.model.AtharMaskCatalog
+import app.xrtm8.athar.model.MaskBlendMode
 import app.xrtm8.athar.model.ProceduralMaskType
 import kotlin.math.*
 
 /**
- * Athar Mask Studio 2.0 - High-Performance Procedural Vector & Optical Mask Engine.
+ * Athar Mask Studio 3.0 — Photorealistic Procedural Sunlight, Gobo & Optical Mask Engine.
  *
- * Replaces low-resolution raster artifacts with mathematically computed Skia shaders,
- * vector paths, and optical gradients. Rendered at native canvas resolution (up to 4K Skia vector)
- * with zero memory leaks, zero asset dependencies, and 120Hz smooth performance.
+ * Key architecture:
+ * - Perspective-projected sunlight & shadow gobos (Matrix.setPolyToPoly) with warm penumbra
+ *   edge diffraction and cool/neutral ambient room shadows (never flat solid black crush).
+ * - Dimension-keyed LRU offscreen buffer (<= 720px) + AtharImageProcessor.fastStackBlur
+ *   driven by [softness], ensuring identical API 26-34 hardware preview and 4K software export.
+ * - Preserves caller [Paint.alpha], blend mode, and color filter across every mask routine.
  */
 object AtharProceduralMaskRenderer {
 
-    private val reusablePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG).apply {
-        style = Paint.Style.FILL
+    private const val PREVIEW_BUFFER_MAX_DIM = 480
+    private const val EXPORT_BUFFER_MAX_DIM = 720
+
+    private val goboCache by lazy(LazyThreadSafetyMode.PUBLICATION) { object : LruCache<String, Bitmap>(4) {} }
+    private val reusablePath by lazy(LazyThreadSafetyMode.PUBLICATION) { Path() }
+    private val reusableMatrix by lazy(LazyThreadSafetyMode.PUBLICATION) { Matrix() }
+    private val reusableShaderMatrix by lazy(LazyThreadSafetyMode.PUBLICATION) { Matrix() }
+    private val reusableSrcRect by lazy(LazyThreadSafetyMode.PUBLICATION) { Rect() }
+    private val reusableDstRect by lazy(LazyThreadSafetyMode.PUBLICATION) { RectF() }
+    private val reusableDrawPaint by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
     }
-    private val reusablePath = Path()
-    private val reusableRect = RectF()
-    private val reusableShaderMatrix = Matrix()
 
     /**
-     * Draws the selected procedural mask onto [canvas] with exact [width] and [height].
-     * The incoming [paint] already contains the configured alpha, blend mode, and color matrix filters.
+     * Backward-compatible 5-argument entry point using default softness/warmth.
      */
     fun drawProceduralMask(
         canvas: Canvas,
@@ -31,17 +42,37 @@ object AtharProceduralMaskRenderer {
         height: Float,
         paint: Paint
     ) {
+        drawProceduralMask(canvas, type, width, height, paint, softness = 0.25f, warmth = 0.35f)
+    }
+
+    /**
+     * Draws [type] onto [canvas] at [width] x [height] preserving [paint]'s alpha,
+     * blendMode/xfermode, and colorFilter.
+     */
+    fun drawProceduralMask(
+        canvas: Canvas,
+        type: ProceduralMaskType,
+        width: Float,
+        height: Float,
+        paint: Paint,
+        softness: Float,
+        warmth: Float
+    ) {
         if (width <= 0f || height <= 0f) return
 
         when (type) {
-            ProceduralMaskType.WINDOW_BLINDS -> drawWindowBlinds(canvas, width, height, paint)
-            ProceduralMaskType.FRENCH_WINDOW -> drawFrenchWindow(canvas, width, height, paint)
-            ProceduralMaskType.BOTANICAL_PALM -> drawBotanicalPalm(canvas, width, height, paint)
-            ProceduralMaskType.GEOMETRIC_ARCH -> drawGeometricArch(canvas, width, height, paint)
-            ProceduralMaskType.OPTICAL_SUNBURST -> drawOpticalSunburst(canvas, width, height, paint)
-            ProceduralMaskType.ANAMORPHIC_STREAK -> drawAnamorphicStreak(canvas, width, height, paint)
-            ProceduralMaskType.PRISM_DISPERSION -> drawPrismDispersion(canvas, width, height, paint)
-            ProceduralMaskType.GOLDEN_FLARE -> drawGoldenFlare(canvas, width, height, paint)
+            ProceduralMaskType.FRENCH_WINDOW,
+            ProceduralMaskType.WINDOW_BLINDS,
+            ProceduralMaskType.GEOMETRIC_ARCH,
+            ProceduralMaskType.ARCHED_MASHRABIYA,
+            ProceduralMaskType.GOLDEN_HOUR_BEAMS,
+            ProceduralMaskType.OPTICAL_SUNBURST,
+            ProceduralMaskType.ANAMORPHIC_STREAK -> {
+                val buffered = getOrBuildBufferedMask(type, width, height, softness, warmth)
+                reusableSrcRect.set(0, 0, buffered.width, buffered.height)
+                reusableDstRect.set(0f, 0f, width, height)
+                canvas.drawBitmap(buffered, reusableSrcRect, reusableDstRect, paint)
+            }
             ProceduralMaskType.FILM_BORDER_35MM -> drawFilmBorder35mm(canvas, width, height, paint)
             ProceduralMaskType.STUDIO_PASSEPARTOUT -> drawStudioPassepartout(canvas, width, height, paint)
             ProceduralMaskType.VECTOR_HALFTONE -> drawVectorHalftone(canvas, width, height, paint)
@@ -50,283 +81,531 @@ object AtharProceduralMaskRenderer {
     }
 
     // ==========================================
-    // 1. Venetian Blinds (ستائر شرائح)
+    // Buffered Optical / Gobo Generator + LRU Cache
     // ==========================================
-    private fun drawWindowBlinds(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        val slatCount = 9
-        val slatHeight = height / slatCount.toFloat()
-        val slatShader = LinearGradient(
-            0f, 0f, 0f, slatHeight,
-            intArrayOf(
-                0xEE000000.toInt(),
-                0xEE000000.toInt(),
-                0x22000000,
-                0x00000000,
-                0x22000000
-            ),
-            floatArrayOf(0f, 0.40f, 0.52f, 0.88f, 1f),
-            Shader.TileMode.REPEAT
-        )
-        // Angle the slats slightly (-12 degrees) for dramatic indoor window light
-        reusableShaderMatrix.reset()
-        reusableShaderMatrix.postRotate(-12f, width * 0.5f, height * 0.5f)
-        slatShader.setLocalMatrix(reusableShaderMatrix)
 
-        paint.shader = slatShader
-        canvas.drawRect(0f, 0f, width, height, paint)
-        paint.shader = null
-    }
-
-    // ==========================================
-    // 2. French Window Frame (إطار نافذة مقسم)
-    // ==========================================
-    private fun drawFrenchWindow(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        val frameThickness = min(width, height) * 0.08f
-        val dividerThickness = min(width, height) * 0.045f
-
-        // Draw soft ambient darkening around the window panes
-        val ambientShader = RadialGradient(
-            width * 0.5f, height * 0.5f, max(width, height) * 0.7f,
-            intArrayOf(0x00000000, 0x88000000.toInt(), 0xCC000000.toInt()),
-            floatArrayOf(0.3f, 0.75f, 1.0f),
-            Shader.TileMode.CLAMP
-        )
-
-        paint.shader = ambientShader
-        canvas.drawRect(0f, 0f, width, height, paint)
-        paint.shader = null
-
-        // Cross Bars: Center vertical mullion + 2 horizontal transoms
-        paint.color = 0xDD000000.toInt()
-
-        // Outer border frame
-        canvas.drawRect(0f, 0f, width, frameThickness, paint)
-        canvas.drawRect(0f, height - frameThickness, width, height, paint)
-        canvas.drawRect(0f, 0f, frameThickness, height, paint)
-        canvas.drawRect(width - frameThickness, 0f, width, height, paint)
-
-        // Vertical central mullion
-        val centerX = width * 0.5f
-        canvas.drawRect(centerX - dividerThickness * 0.5f, 0f, centerX + dividerThickness * 0.5f, height, paint)
-
-        // Horizontal transoms at 1/3 and 2/3
-        val y1 = height * 0.333f
-        val y2 = height * 0.667f
-        canvas.drawRect(0f, y1 - dividerThickness * 0.5f, width, y1 + dividerThickness * 0.5f, paint)
-        canvas.drawRect(0f, y2 - dividerThickness * 0.5f, width, y2 + dividerThickness * 0.5f, paint)
-    }
-
-    // ==========================================
-    // 3. Botanical Palm Leaf (ظلال أوراق استوائية)
-    // ==========================================
-    private fun drawBotanicalPalm(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        reusablePath.reset()
-
-        // Central graceful stem curving from top-right towards bottom-left
-        val startX = width * 0.95f
-        val startY = height * 0.05f
-        val endX = width * 0.25f
-        val endY = height * 0.85f
-        val ctrlX = width * 0.45f
-        val ctrlY = height * 0.35f
-
-        // Draw multiple paired tropical palm fronds with tapered bezier curves
-        val frondPairs = 9
-        for (i in 0 until frondPairs) {
-            val t = (i + 1) / (frondPairs + 1).toFloat()
-            // Stem point at t (quadratic bezier)
-            val oneMinusT = 1f - t
-            val px = oneMinusT * oneMinusT * startX + 2f * oneMinusT * t * ctrlX + t * t * endX
-            val py = oneMinusT * oneMinusT * startY + 2f * oneMinusT * t * ctrlY + t * t * endY
-
-            val frondLen = (width * 0.40f) * (1f - abs(t - 0.4f) * 0.8f)
-
-            // Right frond
-            reusablePath.moveTo(px, py)
-            val rTipX = px - frondLen * 0.85f
-            val rTipY = py + frondLen * 0.55f
-            reusablePath.quadTo(px - frondLen * 0.4f, py - frondLen * 0.15f, rTipX, rTipY)
-            reusablePath.quadTo(px - frondLen * 0.5f, py + frondLen * 0.25f, px, py)
-
-            // Left frond
-            reusablePath.moveTo(px, py)
-            val lTipX = px + frondLen * 0.45f
-            val lTipY = py - frondLen * 0.65f
-            reusablePath.quadTo(px + frondLen * 0.1f, py - frondLen * 0.35f, lTipX, lTipY)
-            reusablePath.quadTo(px + frondLen * 0.3f, py - frondLen * 0.15f, px, py)
+    private fun getOrBuildBufferedMask(
+        type: ProceduralMaskType,
+        width: Float,
+        height: Float,
+        softness: Float,
+        warmth: Float
+    ): Bitmap {
+        val maxTarget = if (max(width, height) > 1300f) EXPORT_BUFFER_MAX_DIM else PREVIEW_BUFFER_MAX_DIM
+        val aspect = (width / height).coerceIn(0.25f, 4.0f)
+        val bw: Int
+        val bh: Int
+        if (aspect >= 1f) {
+            bw = maxTarget
+            bh = (maxTarget / aspect).roundToInt().coerceAtLeast(64)
+        } else {
+            bh = maxTarget
+            bw = (maxTarget * aspect).roundToInt().coerceAtLeast(64)
         }
 
-        // Stem thickness
-        reusablePath.moveTo(startX, startY)
-        reusablePath.quadTo(ctrlX, ctrlY, endX, endY)
+        val sBucket = (softness.coerceIn(0f, 1f) * 32f).roundToInt()
+        val wBucket = (warmth.coerceIn(0f, 1f) * 20f).roundToInt()
+        val key = "${type.name}_${bw}x${bh}_s${sBucket}_w${wBucket}"
 
-        val palmShader = RadialGradient(
-            width * 0.7f, height * 0.3f, max(width, height) * 0.85f,
-            intArrayOf(0xEE000000.toInt(), 0xAA000000.toInt(), 0x33000000),
-            floatArrayOf(0f, 0.65f, 1f),
-            Shader.TileMode.CLAMP
-        )
-        paint.shader = palmShader
-        canvas.drawPath(reusablePath, paint)
-        paint.shader = null
+        synchronized(goboCache) {
+            val cached = goboCache.get(key)
+            if (cached != null && !cached.isRecycled) {
+                return cached
+            }
+        }
+
+        val rawBmp = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
+        val offCanvas = Canvas(rawBmp)
+        val sNorm = sBucket / 32f
+        val wNorm = wBucket / 20f
+        val fw = bw.toFloat()
+        val fh = bh.toFloat()
+
+        when (type) {
+            ProceduralMaskType.FRENCH_WINDOW -> renderPerspectiveFrenchWindow(offCanvas, fw, fh, wNorm)
+            ProceduralMaskType.WINDOW_BLINDS -> renderPerspectiveWindowBlinds(offCanvas, fw, fh, wNorm)
+            ProceduralMaskType.GEOMETRIC_ARCH -> renderPerspectiveArch(offCanvas, fw, fh, wNorm)
+            ProceduralMaskType.ARCHED_MASHRABIYA -> renderPerspectiveMashrabiya(offCanvas, fw, fh, wNorm)
+            ProceduralMaskType.GOLDEN_HOUR_BEAMS -> renderGoldenHourBeams(offCanvas, fw, fh, wNorm)
+            ProceduralMaskType.OPTICAL_SUNBURST -> renderOpticalSunburst(offCanvas, fw, fh, wNorm)
+            ProceduralMaskType.ANAMORPHIC_STREAK -> renderAnamorphicStreak(offCanvas, fw, fh, wNorm)
+            else -> {}
+        }
+
+        val baseBlurFactor = when (type) {
+            ProceduralMaskType.GOLDEN_HOUR_BEAMS -> 0.032f
+            ProceduralMaskType.OPTICAL_SUNBURST -> 0.025f
+            ProceduralMaskType.ANAMORPHIC_STREAK -> 0.018f
+            else -> 0.028f
+        }
+        val blurRadius = ((0.10f + sNorm * 0.90f) * min(bw, bh) * baseBlurFactor)
+            .roundToInt()
+            .coerceIn(0, 40)
+
+        val finalBmp = if (blurRadius >= 1 && sNorm > 0.015f) {
+            val blurred = AtharImageProcessor.fastStackBlur(rawBmp, blurRadius)
+            if (blurred != rawBmp) {
+                rawBmp.recycle()
+            }
+            blurred
+        } else {
+            rawBmp
+        }
+
+        synchronized(goboCache) {
+            goboCache.put(key, finalBmp)
+        }
+        return finalBmp
+    }
+
+    private fun ambientShadowColor(warmth: Float): Int {
+        // Cool slate (#222938) at warmth=0 -> Warm charcoal umber (#332B26) at warmth=1
+        val r = (34 + (warmth * 18f)).roundToInt().coerceIn(0, 255)
+        val g = (41 + (warmth * 3f)).roundToInt().coerceIn(0, 255)
+        val b = (56 - (warmth * 18f)).roundToInt().coerceIn(0, 255)
+        return Color.argb(255, r, g, b)
+    }
+
+    private fun penumbraFringeColor(warmth: Float): Int {
+        // Soft sunlit edge diffraction color: neutral cool-cream to warm golden amber
+        val r = 255
+        val g = (242 - (warmth * 26f)).roundToInt().coerceIn(0, 255)
+        val b = (232 - (warmth * 96f)).roundToInt().coerceIn(0, 255)
+        return Color.argb(215, r, g, b)
+    }
+
+    private fun sunCoreColor(warmth: Float): Int {
+        val r = 255
+        val g = (253 - (warmth * 7f)).roundToInt().coerceIn(0, 255)
+        val b = (252 - (warmth * 22f)).roundToInt().coerceIn(0, 255)
+        return Color.argb(255, r, g, b)
+    }
+
+    private fun buildTrapezoidMatrix(
+        srcW: Float,
+        srcH: Float,
+        dstTlX: Float, dstTlY: Float,
+        dstTrX: Float, dstTrY: Float,
+        dstBrX: Float, dstBrY: Float,
+        dstBlX: Float, dstBlY: Float
+    ): Matrix {
+        val src = floatArrayOf(0f, 0f, srcW, 0f, srcW, srcH, 0f, srcH)
+        val dst = floatArrayOf(dstTlX, dstTlY, dstTrX, dstTrY, dstBrX, dstBrY, dstBlX, dstBlY)
+        return Matrix().apply { setPolyToPoly(src, 0, dst, 0, 4) }
     }
 
     // ==========================================
-    // 4. Architectural Arches (أقواس معمارية)
+    // 1. Perspective French Window (نافذة شمسية مائلة)
     // ==========================================
-    private fun drawGeometricArch(canvas: Canvas, width: Float, height: Float, paint: Paint) {
+    private fun renderPerspectiveFrenchWindow(canvas: Canvas, w: Float, h: Float, warmth: Float) {
+        val shadowCol = ambientShadowColor(warmth)
+        canvas.drawColor(shadowCol)
+
+        val pMatrix = buildTrapezoidMatrix(
+            w, h,
+            w * 0.16f, h * 0.11f,
+            w * 0.72f, h * 0.05f,
+            w * 0.96f, h * 0.88f,
+            w * 0.24f, h * 0.94f
+        )
+
+        canvas.save()
+        canvas.concat(pMatrix)
+
+        val marginX = w * 0.07f
+        val marginY = h * 0.06f
+        val mullionX = w * 0.055f
+        val transomY = h * 0.048f
+        val paneW = (w - marginX * 2f - mullionX) * 0.5f
+        val paneH = (h - marginY * 2f - transomY * 2f) / 3f
+
+        val panes = ArrayList<RectF>(6)
+        for (row in 0 until 3) {
+            val top = marginY + row * (paneH + transomY)
+            for (col in 0 until 2) {
+                val left = marginX + col * (paneW + mullionX)
+                panes.add(RectF(left, top, left + paneW, top + paneH))
+            }
+        }
+
+        // Warm edge penumbra halo around each sunlit pane
+        val fringePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = penumbraFringeColor(warmth)
+            style = Paint.Style.FILL
+        }
+        val fringeExpand = min(w, h) * 0.018f
+        for (r in panes) {
+            val expanded = RectF(r.left - fringeExpand, r.top - fringeExpand, r.right + fringeExpand, r.bottom + fringeExpand)
+            canvas.drawRoundRect(expanded, fringeExpand, fringeExpand, fringePaint)
+        }
+
+        // Bright sunlit core with subtle top-to-bottom distance falloff
+        val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, marginY, 0f, h - marginY,
+                intArrayOf(sunCoreColor(warmth), Color.argb(242, 255, 246, 234), Color.argb(215, 242, 228, 214)),
+                floatArrayOf(0f, 0.58f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        val corner = min(w, h) * 0.012f
+        for (r in panes) {
+            canvas.drawRoundRect(r, corner, corner, sunPaint)
+        }
+
+        canvas.restore()
+    }
+
+    // ==========================================
+    // 2. Perspective Venetian Blinds (ظل ستائر شرائح)
+    // ==========================================
+    private fun renderPerspectiveWindowBlinds(canvas: Canvas, w: Float, h: Float, warmth: Float) {
+        canvas.drawColor(ambientShadowColor(warmth))
+
+        val pMatrix = buildTrapezoidMatrix(
+            w, h,
+            w * 0.08f, h * 0.14f,
+            w * 0.78f, h * 0.06f,
+            w * 0.98f, h * 0.86f,
+            w * 0.16f, h * 0.95f
+        )
+
+        canvas.save()
+        canvas.concat(pMatrix)
+
+        val winRect = RectF(w * 0.06f, h * 0.06f, w * 0.94f, h * 0.94f)
+        // Soft sunlit window aperture glow
+        val fringePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                winRect.left, winRect.top, winRect.right, winRect.bottom,
+                intArrayOf(sunCoreColor(warmth), penumbraFringeColor(warmth), Color.argb(190, 235, 222, 208)),
+                floatArrayOf(0f, 0.65f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRoundRect(winRect, w * 0.025f, w * 0.025f, fringePaint)
+
+        // Draw realistic angled blind slats inside the projected window envelope
+        val slatCount = 11
+        val step = winRect.height() / slatCount.toFloat()
+        val slatPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ambientShadowColor(warmth)
+        }
+        for (i in 0 until slatCount) {
+            val yTop = winRect.top + i * step
+            // Slight natural slat thickness gradient (thicker near bottom of room projection)
+            val slatThickness = step * (0.40f + 0.08f * (i / slatCount.toFloat()))
+            canvas.drawRect(winRect.left - 4f, yTop, winRect.right + 4f, yTop + slatThickness, slatPaint)
+        }
+
+        // Subtle dual tilt cords at 22% and 78% of window width
+        val cordPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(145, 36, 40, 48)
+            strokeWidth = max(2f, w * 0.008f)
+        }
+        val cx1 = winRect.left + winRect.width() * 0.22f
+        val cx2 = winRect.left + winRect.width() * 0.78f
+        canvas.drawLine(cx1, winRect.top, cx1, winRect.bottom, cordPaint)
+        canvas.drawLine(cx2, winRect.top, cx2, winRect.bottom, cordPaint)
+
+        canvas.restore()
+    }
+
+    // ==========================================
+    // 3. Perspective Architectural Arch (أقواس معمارية)
+    // ==========================================
+    private fun renderPerspectiveArch(canvas: Canvas, w: Float, h: Float, warmth: Float) {
+        canvas.drawColor(ambientShadowColor(warmth))
+
+        val pMatrix = buildTrapezoidMatrix(
+            w, h,
+            w * 0.14f, h * 0.14f,
+            w * 0.76f, h * 0.08f,
+            w * 0.94f, h * 0.90f,
+            w * 0.20f, h * 0.94f
+        )
+
+        canvas.save()
+        canvas.concat(pMatrix)
+
+        val archLeft = w * 0.14f
+        val archRight = w * 0.86f
+        val archWidth = archRight - archLeft
+        val archTop = h * 0.12f
+        val archBottom = h * 0.90f
+
         reusablePath.reset()
-
-        val archWidth = width * 0.38f
-        val archTop = height * 0.20f
-        val archLeft = width * 0.10f
-
-        // Draw primary Roman/Moorish arch silhouette
-        reusablePath.moveTo(0f, 0f)
-        reusablePath.lineTo(width, 0f)
-        reusablePath.lineTo(width, height)
-        reusablePath.lineTo(0f, height)
-        reusablePath.close()
-
-        // Cut out the illuminated arch window
-        val archRect = RectF(archLeft, archTop, archLeft + archWidth, archTop + archWidth)
-        reusablePath.moveTo(archLeft, height)
+        reusablePath.moveTo(archLeft, archBottom)
         reusablePath.lineTo(archLeft, archTop + archWidth * 0.5f)
-        reusablePath.arcTo(archRect, 180f, 180f, false)
-        reusablePath.lineTo(archLeft + archWidth, height)
+        reusablePath.arcTo(RectF(archLeft, archTop, archRight, archTop + archWidth), 180f, 180f, false)
+        reusablePath.lineTo(archRight, archBottom)
         reusablePath.close()
 
-        val archShader = LinearGradient(
-            0f, 0f, width, height,
-            intArrayOf(0xDD000000.toInt(), 0x99000000.toInt(), 0x44000000),
-            floatArrayOf(0f, 0.5f, 1f),
-            Shader.TileMode.CLAMP
-        )
-        paint.shader = archShader
-        canvas.drawPath(reusablePath, paint)
-        paint.shader = null
+        val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = w * 0.03f
+            color = penumbraFringeColor(warmth)
+        }
+        canvas.drawPath(reusablePath, glowPaint)
+
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            shader = LinearGradient(
+                archLeft, archTop, archRight, archBottom,
+                intArrayOf(sunCoreColor(warmth), Color.argb(235, 250, 240, 226), Color.argb(195, 225, 212, 198)),
+                floatArrayOf(0f, 0.60f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawPath(reusablePath, fillPaint)
+        canvas.restore()
     }
 
     // ==========================================
-    // 5. Optical Sunburst (تسريب شمسي نقي)
+    // 4. Perspective Arched Mashrabiya (شمس مشربية عربية)
     // ==========================================
-    private fun drawOpticalSunburst(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        val cx = width * 0.90f
-        val cy = height * 0.10f
-        val radius = max(width, height) * 0.85f
+    private fun renderPerspectiveMashrabiya(canvas: Canvas, w: Float, h: Float, warmth: Float) {
+        val shadowCol = ambientShadowColor(warmth)
+        canvas.drawColor(shadowCol)
 
-        val sunShader = RadialGradient(
-            cx, cy, radius,
-            intArrayOf(
-                0xFFFFFFFF.toInt(), // Pure white core
-                0xFFFFE082.toInt(), // Golden warmth
-                0xFFFFB74D.toInt(), // Amber glow
-                0xFFFF7043.toInt(), // Crimson flare
-                0x99AB47BC.toInt(), // Chromatic purple edge
-                0x00000000          // Transparent falloff
-            ),
-            floatArrayOf(0f, 0.08f, 0.25f, 0.48f, 0.72f, 1f),
-            Shader.TileMode.CLAMP
+        val pMatrix = buildTrapezoidMatrix(
+            w, h,
+            w * 0.14f, h * 0.10f,
+            w * 0.78f, h * 0.05f,
+            w * 0.95f, h * 0.90f,
+            w * 0.20f, h * 0.94f
         )
 
-        paint.shader = sunShader
-        canvas.drawRect(0f, 0f, width, height, paint)
-        paint.shader = null
+        canvas.save()
+        canvas.concat(pMatrix)
+
+        val left = w * 0.12f
+        val right = w * 0.88f
+        val top = h * 0.10f
+        val bottom = h * 0.90f
+        val archW = right - left
+        val shoulderY = top + archW * 0.52f
+
+        // Islamic pointed ogee/horseshoe arch path
+        reusablePath.reset()
+        reusablePath.moveTo(left, bottom)
+        reusablePath.lineTo(left, shoulderY)
+        reusablePath.cubicTo(
+            left, top + archW * 0.16f,
+            w * 0.42f, top + archW * 0.10f,
+            w * 0.50f, top
+        )
+        reusablePath.cubicTo(
+            w * 0.58f, top + archW * 0.10f,
+            right, top + archW * 0.16f,
+            right, shoulderY
+        )
+        reusablePath.lineTo(right, bottom)
+        reusablePath.close()
+
+        // Warm edge penumbra around the pointed arch
+        val fringePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = w * 0.028f
+            color = penumbraFringeColor(warmth)
+        }
+        canvas.drawPath(reusablePath, fringePaint)
+
+        // Bright sunlit interior clipped to the arch
+        canvas.save()
+        canvas.clipPath(reusablePath)
+
+        val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                left, top, right, bottom,
+                intArrayOf(sunCoreColor(warmth), Color.argb(242, 255, 244, 224), Color.argb(215, 238, 222, 202)),
+                floatArrayOf(0f, 0.55f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(left, top, right, bottom, lightPaint)
+
+        // Geometric Mashrabiya wooden lattice ribs (diamond + octagonal cross-bars)
+        val ribPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = shadowCol
+            style = Paint.Style.STROKE
+            strokeWidth = max(3f, w * 0.022f)
+        }
+        val step = w * 0.135f
+        val diagSpan = (bottom - top) + archW
+        var d = -diagSpan
+        while (d < diagSpan) {
+            canvas.drawLine(left + d, top, left + d + archW, top + archW * 1.35f, ribPaint)
+            canvas.drawLine(right - d, top, right - d - archW, top + archW * 1.35f, ribPaint)
+            d += step
+        }
+        // Horizontal transom sill divider separating upper arched tympanum from lower screen
+        ribPaint.strokeWidth = max(4f, w * 0.032f)
+        canvas.drawLine(left, shoulderY + h * 0.04f, right, shoulderY + h * 0.04f, ribPaint)
+
+        canvas.restore()
+        canvas.restore()
     }
 
     // ==========================================
-    // 6. Anamorphic Flare Streak (شريط توهج سينمائي)
+    // 5. Diagonal Golden Hour Beams (أشعة ساعة ذهبية)
     // ==========================================
-    private fun drawAnamorphicStreak(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        val centerY = height * 0.45f
-        val streakHalfHeight = height * 0.12f
+    private fun renderGoldenHourBeams(canvas: Canvas, w: Float, h: Float, warmth: Float) {
+        canvas.drawColor(Color.BLACK)
 
-        // Horizontal laser streak in CinemaScope electric cyan/blue
-        val streakShader = LinearGradient(
-            0f, centerY - streakHalfHeight,
-            0f, centerY + streakHalfHeight,
-            intArrayOf(
-                0x00000000,
-                0x4400E5FF,
-                0xFF00E5FF.toInt(),
-                0xFFFFFFFF.toInt(), // White hot filament core
-                0xFF00E5FF.toInt(),
-                0x4400E5FF,
-                0x00000000
-            ),
-            floatArrayOf(0f, 0.35f, 0.47f, 0.50f, 0.53f, 0.65f, 1f),
-            Shader.TileMode.CLAMP
+        val warmCore = Color.argb(235, 255, (242 - warmth * 18).roundToInt(), (210 - warmth * 75).roundToInt())
+        val warmMid = Color.argb(145, 255, (195 - warmth * 35).roundToInt(), (110 - warmth * 60).roundToInt())
+
+        canvas.save()
+        canvas.rotate(-28f, w * 0.10f, h * 0.05f)
+
+        val beams = listOf(
+            Triple(0.05f, 0.18f, 0.92f),
+            Triple(0.28f, 0.11f, 0.68f),
+            Triple(0.46f, 0.22f, 1.00f),
+            Triple(0.75f, 0.14f, 0.72f)
         )
+        for ((xStartFrac, beamWFrac, strength) in beams) {
+            val bx = w * xStartFrac
+            val bw = w * beamWFrac
+            val beamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = LinearGradient(
+                    bx, 0f, bx + bw, 0f,
+                    intArrayOf(Color.TRANSPARENT, warmMid, warmCore, warmMid, Color.TRANSPARENT),
+                    floatArrayOf(0f, 0.22f, 0.50f, 0.78f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                alpha = (strength * 230).roundToInt().coerceIn(0, 255)
+            }
+            canvas.drawRect(bx, -h * 0.35f, bx + bw, h * 1.45f, beamPaint)
+        }
+        canvas.restore()
 
-        paint.shader = streakShader
-        canvas.drawRect(0f, centerY - streakHalfHeight, width, centerY + streakHalfHeight, paint)
-        paint.shader = null
+        // Longitudinal attenuation mask so shafts softly dissipate towards bottom-right
+        val fadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
+            shader = LinearGradient(
+                0f, 0f, w * 0.92f, h * 0.95f,
+                intArrayOf(Color.WHITE, Color.argb(255, 215, 200, 185), Color.BLACK),
+                floatArrayOf(0f, 0.52f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, 0f, w, h, fadePaint)
     }
 
     // ==========================================
-    // 7. Prism Optical Dispersion (انكسار موشوري)
+    // 6. Optical Sunburst & Lens Flare (تسريب شمسي بصري)
     // ==========================================
-    private fun drawPrismDispersion(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        val prismShader = LinearGradient(
-            0f, 0f, width * 0.75f, height * 0.75f,
-            intArrayOf(
-                0x00000000,
-                0xBB8E24AA.toInt(), // Violet
-                0xBB1E88E5.toInt(), // Blue
-                0xBB00ACC1.toInt(), // Cyan
-                0xBB43A047.toInt(), // Green
-                0xBBFDD835.toInt(), // Yellow
-                0xBBFB8C00.toInt(), // Orange
-                0xBBE53935.toInt(), // Red
-                0x00000000
-            ),
-            floatArrayOf(0f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 1f),
-            Shader.TileMode.CLAMP
-        )
+    private fun renderOpticalSunburst(canvas: Canvas, w: Float, h: Float, warmth: Float) {
+        canvas.drawColor(Color.BLACK)
+        val cx = w * 0.88f
+        val cy = h * 0.10f
+        val radius = max(w, h) * 0.88f
 
-        paint.shader = prismShader
-        canvas.drawRect(0f, 0f, width, height, paint)
-        paint.shader = null
+        val amberG = (180 - warmth * 40).roundToInt().coerceIn(80, 220)
+        val crimsonB = (95 - warmth * 55).roundToInt().coerceIn(15, 130)
+
+        val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(
+                cx, cy, radius,
+                intArrayOf(
+                    0xFFFFFFFF.toInt(),
+                    Color.argb(255, 255, 226, (165 - warmth * 50).roundToInt()),
+                    Color.argb(210, 255, amberG, crimsonB),
+                    Color.argb(115, 228, 92, 52),
+                    Color.argb(35, 145, 58, 120),
+                    0x00000000
+                ),
+                floatArrayOf(0f, 0.08f, 0.25f, 0.48f, 0.72f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, 0f, w, h, sunPaint)
+
+        // Subtle off-axis optical ghost bokeh along diagonal sensor axis
+        val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val ghosts = listOf(
+            Triple(0.56f, 0.42f, 0.10f),
+            Triple(0.38f, 0.60f, 0.06f)
+        )
+        for ((gx, gy, gr) in ghosts) {
+            val px = w * gx
+            val py = h * gy
+            val rad = min(w, h) * gr
+            ghostPaint.shader = RadialGradient(
+                px, py, rad,
+                intArrayOf(Color.argb(42, 255, 195, 130), Color.argb(18, 255, 120, 90), 0x00000000),
+                floatArrayOf(0f, 0.7f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawCircle(px, py, rad, ghostPaint)
+        }
     }
 
     // ==========================================
-    // 8. Golden Hour Flare (وهج الساعة الذهبية)
+    // 7. Anamorphic CinemaScope Streak (شريط توهج سينمائي)
     // ==========================================
-    private fun drawGoldenFlare(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        val cx = width * 0.15f
-        val cy = height * 0.05f
-        val radius = max(width, height) * 0.95f
+    private fun renderAnamorphicStreak(canvas: Canvas, w: Float, h: Float, warmth: Float) {
+        canvas.drawColor(Color.BLACK)
+        val centerY = h * 0.46f
+        val halfH = h * 0.14f
 
-        val goldenShader = RadialGradient(
-            cx, cy, radius,
-            intArrayOf(
-                0xFFFFF8E1.toInt(), // Warm morning sunlight
-                0xFFFFD54F.toInt(), // Rich Gold
-                0xFFFF8F00.toInt(), // Warm Amber
-                0x88E65100.toInt(), // Deep Sunset Orange
-                0x00000000
-            ),
-            floatArrayOf(0f, 0.18f, 0.42f, 0.70f, 1f),
-            Shader.TileMode.CLAMP
-        )
+        val streakTint = if (warmth > 0.55f) {
+            Color.argb(245, 255, 196, 92)
+        } else {
+            Color.argb(245, 24, 218, 255)
+        }
+        val streakSoft = if (warmth > 0.55f) {
+            Color.argb(75, 255, 155, 50)
+        } else {
+            Color.argb(75, 0, 185, 255)
+        }
 
-        paint.shader = goldenShader
-        canvas.drawRect(0f, 0f, width, height, paint)
-        paint.shader = null
+        val streakPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, centerY - halfH, 0f, centerY + halfH,
+                intArrayOf(0x00000000, streakSoft, streakTint, Color.WHITE, streakTint, streakSoft, 0x00000000),
+                floatArrayOf(0f, 0.30f, 0.46f, 0.50f, 0.54f, 0.70f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, centerY - halfH, w, centerY + halfH, streakPaint)
+
+        // Taper horizontal ends smoothly and add central anamorphic flare core
+        val edgeMask = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
+            shader = LinearGradient(
+                0f, 0f, w, 0f,
+                intArrayOf(Color.BLACK, Color.WHITE, Color.WHITE, Color.BLACK),
+                floatArrayOf(0f, 0.18f, 0.82f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, centerY - halfH, w, centerY + halfH, edgeMask)
+
+        val coreRad = min(w, h) * 0.16f
+        val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.ADD)
+            shader = RadialGradient(
+                w * 0.5f, centerY, coreRad,
+                intArrayOf(Color.argb(190, 255, 255, 255), streakSoft, 0x00000000),
+                floatArrayOf(0f, 0.45f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawCircle(w * 0.5f, centerY, coreRad, corePaint)
+    }
+
+    internal fun scaleAlpha(callerAlpha: Int, elementAlpha: Int): Int {
+        return (callerAlpha.coerceIn(0, 255) * elementAlpha.coerceIn(0, 255)) / 255
     }
 
     // ==========================================
-    // 9. 35mm Film Frame & Sprockets (إطار فيلم 35mm)
+    // 8. 35mm Film Frame & Sprockets (Alpha & Background-Safe EVEN_ODD Path)
     // ==========================================
     private fun drawFilmBorder35mm(canvas: Canvas, width: Float, height: Float, paint: Paint) {
         val barHeight = height * 0.11f
-        paint.color = 0xFA050507.toInt()
-
-        // Top and Bottom black matte bands
-        canvas.drawRect(0f, 0f, width, barHeight, paint)
-        canvas.drawRect(0f, height - barHeight, width, height, paint)
-
-        // Sprocket perforations (cutouts filled with semi-transparent background tone)
         val sprocketW = min(width, height) * 0.038f
         val sprocketH = barHeight * 0.48f
         val sprocketRadius = sprocketW * 0.28f
@@ -334,51 +613,65 @@ object AtharProceduralMaskRenderer {
         val count = (width / spacing).toInt()
         val startX = (width - (count * spacing)) * 0.5f
 
-        val punchPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            color = 0x11FFFFFF // Subtle transparency perforation
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
-        }
+        reusablePath.reset()
+        reusablePath.fillType = Path.FillType.EVEN_ODD
+        reusablePath.addRect(0f, 0f, width, barHeight, Path.Direction.CW)
+        reusablePath.addRect(0f, height - barHeight, width, height, Path.Direction.CW)
 
+        val topY = (barHeight - sprocketH) * 0.5f
+        val botY = height - barHeight + (barHeight - sprocketH) * 0.5f
         for (i in 0..count) {
             val sx = startX + i * spacing
-            // Top sprocket
-            val topRect = RectF(sx, (barHeight - sprocketH) * 0.5f, sx + sprocketW, (barHeight + sprocketH) * 0.5f)
-            canvas.drawRoundRect(topRect, sprocketRadius, sprocketRadius, punchPaint)
-
-            // Bottom sprocket
-            val botY = height - barHeight + (barHeight - sprocketH) * 0.5f
-            val botRect = RectF(sx, botY, sx + sprocketW, botY + sprocketH)
-            canvas.drawRoundRect(botRect, sprocketRadius, sprocketRadius, punchPaint)
+            if (sx + sprocketW <= 0f || sx >= width) continue
+            reusablePath.addRoundRect(
+                RectF(sx, topY, sx + sprocketW, topY + sprocketH),
+                sprocketRadius, sprocketRadius, Path.Direction.CCW
+            )
+            reusablePath.addRoundRect(
+                RectF(sx, botY, sx + sprocketW, botY + sprocketH),
+                sprocketRadius, sprocketRadius, Path.Direction.CCW
+            )
         }
+
+        val callerAlpha = paint.alpha
+        reusableDrawPaint.set(paint)
+        reusableDrawPaint.style = Paint.Style.FILL
+        reusableDrawPaint.shader = null
+        reusableDrawPaint.color = 0xFF07080B.toInt()
+        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 248)
+        canvas.drawPath(reusablePath, reusableDrawPaint)
     }
 
     // ==========================================
-    // 10. Studio Passepartout Mat (باسبارتو استوديو)
+    // 9. Studio Passepartout Mat (Preserves Alpha & Filters)
     // ==========================================
     private fun drawStudioPassepartout(canvas: Canvas, width: Float, height: Float, paint: Paint) {
         val marginX = width * 0.08f
         val marginY = height * 0.08f
+        val callerAlpha = paint.alpha
 
-        paint.color = 0xEE12141A.toInt()
+        reusablePath.reset()
+        reusablePath.fillType = Path.FillType.EVEN_ODD
+        reusablePath.addRect(0f, 0f, width, height, Path.Direction.CW)
+        reusablePath.addRect(marginX, marginY, width - marginX, height - marginY, Path.Direction.CCW)
 
-        // 4 outer border blocks leaving inner aperture open
-        canvas.drawRect(0f, 0f, width, marginY, paint)
-        canvas.drawRect(0f, height - marginY, width, height, paint)
-        canvas.drawRect(0f, marginY, marginX, height - marginY, paint)
-        canvas.drawRect(width - marginX, marginY, width, height - marginY, paint)
+        reusableDrawPaint.set(paint)
+        reusableDrawPaint.style = Paint.Style.FILL
+        reusableDrawPaint.shader = null
+        reusableDrawPaint.color = 0xFF12141A.toInt()
+        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 238)
+        canvas.drawPath(reusablePath, reusableDrawPaint)
 
-        // Soft inner shadow on top & left edge of aperture
-        val bevelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 2.5f
-            color = 0x66000000
-        }
-        canvas.drawRect(marginX, marginY, width - marginX, height - marginY, bevelPaint)
+        // Inner bevel hairline respecting caller alpha & filters
+        reusableDrawPaint.style = Paint.Style.STROKE
+        reusableDrawPaint.strokeWidth = max(2f, min(width, height) * 0.003f)
+        reusableDrawPaint.color = 0xFF000000.toInt()
+        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 110)
+        canvas.drawRect(marginX, marginY, width - marginX, height - marginY, reusableDrawPaint)
     }
 
     // ==========================================
-    // 11. Vector Halftone Screen (تنقيط مطبعي نقي)
+    // 10. Vector Halftone Screen (Preserves Alpha)
     // ==========================================
     private fun drawVectorHalftone(canvas: Canvas, width: Float, height: Float, paint: Paint) {
         val step = max(18f, width / 24f)
@@ -386,7 +679,13 @@ object AtharProceduralMaskRenderer {
         val rows = (height / step).toInt() + 1
         val maxRadius = step * 0.42f
 
-        paint.color = 0xCC000000.toInt()
+        val callerAlpha = paint.alpha
+        reusableDrawPaint.set(paint)
+        reusableDrawPaint.style = Paint.Style.FILL
+        reusableDrawPaint.shader = null
+        reusableDrawPaint.color = 0xFF000000.toInt()
+        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 204)
+
         val centerX = width * 0.5f
         val centerY = height * 0.5f
         val maxDist = hypot(centerX, centerY)
@@ -398,46 +697,62 @@ object AtharProceduralMaskRenderer {
                 val dist = hypot(x - centerX, y - centerY)
                 val factor = (dist / maxDist).coerceIn(0.05f, 1f)
                 val dotRadius = maxRadius * factor
-                canvas.drawCircle(x, y, dotRadius, paint)
+                canvas.drawCircle(x, y, dotRadius, reusableDrawPaint)
             }
         }
     }
 
     // ==========================================
-    // 12. Analog CRT Scanlines (خطوط مسح تلفاز)
+    // 11. Analog CRT Scanlines
     // ==========================================
     private fun drawPrecisionScanlines(canvas: Canvas, width: Float, height: Float, paint: Paint) {
-        val lineHeight = 4f
+        val lineHeight = max(3f, height / 270f)
         val scanlineShader = LinearGradient(
             0f, 0f, 0f, lineHeight,
             intArrayOf(0x00000000, 0x00000000, 0xAA000000.toInt(), 0xAA000000.toInt()),
             floatArrayOf(0f, 0.49f, 0.50f, 1f),
             Shader.TileMode.REPEAT
         )
-        paint.shader = scanlineShader
-        canvas.drawRect(0f, 0f, width, height, paint)
-        paint.shader = null
+        reusableDrawPaint.set(paint)
+        reusableDrawPaint.style = Paint.Style.FILL
+        reusableDrawPaint.shader = scanlineShader
+        canvas.drawRect(0f, 0f, width, height, reusableDrawPaint)
+        reusableDrawPaint.shader = null
     }
 
     // ==========================================
-    // Ultra-Fast Vector Thumbnail Generator
+    // Ultra-Fast Vector & Gobo Thumbnail Generator
     // ==========================================
     fun generateThumbnailBitmap(type: ProceduralMaskType, size: Int = 120): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // Dark photographic surface backdrop
+        val matchingDef = AtharMaskCatalog.ALL_MASKS.find { it.proceduralType == type }
+        val isMultiplyStyle = matchingDef?.defaultBlendMode == MaskBlendMode.MULTIPLY
+
+        // Warm neutral studio backdrop for MULTIPLY gobos; deep obsidian backdrop for light/frame masks
         val bgPaint = Paint().apply {
-            color = 0xFF141720.toInt()
+            color = if (isMultiplyStyle) 0xFFDAD2C6.toInt() else 0xFF141720.toInt()
             style = Paint.Style.FILL
         }
         canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), bgPaint)
 
-        val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG).apply {
             style = Paint.Style.FILL
+            if (isMultiplyStyle) {
+                MaskBlendMode.MULTIPLY.applyToPaint(this)
+            }
         }
 
-        drawProceduralMask(canvas, type, size.toFloat(), size.toFloat(), thumbPaint)
+        drawProceduralMask(
+            canvas = canvas,
+            type = type,
+            width = size.toFloat(),
+            height = size.toFloat(),
+            paint = thumbPaint,
+            softness = matchingDef?.defaultSoftness ?: 0.25f,
+            warmth = matchingDef?.defaultWarmth ?: 0.35f
+        )
         return bitmap
     }
 }

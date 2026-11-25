@@ -1,37 +1,63 @@
 package app.xrtm8.athar.model
 
+import android.graphics.BlendMode
+import android.graphics.Paint
 import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.os.Build
 
 enum class MaskCategory(val label: String) {
     ALL("الكل"),
-    LIGHT_LEAKS("إضاءة"),
-    PRISM_BOKEH("موشور وبوكيه"),
-    SHADOWS("ظلال"),
-    TEXTURES("خامات"),
-    PAPER_GLASS("ورق وزجاج")
+    SUNLIGHT_SHADOWS("ضوء وظلال"),
+    SMOKE_ATMOSPHERE("دخان وضباب"),
+    LIGHT_LEAKS("تسريب وموشور"),
+    TEXTURES_FRAMES("خامات وإطارات")
 }
 
 enum class MaskBlendMode(val label: String, val porterDuffMode: PorterDuff.Mode) {
     SCREEN("إضاءة Screen", PorterDuff.Mode.SCREEN),
     MULTIPLY("مضاعفة Multiply", PorterDuff.Mode.MULTIPLY),
     OVERLAY("تراكب Overlay", PorterDuff.Mode.OVERLAY),
+    SOFT_LIGHT("ضوء ناعم Soft Light", PorterDuff.Mode.OVERLAY),
+    COLOR_DODGE("توهج ضوئي Dodge", PorterDuff.Mode.SCREEN),
     ADD("توهج إشعاعي Add", PorterDuff.Mode.ADD),
     LIGHTEN("تفتيح Lighten", PorterDuff.Mode.LIGHTEN),
     DARKEN("تعتيم Darken", PorterDuff.Mode.DARKEN),
-    NORMAL("عادي Normal", PorterDuff.Mode.SRC_OVER)
+    NORMAL("عادي Normal", PorterDuff.Mode.SRC_OVER);
+
+    /**
+     * Applies the blend mode onto [paint] with API 29+ BlendMode precision
+     * (enabling true SOFT_LIGHT & COLOR_DODGE) and deterministic PorterDuff fallback on API 26-28.
+     */
+    fun applyToPaint(paint: Paint) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            paint.blendMode = when (this) {
+                SCREEN -> BlendMode.SCREEN
+                MULTIPLY -> BlendMode.MULTIPLY
+                OVERLAY -> BlendMode.OVERLAY
+                SOFT_LIGHT -> BlendMode.SOFT_LIGHT
+                COLOR_DODGE -> BlendMode.COLOR_DODGE
+                ADD -> BlendMode.PLUS
+                LIGHTEN -> BlendMode.LIGHTEN
+                DARKEN -> BlendMode.DARKEN
+                NORMAL -> BlendMode.SRC_OVER
+            }
+        } else {
+            paint.xfermode = PorterDuffXfermode(porterDuffMode)
+        }
+    }
 }
 
 enum class ProceduralMaskType {
-    WINDOW_BLINDS,       // ستائر شرائح (Venetian Blinds)
-    FRENCH_WINDOW,       // إطار نافذة مقسم (French Window Frame)
-    BOTANICAL_PALM,      // ظلال أوراق استوائية (Botanical Palm Leaf)
-    GEOMETRIC_ARCH,      // أقواس معمارية (Architectural Arch Colonnade)
-    OPTICAL_SUNBURST,    // تسريب شمسي نقي (Optical Sunburst Flare)
-    ANAMORPHIC_STREAK,   // شريط توهج سينمائي (CinemaScope Flare Streak)
-    PRISM_DISPERSION,    // انكسار موشوري طيفي (Prism Optical Dispersion)
-    GOLDEN_FLARE,        // وهج الساعة الذهبية (Golden Hour Flare)
+    WINDOW_BLINDS,       // ستائر شرائح بمنظور ضوئي (Perspective Venetian Blinds)
+    FRENCH_WINDOW,       // إضاءة نافذة مقسمة بمنظور (Perspective French Window Sunlight)
+    GEOMETRIC_ARCH,      // أقواس معمارية بمنظور (Perspective Architectural Arch)
+    ARCHED_MASHRABIYA,   // شمس مشربية عربية (Arched Mashrabiya Lattice)
+    GOLDEN_HOUR_BEAMS,   // أشعة ساعة ذهبية مائلة (Diagonal Golden Hour Shafts)
+    OPTICAL_SUNBURST,    // تسريب شمسي بصري (Optical Sunburst & Dust Motes)
+    ANAMORPHIC_STREAK,   // شريط توهج سينمائي (CinemaScope Anamorphic Flare)
     FILM_BORDER_35MM,    // إطار فيلم 35mm أصيل (35mm Film Frame & Sprockets)
-    STUDIO_PASSEPARTOUT, // باسبارتو استوديو فاخر (Studio Passepartout Mat)
+    STUDIO_PASSEPARTOUT, // باسبارتو استوديو (Studio Passepartout Mat)
     VECTOR_HALFTONE,     // تنقيط مطبعي نقي (Vector Halftone Screen)
     PRECISION_SCANLINES  // خطوط مسح أنالوج (Analog CRT Scanlines)
 }
@@ -58,12 +84,16 @@ data class AtharMaskDefinition(
     val id: String,
     val title: String,
     val category: MaskCategory,
-    val assetFileName: String,
-    val thumbFileName: String = assetFileName.replace("masks/", "masks/thumbs/"),
+    val assetFileName: String = "",
+    val thumbFileName: String = if (assetFileName.isNotEmpty()) assetFileName.replace("masks/", "masks/thumbs/") else "",
     val defaultBlendMode: MaskBlendMode = MaskBlendMode.SCREEN,
     val defaultOpacity: Float = 0.75f,
+    val defaultSoftness: Float = 0.25f,
+    val defaultWarmth: Float = 0.35f,
     val proceduralType: ProceduralMaskType? = null
-)
+) {
+    val requiresAssetBitmap: Boolean get() = proceduralType == null && assetFileName.isNotBlank()
+}
 
 data class AtharMaskState(
     val isEnabled: Boolean = false,
@@ -82,6 +112,8 @@ data class AtharMaskState(
     val isInverted: Boolean = false,
     val tintColorLong: Long? = null,
     val isLuminanceMode: Boolean = false,
+    val softness: Float = 0.25f, // 0f to 1f
+    val warmth: Float = 0.35f, // 0f to 1f
     val blackGradient: BlackGradientState = BlackGradientState()
 ) {
     val proceduralType: ProceduralMaskType? get() = AtharMaskCatalog.getById(activeMaskId)?.proceduralType
@@ -91,113 +123,220 @@ data class AtharMaskState(
 
 object AtharMaskCatalog {
     val ALL_MASKS = listOf(
+        // ==========================================
+        // 1. Sunlight & Cast Shadows (ضوء وظلال)
+        // ==========================================
         AtharMaskDefinition(
-            id = "solar_dust",
-            title = "تسريب شمسي نقي",
-            category = MaskCategory.LIGHT_LEAKS,
-            assetFileName = "masks/mask_solar_dust.webp",
-            defaultBlendMode = MaskBlendMode.SCREEN,
-            defaultOpacity = 0.85f,
-            proceduralType = ProceduralMaskType.OPTICAL_SUNBURST
-        ),
-        AtharMaskDefinition(
-            id = "prism_flares",
-            title = "انكسار موشوري",
-            category = MaskCategory.PRISM_BOKEH,
-            assetFileName = "masks/mask_prism_flares.webp",
-            defaultBlendMode = MaskBlendMode.SCREEN,
-            defaultOpacity = 0.85f,
-            proceduralType = ProceduralMaskType.PRISM_DISPERSION
-        ),
-        AtharMaskDefinition(
-            id = "sunset_leak",
-            title = "وهج الساعة الذهبية",
-            category = MaskCategory.LIGHT_LEAKS,
-            assetFileName = "masks/mask_sunset_leak.webp",
-            defaultBlendMode = MaskBlendMode.SCREEN,
-            defaultOpacity = 0.80f,
-            proceduralType = ProceduralMaskType.GOLDEN_FLARE
-        ),
-        AtharMaskDefinition(
-            id = "antique_linen",
-            title = "ظلال أوراق استوائية",
-            category = MaskCategory.SHADOWS,
-            assetFileName = "masks/mask_antique_linen.webp",
+            id = "chroma_dream",
+            title = "نافذة شمسية مائلة",
+            category = MaskCategory.SUNLIGHT_SHADOWS,
             defaultBlendMode = MaskBlendMode.MULTIPLY,
-            defaultOpacity = 0.70f,
-            proceduralType = ProceduralMaskType.BOTANICAL_PALM
+            defaultOpacity = 0.76f,
+            defaultSoftness = 0.30f,
+            defaultWarmth = 0.45f,
+            proceduralType = ProceduralMaskType.FRENCH_WINDOW
+        ),
+        AtharMaskDefinition(
+            id = "window_shadow",
+            title = "ظل ستائر شرائح",
+            category = MaskCategory.SUNLIGHT_SHADOWS,
+            defaultBlendMode = MaskBlendMode.MULTIPLY,
+            defaultOpacity = 0.78f,
+            defaultSoftness = 0.28f,
+            defaultWarmth = 0.40f,
+            proceduralType = ProceduralMaskType.WINDOW_BLINDS
+        ),
+        AtharMaskDefinition(
+            id = "arched_mashrabiya",
+            title = "شمس مشربية عربية",
+            category = MaskCategory.SUNLIGHT_SHADOWS,
+            defaultBlendMode = MaskBlendMode.MULTIPLY,
+            defaultOpacity = 0.74f,
+            defaultSoftness = 0.26f,
+            defaultWarmth = 0.45f,
+            proceduralType = ProceduralMaskType.ARCHED_MASHRABIYA
+        ),
+        AtharMaskDefinition(
+            id = "golden_hour_beams",
+            title = "أشعة ساعة ذهبية",
+            category = MaskCategory.SUNLIGHT_SHADOWS,
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.75f,
+            defaultSoftness = 0.35f,
+            defaultWarmth = 0.65f,
+            proceduralType = ProceduralMaskType.GOLDEN_HOUR_BEAMS
         ),
         AtharMaskDefinition(
             id = "dark_mesh",
             title = "أقواس معمارية",
-            category = MaskCategory.SHADOWS,
-            assetFileName = "masks/mask_dark_mesh.webp",
+            category = MaskCategory.SUNLIGHT_SHADOWS,
             defaultBlendMode = MaskBlendMode.MULTIPLY,
-            defaultOpacity = 0.65f,
+            defaultOpacity = 0.70f,
+            defaultSoftness = 0.30f,
+            defaultWarmth = 0.35f,
             proceduralType = ProceduralMaskType.GEOMETRIC_ARCH
         ),
         AtharMaskDefinition(
-            id = "chroma_dream",
-            title = "إطار نافذة مشمس",
-            category = MaskCategory.SHADOWS,
-            assetFileName = "masks/mask_chroma_dream.webp",
+            id = "antique_linen",
+            title = "ظل سعف نخل واقعي",
+            category = MaskCategory.SUNLIGHT_SHADOWS,
+            assetFileName = "masks/mask_palm_canopy.webp",
             defaultBlendMode = MaskBlendMode.MULTIPLY,
+            defaultOpacity = 0.72f,
+            defaultSoftness = 0.20f,
+            defaultWarmth = 0.35f
+        ),
+        AtharMaskDefinition(
+            id = "olive_dappled",
+            title = "تسلل شمس بين أغصان",
+            category = MaskCategory.SUNLIGHT_SHADOWS,
+            assetFileName = "masks/mask_olive_dappled.webp",
+            defaultBlendMode = MaskBlendMode.MULTIPLY,
+            defaultOpacity = 0.72f,
+            defaultSoftness = 0.20f,
+            defaultWarmth = 0.40f
+        ),
+
+        // ==========================================
+        // 2. Smoke & Atmospheric Vapor (دخان وضباب)
+        // ==========================================
+        AtharMaskDefinition(
+            id = "smoke_incense",
+            title = "خيوط بخور صاعدة",
+            category = MaskCategory.SMOKE_ATMOSPHERE,
+            assetFileName = "masks/mask_smoke_incense.webp",
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.78f,
+            defaultSoftness = 0.15f,
+            defaultWarmth = 0.30f
+        ),
+        AtharMaskDefinition(
+            id = "smoke_floor_fog",
+            title = "ضباب أرضي منخفض",
+            category = MaskCategory.SMOKE_ATMOSPHERE,
+            assetFileName = "masks/mask_smoke_floor_fog.webp",
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.72f,
+            defaultSoftness = 0.20f,
+            defaultWarmth = 0.20f
+        ),
+        AtharMaskDefinition(
+            id = "smoke_diagonal_plume",
+            title = "نفثة دخان مائلة",
+            category = MaskCategory.SMOKE_ATMOSPHERE,
+            assetFileName = "masks/mask_smoke_diagonal_plume.webp",
+            defaultBlendMode = MaskBlendMode.SCREEN,
             defaultOpacity = 0.75f,
-            proceduralType = ProceduralMaskType.FRENCH_WINDOW
+            defaultSoftness = 0.18f,
+            defaultWarmth = 0.25f
+        ),
+        AtharMaskDefinition(
+            id = "smoke_halo",
+            title = "هالة بخار محيطة",
+            category = MaskCategory.SMOKE_ATMOSPHERE,
+            assetFileName = "masks/mask_smoke_halo.webp",
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.74f,
+            defaultSoftness = 0.15f,
+            defaultWarmth = 0.25f
+        ),
+        AtharMaskDefinition(
+            id = "smoke_ambient_mist",
+            title = "ضباب سينمائي ناعم",
+            category = MaskCategory.SMOKE_ATMOSPHERE,
+            assetFileName = "masks/mask_smoke_ambient_mist.webp",
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.65f,
+            defaultSoftness = 0.25f,
+            defaultWarmth = 0.20f
+        ),
+
+        // ==========================================
+        // 3. Light Leaks & Optical Caustics (تسريب وموشور)
+        // ==========================================
+        AtharMaskDefinition(
+            id = "sunset_leak",
+            title = "تسريب غروب دافئ",
+            category = MaskCategory.LIGHT_LEAKS,
+            assetFileName = "masks/mask_sunset_leak.webp",
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.80f,
+            defaultSoftness = 0.15f,
+            defaultWarmth = 0.55f
+        ),
+        AtharMaskDefinition(
+            id = "prism_flares",
+            title = "انكسار ضوئي موشوري",
+            category = MaskCategory.LIGHT_LEAKS,
+            assetFileName = "masks/mask_prism_caustic.webp",
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.82f,
+            defaultSoftness = 0.15f,
+            defaultWarmth = 0.35f
+        ),
+        AtharMaskDefinition(
+            id = "solar_dust",
+            title = "تسريب شمسي نقي",
+            category = MaskCategory.LIGHT_LEAKS,
+            defaultBlendMode = MaskBlendMode.SCREEN,
+            defaultOpacity = 0.82f,
+            defaultSoftness = 0.35f,
+            defaultWarmth = 0.60f,
+            proceduralType = ProceduralMaskType.OPTICAL_SUNBURST
         ),
         AtharMaskDefinition(
             id = "cyan_burn",
             title = "شريط توهج سينمائي",
             category = MaskCategory.LIGHT_LEAKS,
-            assetFileName = "masks/mask_cyan_burn.webp",
             defaultBlendMode = MaskBlendMode.ADD,
-            defaultOpacity = 0.85f,
+            defaultOpacity = 0.80f,
+            defaultSoftness = 0.25f,
+            defaultWarmth = 0.20f,
             proceduralType = ProceduralMaskType.ANAMORPHIC_STREAK
         ),
+
+        // ==========================================
+        // 4. Textures & Analog Frames (خامات وإطارات)
+        // ==========================================
         AtharMaskDefinition(
-            id = "crt_scanlines",
-            title = "خطوط مسح تلفاز",
-            category = MaskCategory.TEXTURES,
-            assetFileName = "masks/mask_crt_scanlines.webp",
-            defaultBlendMode = MaskBlendMode.OVERLAY,
-            defaultOpacity = 0.50f,
-            proceduralType = ProceduralMaskType.PRECISION_SCANLINES
-        ),
-        AtharMaskDefinition(
-            id = "window_shadow",
-            title = "ظل ستائر شرائح",
-            category = MaskCategory.SHADOWS,
-            assetFileName = "masks/mask_window_shadow.webp",
-            defaultBlendMode = MaskBlendMode.MULTIPLY,
-            defaultOpacity = 0.80f,
-            proceduralType = ProceduralMaskType.WINDOW_BLINDS
-        ),
-        AtharMaskDefinition(
-            id = "halftone_wave",
-            title = "تنقيط مطبعي نقي",
-            category = MaskCategory.TEXTURES,
-            assetFileName = "masks/mask_halftone_wave.webp",
-            defaultBlendMode = MaskBlendMode.OVERLAY,
-            defaultOpacity = 0.60f,
-            proceduralType = ProceduralMaskType.VECTOR_HALFTONE
+            id = "folded_poster",
+            title = "إطار فيلم 35mm",
+            category = MaskCategory.TEXTURES_FRAMES,
+            defaultBlendMode = MaskBlendMode.NORMAL,
+            defaultOpacity = 0.85f,
+            defaultSoftness = 0.0f,
+            defaultWarmth = 0.0f,
+            proceduralType = ProceduralMaskType.FILM_BORDER_35MM
         ),
         AtharMaskDefinition(
             id = "fluted_glass",
             title = "باسبارتو استوديو",
-            category = MaskCategory.PAPER_GLASS,
-            assetFileName = "masks/mask_fluted_glass.webp",
+            category = MaskCategory.TEXTURES_FRAMES,
             defaultBlendMode = MaskBlendMode.NORMAL,
-            defaultOpacity = 0.75f,
+            defaultOpacity = 0.80f,
+            defaultSoftness = 0.0f,
+            defaultWarmth = 0.0f,
             proceduralType = ProceduralMaskType.STUDIO_PASSEPARTOUT
         ),
         AtharMaskDefinition(
-            id = "folded_poster",
-            title = "إطار فيلم 35mm",
-            category = MaskCategory.PAPER_GLASS,
-            assetFileName = "masks/mask_folded_poster.webp",
-            defaultBlendMode = MaskBlendMode.NORMAL,
-            defaultOpacity = 0.80f,
-            proceduralType = ProceduralMaskType.FILM_BORDER_35MM
+            id = "halftone_wave",
+            title = "تنقيط مطبعي نقي",
+            category = MaskCategory.TEXTURES_FRAMES,
+            defaultBlendMode = MaskBlendMode.OVERLAY,
+            defaultOpacity = 0.55f,
+            defaultSoftness = 0.0f,
+            defaultWarmth = 0.0f,
+            proceduralType = ProceduralMaskType.VECTOR_HALFTONE
+        ),
+        AtharMaskDefinition(
+            id = "crt_scanlines",
+            title = "خطوط مسح تلفاز",
+            category = MaskCategory.TEXTURES_FRAMES,
+            defaultBlendMode = MaskBlendMode.OVERLAY,
+            defaultOpacity = 0.45f,
+            defaultSoftness = 0.0f,
+            defaultWarmth = 0.0f,
+            proceduralType = ProceduralMaskType.PRECISION_SCANLINES
         )
     )
 

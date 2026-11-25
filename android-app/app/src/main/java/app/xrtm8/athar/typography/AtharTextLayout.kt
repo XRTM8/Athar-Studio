@@ -33,6 +33,8 @@ object AtharTextLayout {
         val text: String,
         val textSize: Float,
         val typefaceHash: Int,
+        val typefaceIdentity: Int,
+        val fontVariationSettings: String?,
         val bold: Boolean,
         val skew: Float,
         val letterSpacing: Float,
@@ -72,6 +74,16 @@ object AtharTextLayout {
         } catch (_: Throwable) {
             0
         }
+        val typefaceIdentity = try {
+            paint?.typeface?.let { System.identityHashCode(it) } ?: 0
+        } catch (_: Throwable) {
+            0
+        }
+        val fontVariationSettings = try {
+            paint?.fontVariationSettings
+        } catch (_: Throwable) {
+            null
+        }
         val letterSpacing = try {
             paint?.letterSpacing ?: 0f
         } catch (_: Throwable) {
@@ -93,6 +105,8 @@ object AtharTextLayout {
             text = text,
             textSize = textSize,
             typefaceHash = typefaceHash,
+            typefaceIdentity = typefaceIdentity,
+            fontVariationSettings = fontVariationSettings,
             bold = paint?.isFakeBoldText ?: false,
             skew = paint?.textSkewX ?: 0f,
             letterSpacing = letterSpacing,

@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,9 +31,8 @@ import app.xrtm8.athar.ui.dialogs.CustomColorPickerDialog
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * Mask Studio 2.0 Precision Adjustments:
- * - Opacity, Contrast / Punch, Invert, Luminance Stencil, Custom Tinting,
- *   Scale, Offset (X, Y), Hue shift, Flip H/V, Rotation, and Extended Blend Modes.
+ * Mask Studio 3.0 Optical & Color Adjustments (< 230 lines per ARCHITECTURE.md).
+ * Spatial transform, hue shift, and blend mode controls live in MaskTransformControls.
  */
 @Composable
 fun MaskAdjustmentsSection(
@@ -53,6 +51,8 @@ fun MaskAdjustmentsSection(
     onToggleFlipV: () -> Unit,
     onRotate90: () -> Unit,
     onSliderChangeFinished: () -> Unit = {},
+    onSoftnessChange: (Float) -> Unit = {},
+    onWarmthChange: (Float) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -66,7 +66,6 @@ fun MaskAdjustmentsSection(
         modifier = modifier
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // 1. Opacity Slider
             StudioSlider(
                 title = "كثافة وشفافية القناع",
                 value = state.opacity,
@@ -77,7 +76,28 @@ fun MaskAdjustmentsSection(
                 onValueChangeFinished = onSliderChangeFinished
             )
 
-            // 2. Contrast & Punch Slider
+            StudioSlider(
+                title = "نعومة الظل (Softness)",
+                value = state.softness,
+                onValueChange = onSoftnessChange,
+                valueRange = 0f..1f,
+                valueDisplay = "${(state.softness * 100).toInt()}%",
+                icon = Icons.Default.BlurOn,
+                onValueChangeFinished = onSliderChangeFinished
+            )
+
+            if (state.tintColorLong == null) {
+                StudioSlider(
+                    title = "دفء الإضاءة (Warmth)",
+                    value = state.warmth,
+                    onValueChange = onWarmthChange,
+                    valueRange = 0f..1f,
+                    valueDisplay = "${(state.warmth * 100).toInt()}%",
+                    icon = Icons.Default.WbSunny,
+                    onValueChangeFinished = onSliderChangeFinished
+                )
+            }
+
             StudioSlider(
                 title = "تباين القناع وحدته (Contrast)",
                 value = state.contrast,
@@ -88,310 +108,43 @@ fun MaskAdjustmentsSection(
                 onValueChangeFinished = onSliderChangeFinished
             )
 
-            // 3. Quick Action Toggles: Invert Mask & Luminance Stencil Mode
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Invert Mask Toggle
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onToggleInvert()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.isInverted) BurgundyAccent else StudioSurface
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(0.5.dp, if (state.isInverted) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.InvertColors,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                        tint = if (state.isInverted) PureWhite else MutedWhite
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (state.isInverted) "معكوس (Inverted)" else "عكس القناع",
-                        fontSize = 11.sp,
-                        color = if (state.isInverted) PureWhite else MutedWhite,
-                        fontWeight = if (state.isInverted) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-
-                // Luminance Stencil Toggle
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onToggleLuminanceMode()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.isLuminanceMode) BurgundyAccent else StudioSurface
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(0.5.dp, if (state.isLuminanceMode) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Layers,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                        tint = if (state.isLuminanceMode) PureWhite else MutedWhite
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (state.isLuminanceMode) "استنسل شفاف" else "قناع استنسل",
-                        fontSize = 11.sp,
-                        color = if (state.isLuminanceMode) PureWhite else MutedWhite,
-                        fontWeight = if (state.isLuminanceMode) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-            }
-
-            // 4. Mask Tinting Palette
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "تلوين القناع (Mask Tint)",
-                    color = MutedWhite,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Medium
+            // Invert & Luminance Stencil toggles
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MaskActionToggleButton(
+                    active = state.isInverted,
+                    label = if (state.isInverted) "معكوس (Inverted)" else "عكس القناع",
+                    icon = Icons.Default.InvertColors,
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleInvert() },
+                    modifier = Modifier.weight(1f)
                 )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Original / Untinted Chip
-                    val isOriginal = state.tintColorLong == null
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (isOriginal) BurgundyAccent else StudioSurface)
-                            .border(0.5.dp, if (isOriginal) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onTintColorChange(null)
-                            }
-                            .padding(horizontal = 9.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = "طبيعي / أصلي",
-                            color = if (isOriginal) PureWhite else MutedWhite,
-                            fontSize = 10.5.sp,
-                            fontWeight = if (isOriginal) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-
-                    // Custom Color Picker Trigger
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(BurgundyAccent.copy(alpha = 0.2f))
-                            .border(1.dp, BurgundyAccent, RoundedCornerShape(9.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                showCustomTintDialog = true
-                            }
-                            .padding(horizontal = 9.dp, vertical = 5.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = BurgundyAccent, modifier = Modifier.size(12.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text(text = "مخصص", color = BurgundyAccent, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    // Curated Luxury Color Swatches
-                    listOf(
-                        0xFFFFFFFFL to "أبيض ناصع",
-                        0xFF000000L to "أسود داكن",
-                        0xFFFFD54FL to "ذهب ملكي",
-                        0xFFFF8F00L to "كهرمان دافئ",
-                        0xFF00E5FFL to "سيان كهربائي",
-                        0xFF9E1B42L to "عنابي مخملي",
-                        0xFF00E676L to "زمردي نقي"
-                    ).forEach { (colorLong, name) ->
-                        val isSelected = state.tintColorLong == colorLong
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(9.dp))
-                                .background(if (isSelected) BurgundyAccent else StudioSurface)
-                                .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onTintColorChange(colorLong)
-                                }
-                                .padding(horizontal = 8.dp, vertical = 5.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(9.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(colorLong.toInt()))
-                                    .border(0.5.dp, if (isSelected) PureWhite else MutedWhite, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = name,
-                                color = if (isSelected) PureWhite else MutedWhite,
-                                fontSize = 10.5.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 5. Scale Slider
-            StudioSlider(
-                title = "حجم القناع وتكبيره",
-                value = state.scale,
-                onValueChange = onScaleChange,
-                valueRange = 0.5f..3.0f,
-                valueDisplay = String.format(java.util.Locale.US, "%.1fx", state.scale),
-                icon = Icons.Default.ZoomIn,
-                onValueChangeFinished = onSliderChangeFinished
-            )
-
-            // 6. Offset X Slider
-            StudioSlider(
-                title = "موضع القناع الأفقي (X)",
-                value = state.offsetX,
-                onValueChange = onOffsetXChange,
-                valueRange = -1f..1f,
-                valueDisplay = String.format(java.util.Locale.US, "%+.2f", state.offsetX),
-                icon = Icons.Default.SwapHoriz,
-                onValueChangeFinished = onSliderChangeFinished
-            )
-
-            // 7. Offset Y Slider
-            StudioSlider(
-                title = "موضع القناع الرأسي (Y)",
-                value = state.offsetY,
-                onValueChange = onOffsetYChange,
-                valueRange = -1f..1f,
-                valueDisplay = String.format(java.util.Locale.US, "%+.2f", state.offsetY),
-                icon = Icons.Default.SwapVert,
-                onValueChangeFinished = onSliderChangeFinished
-            )
-
-            // 8. Hue Shift Slider (Only when not tinted)
-            if (state.tintColorLong == null) {
-                StudioSlider(
-                    title = "صبغة اللون الطيفية (Hue Shift)",
-                    value = state.hueShift,
-                    onValueChange = onHueShiftChange,
-                    valueRange = -180f..180f,
-                    valueDisplay = "${state.hueShift.toInt()}°",
-                    icon = Icons.Default.Palette,
-                    onValueChangeFinished = onSliderChangeFinished
+                MaskActionToggleButton(
+                    active = state.isLuminanceMode,
+                    label = if (state.isLuminanceMode) "استنسل شفاف" else "قناع استنسل",
+                    icon = Icons.Default.Layers,
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleLuminanceMode() },
+                    modifier = Modifier.weight(1f)
                 )
             }
 
-            // 9. Quick Transform Buttons: Flip H, Flip V, Rotate 90
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onToggleFlipH()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.isFlippedH) BurgundyAccent else StudioSurface
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(0.5.dp, if (state.isFlippedH) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
-                ) {
-                    Icon(imageVector = Icons.Default.Flip, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "قلب أفقي", fontSize = 11.sp, color = PureWhite)
-                }
+            // Mask Tint Palette
+            MaskTintPaletteRow(
+                selectedTint = state.tintColorLong,
+                onSelectTint = onTintColorChange,
+                onOpenPicker = { showCustomTintDialog = true }
+            )
 
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onToggleFlipV()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.isFlippedV) BurgundyAccent else StudioSurface
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(0.5.dp, if (state.isFlippedV) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
-                ) {
-                    Icon(imageVector = Icons.Default.VerticalAlignCenter, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "قلب رأسي", fontSize = 11.sp, color = PureWhite)
-                }
-
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onRotate90()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.rotationDegrees != 0) BurgundyAccent else StudioSurface
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(0.5.dp, if (state.rotationDegrees != 0) CherryAccent else GlassBorder, RoundedCornerShape(10.dp))
-                ) {
-                    Icon(imageVector = Icons.AutoMirrored.Filled.RotateRight, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${state.rotationDegrees}°", fontSize = 11.sp, color = PureWhite)
-                }
-            }
-
-            // 10. Blend Modes
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "نمط دمج القناع السينمائي (Blend Mode)",
-                    color = PureWhite,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    MaskBlendMode.values().forEach { mode ->
-                        val isSelected = state.blendMode == mode
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) BurgundyAccent else StudioSurface)
-                                .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onBlendModeChange(mode)
-                                }
-                                .padding(horizontal = 9.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                text = mode.label,
-                                color = if (isSelected) PureWhite else MutedWhite,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
-            }
+            MaskTransformControls(
+                state = state,
+                onScaleChange = onScaleChange,
+                onOffsetXChange = onOffsetXChange,
+                onOffsetYChange = onOffsetYChange,
+                onHueShiftChange = onHueShiftChange,
+                onToggleFlipH = onToggleFlipH,
+                onToggleFlipV = onToggleFlipV,
+                onRotate90 = onRotate90,
+                onBlendModeChange = onBlendModeChange,
+                onSliderChangeFinished = onSliderChangeFinished
+            )
         }
     }
 
@@ -399,11 +152,76 @@ fun MaskAdjustmentsSection(
         CustomColorPickerDialog(
             initialColorLong = state.tintColorLong ?: 0xFFFFD54FL,
             title = "منتقي لون القناع المخصص",
-            onColorSelected = {
-                onTintColorChange(it)
-                showCustomTintDialog = false
-            },
+            onColorSelected = { onTintColorChange(it); showCustomTintDialog = false },
             onDismiss = { showCustomTintDialog = false }
         )
+    }
+}
+
+@Composable
+private fun MaskTintPaletteRow(
+    selectedTint: Long?,
+    onSelectTint: (Long?) -> Unit,
+    onOpenPicker: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(text = "تلوين القناع (Mask Tint)", color = MutedWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val isOriginal = selectedTint == null
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (isOriginal) BurgundyAccent else StudioSurface)
+                    .border(0.5.dp, if (isOriginal) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
+                    .clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSelectTint(null) }
+                    .padding(horizontal = 9.dp, vertical = 5.dp)
+            ) {
+                Text(text = "أصلي", color = if (isOriginal) PureWhite else MutedWhite, fontSize = 10.5.sp, fontWeight = if (isOriginal) FontWeight.Bold else FontWeight.Normal)
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(BurgundyAccent.copy(alpha = 0.2f))
+                    .border(1.dp, BurgundyAccent, RoundedCornerShape(9.dp))
+                    .clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onOpenPicker() }
+                    .padding(horizontal = 9.dp, vertical = 5.dp)
+            ) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = BurgundyAccent, modifier = Modifier.size(12.dp))
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(text = "مخصص", color = BurgundyAccent, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+            }
+
+            listOf(
+                0xFFFFFFFFL to "أبيض",
+                0xFFFFD54FL to "ذهبي",
+                0xFFFF8F00L to "كهرماني",
+                0xFF00E5FFL to "سيان",
+                0xFF9E1B42L to "عنابي",
+                0xFF00E676L to "زمردي",
+                0xFF000000L to "أسود"
+            ).forEach { (colorLong, name) ->
+                val isSelected = selectedTint == colorLong
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(if (isSelected) BurgundyAccent else StudioSurface)
+                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
+                        .clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSelectTint(colorLong) }
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                ) {
+                    Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(Color(colorLong.toInt())).border(0.5.dp, if (isSelected) PureWhite else MutedWhite, CircleShape))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(text = name, color = if (isSelected) PureWhite else MutedWhite, fontSize = 10.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                }
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.typography.AtharFontManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -79,7 +80,18 @@ object AtharProjectManager {
         // 2. Determine if background image is present
         val hasBg = state.backgroundImageUri != null
 
-        // 3. Create Manifest JSON
+        // 3. Collect referenced custom fonts for portable bundling
+        val bundledFonts = LinkedHashMap<String, File>()
+        state.layers.forEach { layer ->
+            val path = layer.customFontPath?.takeIf { it.isNotBlank() } ?: return@forEach
+            val fontFile = AtharFontManager.resolveExistingCustomFile(context, path) ?: return@forEach
+            val safeName = fontFile.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            if (safeName.endsWith(".ttf", true) || safeName.endsWith(".otf", true)) {
+                bundledFonts.putIfAbsent("fonts/$safeName", fontFile)
+            }
+        }
+
+        // 4. Create Manifest JSON
         val json = JSONObject().apply {
             put("athar_schema_version", 1)
             put("project_id", projId)
@@ -114,6 +126,15 @@ object AtharProjectManager {
                 }
                 state.collageState.cells.forEachIndexed { index, cell ->
                     cell.imageUri?.let { writePhoto("collage/$index", it) }
+                }
+                bundledFonts.forEach { (entryName, fontFile) ->
+                    if (fontFile.exists() && fontFile.canRead()) {
+                        fontFile.inputStream().use { input ->
+                            archive.putNextEntry(ZipEntry(entryName))
+                            input.copyTo(archive, bufferSize = 64 * 1024)
+                            archive.closeEntry()
+                        }
+                    }
                 }
             }
             thumbFile.writeBytes(thumbBytes)
@@ -179,6 +200,7 @@ object AtharProjectManager {
     suspend fun loadProjectFromStream(context: Context, inputStream: InputStream): CanvasState = withContext(Dispatchers.IO) {
         var manifest: JSONObject? = null
         val photos = mutableMapOf<String, File>()
+        val restoredFonts = mutableMapOf<String, String>()
         try {
             ZipInputStream(inputStream).use { archive ->
                 var entry = archive.nextEntry
@@ -191,11 +213,46 @@ object AtharProjectManager {
                         val photo = File.createTempFile("photo-", ".img", getAssetsDir(context))
                         photos[name] = photo
                         photo.outputStream().use { archive.copyTo(it) }
+                    } else if (name.startsWith("fonts/")) {
+                        val rawFontName = name.substringAfter("fonts/")
+                        require(
+                            rawFontName.isNotBlank() &&
+                                !rawFontName.contains('/') &&
+                                !rawFontName.contains('\\') &&
+                                !rawFontName.contains("..") &&
+                                (rawFontName.endsWith(".ttf", true) || rawFontName.endsWith(".otf", true))
+                        ) { "ملف خط غير صالح في المشروع" }
+                        val tmpFont = File.createTempFile("font-", ".part", getAssetsDir(context))
+                        try {
+                            tmpFont.outputStream().use { archive.copyTo(it) }
+                            AtharFontManager.importFontFileForProject(context, tmpFont, rawFontName)?.let { imported ->
+                                restoredFonts[rawFontName] = imported.filePath
+                            }
+                        } finally {
+                            tmpFont.delete()
+                        }
                     }
                     entry = archive.nextEntry
                 }
             }
             val canvas = requireNotNull(manifest) { "الملف المختار ليس مشروع أثر صالحًا" }.getJSONObject("canvas")
+            fun remapCustomFontPath(obj: JSONObject) {
+                val oldPath = obj.optString("custom_font_path", "")
+                if (oldPath.isBlank()) return
+                val oldFileName = oldPath.substringAfterLast('/').substringAfterLast('\\')
+                val remapped = restoredFonts[oldFileName]
+                    ?: AtharFontManager.resolveExistingCustomFile(context, oldPath)?.absolutePath
+                if (!remapped.isNullOrBlank()) {
+                    obj.put("custom_font_path", remapped)
+                }
+            }
+            remapCustomFontPath(canvas)
+            val layersArr = canvas.optJSONArray("layers")
+            if (layersArr != null) {
+                for (index in 0 until layersArr.length()) {
+                    layersArr.optJSONObject(index)?.let { remapCustomFontPath(it) }
+                }
+            }
             val cells = canvas.optJSONArray("collage_cells")
             if (cells != null) {
                 for (index in 0 until cells.length()) {

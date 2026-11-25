@@ -18,8 +18,8 @@ import app.xrtm8.athar.model.MaskBlendMode
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * PicsArt-Grade Mask Studio & Atmospheric Black Gradient Coordinator Panel.
- * Assembles MaskCarouselSection, MaskAdjustmentsSection, and BlackGradientSection (< 90 lines).
+ * Mask Studio 3.0 & Atmospheric Black Gradient Coordinator Panel (< 130 lines).
+ * Assembles MaskCarouselSection, MaskAdjustmentsSection, and BlackGradientSection.
  */
 @Composable
 fun MaskPanel(
@@ -45,6 +45,8 @@ fun MaskPanel(
     onBlackGradientCoverageChange: (Float) -> Unit,
     onResetMask: () -> Unit,
     onSliderChangeFinished: () -> Unit = {},
+    onSoftnessChange: (Float) -> Unit = {},
+    onWarmthChange: (Float) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -86,7 +88,7 @@ fun MaskPanel(
             onPickCustomMask = onPickCustomMask
         )
 
-        // 3. Fine-tuning adjustments (Opacity, Contrast, Invert, Tint, Luminance, Scale, Offsets, Hue, Flip, Rotate, Blend Mode)
+        // 3. Optical, Color & Transform Adjustments
         MaskAdjustmentsSection(
             state = state,
             onOpacityChange = onOpacityChange,
@@ -102,7 +104,9 @@ fun MaskPanel(
             onToggleFlipH = onToggleFlipH,
             onToggleFlipV = onToggleFlipV,
             onRotate90 = onRotate90,
-            onSliderChangeFinished = onSliderChangeFinished
+            onSliderChangeFinished = onSliderChangeFinished,
+            onSoftnessChange = onSoftnessChange,
+            onWarmthChange = onWarmthChange
         )
 
         HorizontalDivider(color = GlassBorder, thickness = 0.5.dp)
