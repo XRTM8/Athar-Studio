@@ -3,22 +3,13 @@ package app.xrtm8.athar.ui.dialogs
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,18 +28,9 @@ import androidx.compose.ui.window.DialogProperties
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.AtharFavoritesManager
 import app.xrtm8.athar.model.CustomFont
+import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.theme.*
 
-/**
- * Deluxe Arabic Font Browser Modal inspired by Al-Musamim Al-Arabi.
- * Features:
- * - Live font search
- * - External font import (.ttf / .otf)
- * - Custom fonts section & management
- * - Category filters (All, Custom, Favorites, Classical, Kufic, Nastaliq, etc.)
- * - Heart toggle for favorites with atomic persistence
- * - Specimen cards with instant selection
- */
 @Composable
 fun FontBrowserDialog(
     selectedFont: ArabicFontFamily,
@@ -62,292 +45,189 @@ fun FontBrowserDialog(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-
-    val fontPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            onImportFont(uri)
-        }
+    val fontPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImportFont(uri)
     }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("الكل") }
     var favoriteFonts by remember { mutableStateOf(AtharFavoritesManager.getFavoriteFonts(context)) }
-
-    val categories = listOf("الكل", "خطوط مخصصة", "المفضلة", "كلاسيكي", "كوفي", "نستعليق", "عناوين", "حديث", "تعبيري", "قرآني")
-
-    val filteredCustomFonts = customFonts.filter { cf ->
-        cf.name.contains(searchQuery, ignoreCase = true)
+    val categories = remember {
+        listOf("الكل", "خطوط مخصصة", "المفضلة", "كلاسيكي", "رقعة", "كوفي", "نستعليق", "عناوين", "حديث", "تعبيري", "قرآني")
     }
 
-    val filteredFonts = ArabicFontFamily.entries.filter { font ->
-        val matchesSearch = font.fontName.contains(searchQuery, ignoreCase = true) ||
-                font.category.contains(searchQuery, ignoreCase = true)
-
-        val matchesCategory = when (selectedCategory) {
-            "الكل" -> true
-            "المفضلة" -> favoriteFonts.contains(font.name)
-            "خطوط مخصصة" -> false
-            else -> font.category == selectedCategory
+    val groupedCustom = remember(customFonts, searchQuery) {
+        customFonts.filter {
+            it.name.contains(searchQuery, true) || it.familyName.contains(searchQuery, true)
+        }.groupBy { it.familyName.lowercase().replace(Regex("[\\s_-]+"), "") }.values.toList()
+    }
+    val filteredFonts = remember(searchQuery, selectedCategory, favoriteFonts) {
+        ArabicFontFamily.entries.filter { font ->
+            val matchesQ = font.fontName.contains(searchQuery, true) ||
+                font.cssFamilyName.contains(searchQuery, true) || font.category.contains(searchQuery, true)
+            val matchesC = when (selectedCategory) {
+                "الكل" -> true
+                "المفضلة" -> favoriteFonts.contains(font.name)
+                "خطوط مخصصة" -> false
+                else -> font.category == selectedCategory
+            }
+            matchesQ && matchesC
         }
-
-        matchesSearch && matchesCategory
     }
 
-    val isAmoledWhite = LocalAmoledWhite.current
-    val primaryTextColor = if (isAmoledWhite) DarkText else PureWhite
-    val subtleTextColor = if (isAmoledWhite) DarkTextSubtle else SubtleGray
-    val dialogBg = if (isAmoledWhite) AmoledWhite else GlassBackground
-    val cardBg = if (isAmoledWhite) WhiteSurface else GlassSurface
-    val cardBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val isWhite = LocalAmoledWhite.current
+    val primaryText = if (isWhite) DarkText else PureWhite
+    val subtleText = if (isWhite) DarkTextSubtle else SubtleGray
+    val dialogBg = if (isWhite) AmoledWhite else GlassBackground
+    val cardBg = if (isWhite) WhiteSurface else GlassSurface
+    val cardBorder = if (isWhite) WhiteBorder else GlassBorder
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background((if (isAmoledWhite) AmoledWhite else AmoledBlack).copy(alpha = 0.85f))
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().background((if (isWhite) AmoledWhite else AmoledBlack).copy(alpha = 0.85f)).padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.95f)
-                    .fillMaxHeight(0.85f)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(dialogBg)
-                    .border(1.dp, if (isAmoledWhite) WhiteBorder else GlassBorderActive, RoundedCornerShape(24.dp))
+                    .fillMaxWidth(0.95f).fillMaxHeight(0.85f)
+                    .clip(RoundedCornerShape(24.dp)).background(dialogBg)
+                    .border(1.dp, if (isWhite) WhiteBorder else GlassBorderActive, RoundedCornerShape(24.dp))
                     .padding(18.dp)
             ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                     Column {
-                        Text(
-                            text = "مكتبة الخطوط العربية",
-                            color = CherryAccent,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "اختر الخط المناسب لتصميمك",
-                            color = subtleTextColor,
-                            fontSize = 11.sp
-                        )
+                        Text("مكتبة الخطوط العربية", color = CherryAccent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text("اختر الخط المناسب أو استورد خطوط .ttf / .otf", color = subtleText, fontSize = 11.sp)
                     }
-
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onDismiss()
-                        }
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = primaryTextColor)
+                    IconButton(onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onDismiss() }) {
+                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = primaryText)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Search Bar
+                Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("ابحث عن اسم الخط أو النمط...", color = subtleTextColor, fontSize = 12.sp) },
+                    placeholder = { Text("ابحث عن اسم الخط أو النمط...", color = subtleText, fontSize = 12.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = CherryAccent) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = cardBg,
-                        unfocusedContainerColor = cardBg,
-                        focusedBorderColor = CherryAccent,
-                        unfocusedBorderColor = cardBorder,
-                        focusedTextColor = primaryTextColor,
-                        unfocusedTextColor = primaryTextColor
+                        focusedContainerColor = cardBg, unfocusedContainerColor = cardBg,
+                        focusedBorderColor = CherryAccent, unfocusedBorderColor = cardBorder,
+                        focusedTextColor = primaryText, unfocusedTextColor = primaryText
                     ),
                     singleLine = true
                 )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Category Chips
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(6.dp)) {
                     categories.forEach { cat ->
-                        val isSelected = selectedCategory == cat
+                        val active = selectedCategory == cat
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) CherryAccent else cardBg)
-                                .border(0.5.dp, if (isSelected) CherryAccent else cardBorder, RoundedCornerShape(10.dp))
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    selectedCategory = cat
-                                }
+                                .background(if (active) CherryAccent else cardBg)
+                                .border(0.5.dp, if (active) CherryAccent else cardBorder, RoundedCornerShape(10.dp))
+                                .clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = cat }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = cat,
-                                color = if (isSelected) PureWhite else primaryTextColor,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
+                            Text(cat, color = if (active) PureWhite else primaryText, fontSize = 11.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Medium)
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Import Font Button
+                Spacer(Modifier.height(10.dp))
                 OutlinedButton(
-                    onClick = {
-                        fontPickerLauncher.launch(
-                            arrayOf(
-                                "font/*",
-                                "application/x-font-ttf",
-                                "application/x-font-opentype",
-                                "application/octet-stream",
-                                "*/*"
-                            )
-                        )
-                    },
+                    onClick = { fontPicker.launch(arrayOf("font/*", "application/x-font-ttf", "application/x-font-opentype", "application/octet-stream", "*/*")) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = CherryAccent.copy(alpha = if (isAmoledWhite) 0.08f else 0.12f)
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CherryAccent)
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = CherryAccent.copy(alpha = 0.10f)),
+                    border = BorderStroke(1.dp, CherryAccent)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "استيراد خط خارجي (.ttf / .otf)",
-                        color = CherryAccent,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("استيراد خط خارجي (.ttf / .otf)", color = CherryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Fonts List
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Custom fonts section
-                    if (selectedCategory == "خطوط مخصصة" || (selectedCategory == "الكل" && filteredCustomFonts.isNotEmpty())) {
-                        items(filteredCustomFonts, key = { "custom_${it.id}" }) { cf ->
-                            val isSelected = customFontPath == cf.filePath
+                Spacer(Modifier.height(10.dp))
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (selectedCategory == "خطوط مخصصة" || (selectedCategory == "الكل" && groupedCustom.isNotEmpty())) {
+                        items(groupedCustom, key = { "fam_${it.first().id}" }) { variants ->
+                            val primary = variants.find { it.weightClass == 400 } ?: variants.first()
                             CustomFontItemRow(
-                                customFont = cf,
-                                isSelected = isSelected,
-                                sampleText = sampleText,
-                                isAmoledWhite = isAmoledWhite,
-                                onSelect = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onSelectCustomFont(cf)
-                                    onDismiss()
-                                },
-                                onDelete = {
+                                customFont = primary, isSelected = customFontPath == primary.filePath,
+                                sampleText = sampleText, isAmoledWhite = isWhite,
+                                familyVariants = variants, selectedCustomPath = customFontPath,
+                                onSelect = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSelectCustomFont(primary); onDismiss() },
+                                onSelectVariant = { chosen -> haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSelectCustomFont(chosen); onDismiss() },
+                                onDelete = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDeleteCustomFont(primary.id) },
+                                onDeleteVariant = { id -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDeleteCustomFont(id) }
+                            )
+                        }
+                    }
+                    if (selectedCategory != "خطوط مخصصة") {
+                        items(filteredFonts, key = { it.name }) { font ->
+                            val composeFont = remember(font) { AtharFontManager.getComposeFontFamily(context, font, font.defaultWeight) }
+                            BuiltInFontRow(
+                                font = font, composeFont = composeFont,
+                                isSelected = selectedFont == font && customFontPath == null,
+                                isFav = favoriteFonts.contains(font.name),
+                                sampleText = sampleText, isWhite = isWhite,
+                                primaryText = primaryText, subtleText = subtleText,
+                                cardBg = cardBg, cardBorder = cardBorder,
+                                onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSelectFont(font); onDismiss() },
+                                onToggleFav = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onDeleteCustomFont(cf.id)
+                                    AtharFavoritesManager.toggleFontFavorite(context, font.name)
+                                    favoriteFonts = AtharFavoritesManager.getFavoriteFonts(context)
                                 }
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
 
-                    // Built-in fonts
-                    if (selectedCategory != "خطوط مخصصة") {
-                        items(filteredFonts, key = { it.name }) { font ->
-                            val isSelected = selectedFont == font && customFontPath == null
-                            val isFav = favoriteFonts.contains(font.name)
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSelected) CherryAccent.copy(alpha = if (isAmoledWhite) 0.15f else 0.16f) else cardBg)
-                                .border(
-                                    width = if (isSelected) 1.5.dp else 0.5.dp,
-                                    color = if (isSelected) CherryAccent else cardBorder,
-                                    shape = RoundedCornerShape(14.dp)
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onSelectFont(font)
-                                    onDismiss()
-                                }
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = font.fontName,
-                                            color = if (isSelected) CherryAccent else primaryTextColor,
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(if (isAmoledWhite) WhiteSurfaceElevated else AmoledBlack)
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = font.category,
-                                                color = subtleTextColor,
-                                                fontSize = 9.5.sp
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = sampleText.take(24).ifBlank { font.specimen },
-                                        color = if (isSelected) PureWhite else MutedWhite,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1
-                                    )
-                                }
-
-                                // Favorite Heart Toggle Button
-                                IconButton(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        AtharFavoritesManager.toggleFontFavorite(context, font.name)
-                                        favoriteFonts = AtharFavoritesManager.getFavoriteFonts(context)
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = "مفضلة",
-                                        tint = if (isFav) Color(0xFFFF4081) else SubtleGray,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
+@Composable
+private fun BuiltInFontRow(
+    font: ArabicFontFamily, composeFont: FontFamily, isSelected: Boolean, isFav: Boolean,
+    sampleText: String, isWhite: Boolean, primaryText: Color, subtleText: Color,
+    cardBg: Color, cardBorder: Color, onClick: () -> Unit, onToggleFav: () -> Unit
+) {
+    val badgeBg = if (isWhite) WhiteSurfaceElevated else AmoledBlack
+    Box(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(if (isSelected) CherryAccent.copy(alpha = 0.16f) else cardBg)
+            .border(if (isSelected) 1.5.dp else 0.5.dp, if (isSelected) CherryAccent else cardBorder, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick).padding(12.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(font.fontName, color = if (isSelected) CherryAccent else primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(badgeBg).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text(font.category, color = subtleText, fontSize = 9.5.sp)
+                    }
+                    if (font.supportedWeights.size > 1) {
+                        Box(Modifier.clip(RoundedCornerShape(6.dp)).background(badgeBg).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                            Text("${font.supportedWeights.size} أوزان", color = CherryAccent, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
+                    if (!font.supportsTatweel) {
+                        Box(Modifier.clip(RoundedCornerShape(6.dp)).background(badgeBg).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                            Text("بدون مدّ", color = Color(0xFFF59E0B), fontSize = 9.5.sp)
+                        }
                     }
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = sampleText.take(28).ifBlank { font.specimen },
+                    fontFamily = composeFont,
+                    color = if (isSelected) primaryText else (if (isWhite) DarkTextMuted else MutedWhite),
+                    fontSize = 15.5.sp, maxLines = 1
+                )
+            }
+            IconButton(onClick = onToggleFav) {
+                Icon(if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "مفضلة", tint = if (isFav) Color(0xFFFF4081) else SubtleGray, modifier = Modifier.size(20.dp))
             }
         }
     }

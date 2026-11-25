@@ -35,7 +35,9 @@ object CanvasLayerTextRenderer {
     ) {
         if (!layer.isVisible || layer.displayText.isEmpty()) return
 
-        val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
+        val effectiveWeight = if (layer.isBold && layer.fontWeight < 700) 700 else layer.fontWeight
+        val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath, effectiveWeight)
+        val useFakeBold = layer.isBold && !AtharFontManager.hasRealWeight(context, layer.selectedFont, effectiveWeight, layer.customFontPath)
         val canvasDensityFactor = canvasWidth / 380f
         val textSizePx = (layer.fontSize / 380f) * canvasWidth
         val alphaInt = (layer.textOpacity.coerceIn(0f, 1f) * 255).toInt()
@@ -60,19 +62,19 @@ object CanvasLayerTextRenderer {
         basePaint.textSize = textSizePx
         basePaint.letterSpacing = layer.letterSpacing
         basePaint.isUnderlineText = layer.isUnderline
-        basePaint.isFakeBoldText = layer.isBold
+        basePaint.isFakeBoldText = useFakeBold
         basePaint.textSkewX = if (layer.isItalic) -0.25f else 0f
         shadowPaint.textSize = textSizePx
         shadowPaint.letterSpacing = layer.letterSpacing
         shadowPaint.textSkewX = basePaint.textSkewX
-        shadowPaint.isFakeBoldText = layer.isBold
+        shadowPaint.isFakeBoldText = useFakeBold
 
         strokePaint.textSize = textSizePx
         strokePaint.strokeJoin = Paint.Join.ROUND
         strokePaint.strokeCap = Paint.Cap.ROUND
         strokePaint.letterSpacing = layer.letterSpacing
         strokePaint.isUnderlineText = layer.isUnderline
-        strokePaint.isFakeBoldText = layer.isBold
+        strokePaint.isFakeBoldText = useFakeBold
         strokePaint.textSkewX = basePaint.textSkewX
 
         // OpenType Features: Stylistic Sets (ss01..ss20), Swash, and Discretionary Ligatures

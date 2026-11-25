@@ -38,7 +38,16 @@ object ArabicParagraphJustifier {
         val maxWidth = widths.maxOrNull() ?: return text
         if (maxWidth <= 0f) return text
 
-        val tatweelWidth = measurer("ـ").let { if (it <= 0.1f) 14f else it }
+        val rawTatweel = try {
+            measureText?.invoke("ـ") ?: (paint?.measureText("ـ") ?: 0f)
+        } catch (_: Throwable) {
+            0f
+        }
+        // Guard: if font has zero-width or missing tatweel glyph, avoid inserting invisible tatweels
+        if ((paint != null || measureText != null) && rawTatweel <= 0.01f) {
+            return text
+        }
+        val tatweelWidth = if (rawTatweel > 0.01f) rawTatweel else 14f
 
         val justifiedLines = rawLines.mapIndexed { index, line ->
             val curWidth = widths[index]
@@ -47,7 +56,7 @@ object ArabicParagraphJustifier {
             if (deficit <= (tatweelWidth * 0.5f) || line.isBlank()) {
                 line
             } else {
-                val neededCount = (deficit / tatweelWidth).toInt().coerceIn(1, 35)
+                val neededCount = (deficit / tatweelWidth).roundToInt().coerceIn(1, 55)
                 distributeKashidas(line, neededCount)
             }
         }
@@ -83,8 +92,10 @@ object ArabicParagraphJustifier {
 
         val unitWeight = if (measurer != null) {
             val tw = measurer("ـ")
-            if (tw > 0.1f) tw else 14f
+            if (tw <= 0.01f) return text
+            tw
         } else 0.85f
+        val maxKashidasPerLine = if (measurer != null) 45 else 25
 
         val balancedLines = ArrayList<String>(cleanedLines.size)
         for (i in cleanedLines.indices) {
@@ -97,7 +108,7 @@ object ArabicParagraphJustifier {
                 continue
             }
 
-            val neededKashidas = (deficit / unitWeight).roundToInt().coerceIn(1, 25)
+            val neededKashidas = (deficit / unitWeight).roundToInt().coerceIn(1, maxKashidasPerLine)
             balancedLines.add(distributeKashidas(line, neededKashidas))
         }
 

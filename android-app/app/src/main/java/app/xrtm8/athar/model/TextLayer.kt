@@ -13,6 +13,7 @@ data class TextLayer(
     val kashidaTargetIndex: Int = -1,
     val selectedEffect: VisualEffect = VisualEffect.ROYAL_GOLD,
     val selectedFont: ArabicFontFamily = ArabicFontFamily.AREF_RUQAA,
+    val fontWeight: Int = 400,
     val fontSize: Float = 52f,
     val textColor: Color = Color.White,
     val customTextColorLong: Long? = null,
