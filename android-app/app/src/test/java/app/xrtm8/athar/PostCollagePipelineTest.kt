@@ -5,6 +5,7 @@ import app.xrtm8.athar.core.AtharColorMixEngine
 import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.core.CollageCoverFitMath
 import app.xrtm8.athar.core.CollageLayoutCalculator
+import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ChannelAdjustment
 import app.xrtm8.athar.model.CinematicGlowState
@@ -14,6 +15,8 @@ import app.xrtm8.athar.model.ColorMixState
 import app.xrtm8.athar.model.FilmGrainState
 import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.GlitchEffectState
+import app.xrtm8.athar.model.OpticalLensState
+import app.xrtm8.athar.model.OpticalLensType
 import app.xrtm8.athar.model.PatternState
 import app.xrtm8.athar.model.PatternType
 import app.xrtm8.athar.ui.AtharStudioViewModel
@@ -177,5 +180,93 @@ class PostCollagePipelineTest {
         assertEquals(1.0f, vm.canvasState.value.bgPhotoScale, 0.001f)
         vm.commitPhotoFraming(0f, 0f, 0.4f)
         assertEquals(1.0f, vm.canvasState.value.bgPhotoScale, 0.001f)
+    }
+
+    @Test
+    fun filmLutAndOpticalLensPredicatesAndBeforeAfterReset() {
+        val defaultState = CanvasState()
+        assertFalse(AtharBackgroundPipeline.hasFilmLut(defaultState))
+
+        val zeroIntensityFilm = defaultState.copy(filmPreset = FilmPreset.KODAK_PORTRA_400, filmPresetIntensity = 0f)
+        assertFalse(AtharBackgroundPipeline.hasFilmLut(zeroIntensityFilm))
+        assertFalse(AtharBackgroundPipeline.hasHeavyCollageCompositeEffects(zeroIntensityFilm))
+
+        val activeFilm = defaultState.copy(backgroundDim = 0f, filmPreset = FilmPreset.KODAK_PORTRA_400, filmPresetIntensity = 0.6f)
+        assertTrue(AtharBackgroundPipeline.hasFilmLut(activeFilm))
+        assertTrue(AtharBackgroundPipeline.hasHeavyCollageCompositeEffects(activeFilm))
+        assertTrue(AtharBackgroundPipeline.hasAnyPixelEffects(activeFilm))
+        assertFalse(AtharBackgroundPipeline.hasColorMatrixAdjustments(activeFilm, includeFilmMatrix = false))
+        assertNull(AtharBackgroundPipeline.buildCompositeColorFilter(activeFilm, includeFilmMatrix = false))
+        assertTrue(AtharBackgroundPipeline.hasColorMatrixAdjustments(activeFilm, includeFilmMatrix = true))
+
+        val activeLens = defaultState.copy(
+            opticalLensState = OpticalLensState(OpticalLensType.STARBURST_4PT, intensity = 0.7f)
+        )
+        assertTrue(AtharBackgroundPipeline.hasHeavyCollageCompositeEffects(activeLens))
+
+        val before = AtharBackgroundPipeline.createBeforeCompareState(
+            activeFilm.copy(opticalLensState = activeLens.opticalLensState)
+        )
+        assertEquals(1.0f, before.filmPresetIntensity, 0.001f)
+        assertEquals(OpticalLensState(), before.opticalLensState)
+        assertFalse(AtharBackgroundPipeline.hasHeavyCollageCompositeEffects(before))
+    }
+
+    @Test
+    fun viewModelIntegrationForFilmLensMaskAndFontWeights() {
+        val vm = AtharStudioViewModel()
+
+        // Film intensity & optical lens + undo/redo
+        vm.setFilmPreset(FilmPreset.DREAM_GLOW)
+        vm.setFilmPresetIntensity(0.45f)
+        vm.commitHistoryCheckpoint()
+        assertEquals(0.45f, vm.canvasState.value.filmPresetIntensity, 0.001f)
+        vm.undo()
+        assertEquals(1.0f, vm.canvasState.value.filmPresetIntensity, 0.001f)
+
+        vm.setOpticalLensState(OpticalLensState(OpticalLensType.PRISM_DIFFRACTION, intensity = 0.8f, spread = 0.6f, angleDegrees = 90f))
+        vm.commitHistoryCheckpoint()
+        assertEquals(OpticalLensType.PRISM_DIFFRACTION, vm.canvasState.value.opticalLensState.type)
+        vm.resetOpticalLens()
+        assertEquals(OpticalLensType.NONE, vm.canvasState.value.opticalLensState.type)
+
+        // Mask catalog defaults & softness/warmth
+        vm.selectMask("golden_hour_beams")
+        assertTrue(vm.canvasState.value.maskState.isEnabled)
+        vm.setMaskSoftness(1.5f)
+        vm.commitHistoryCheckpoint()
+        assertEquals(1.0f, vm.canvasState.value.maskState.softness, 0.001f)
+        vm.setMaskWarmth(-0.2f)
+        vm.commitHistoryCheckpoint()
+        assertEquals(0.0f, vm.canvasState.value.maskState.warmth, 0.001f)
+
+        // Fonts: weight sync & style paste
+        vm.setFont(ArabicFontFamily.ALEXANDRIA)
+        assertEquals(400, vm.canvasState.value.activeLayer.fontWeight)
+        assertFalse(vm.canvasState.value.isBold)
+
+        vm.setFontWeight(700)
+        assertEquals(700, vm.canvasState.value.activeLayer.fontWeight)
+        assertTrue(vm.canvasState.value.isBold)
+
+        vm.setStylisticSet(3)
+        vm.toggleSwash(true)
+        vm.toggleDiscretionaryLigatures(true)
+        vm.setWordSpacing(12f)
+        vm.commitHistoryCheckpoint()
+        vm.setBoxWidthRatio(0.6f)
+        vm.commitHistoryCheckpoint()
+        vm.copyActiveLayerStyle()
+
+        vm.addTextLayer("طبقة ثانية")
+        vm.pasteStyleToActiveLayer()
+        val pasted = vm.canvasState.value.activeLayer
+        assertEquals(700, pasted.fontWeight)
+        assertTrue(pasted.isBold)
+        assertEquals(3, pasted.stylisticSet)
+        assertTrue(pasted.enableSwash)
+        assertTrue(pasted.enableDiscretionaryLigatures)
+        assertEquals(12f, pasted.wordSpacing, 0.001f)
+        assertEquals(0.6f, pasted.boxWidthRatio, 0.001f)
     }
 }

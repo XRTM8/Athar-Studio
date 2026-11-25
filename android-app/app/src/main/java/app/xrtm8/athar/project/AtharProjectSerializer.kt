@@ -30,6 +30,7 @@ object AtharProjectSerializer {
                     put("kashida_mode", layer.kashidaMode.name)
                     put("kashida_target_index", layer.kashidaTargetIndex)
                     put("selected_font", layer.selectedFont.name)
+                    put("font_weight", layer.fontWeight)
                     put("selected_effect", layer.selectedEffect.name)
                     put("font_size", layer.fontSize.toDouble())
                     put("custom_color", layer.customTextColorLong ?: 0L)
@@ -86,6 +87,7 @@ object AtharProjectSerializer {
             put("kashida_mode", active.kashidaMode.name)
             put("kashida_target_index", active.kashidaTargetIndex)
             put("selected_font", active.selectedFont.name)
+            put("font_weight", active.fontWeight)
             put("selected_effect", active.selectedEffect.name)
             put("font_size", active.fontSize.toDouble())
             put("custom_color", active.customTextColorLong ?: 0L)
@@ -135,8 +137,14 @@ object AtharProjectSerializer {
             put("background_grayscale", state.backgroundGrayscale)
             put("is_transparent_bg", state.isTransparentBg)
 
-            // Film Simulation
+            // Film Simulation & Optical Lens
             put("film_preset", state.filmPreset.name)
+            put("film_preset_intensity", state.filmPresetIntensity.toDouble())
+            val lens = state.opticalLensState
+            put("lens_type", lens.type.name)
+            put("lens_intensity", lens.intensity.toDouble())
+            put("lens_spread", lens.spread.toDouble())
+            put("lens_angle", lens.angleDegrees.toDouble())
 
             // Directional Gradient Scrim
             put("scrim_enabled", state.gradientScrim.isEnabled)
@@ -229,6 +237,9 @@ object AtharProjectSerializer {
                     put("ox", cell.photoOffsetX.toDouble())
                     put("oy", cell.photoOffsetY.toDouble())
                     put("scale", cell.photoScale.toDouble())
+                    put("rot", cell.photoRotationDeg)
+                    put("fh", cell.isFlippedH)
+                    put("fv", cell.isFlippedV)
                 }
                 cellsArr.put(cellObj)
             }
@@ -252,6 +263,8 @@ object AtharProjectSerializer {
             put("mask_inverted", m.isInverted)
             if (m.tintColorLong != null) put("mask_tint_color", m.tintColorLong)
             put("mask_luminance_mode", m.isLuminanceMode)
+            put("mask_softness", m.softness.toDouble())
+            put("mask_warmth", m.warmth.toDouble())
 
             val bgGrad = m.blackGradient
             put("mask_bg_grad_enabled", bgGrad.isEnabled)
@@ -266,9 +279,18 @@ object AtharProjectSerializer {
         val aspect = try { CanvasAspectRatio.valueOf(aspectRatioStr) } catch (e: Exception) { CanvasAspectRatio.STORY_9_16 }
         val solidBg = c.optLong("solid_bg_color", 0L)
 
-        // Film Preset
+        // Film Preset & Optical Lens
         val filmStr = c.optString("film_preset", FilmPreset.NONE.name)
         val film = try { FilmPreset.valueOf(filmStr) } catch (e: Exception) { FilmPreset.NONE }
+        val filmIntensity = c.optDouble("film_preset_intensity", 1.0).toFloat().coerceIn(0f, 1f)
+        val lensTypeStr = c.optString("lens_type", OpticalLensType.NONE.name)
+        val lensType = try { OpticalLensType.valueOf(lensTypeStr) } catch (_: Exception) { OpticalLensType.NONE }
+        val deserializedLens = OpticalLensState(
+            type = lensType,
+            intensity = c.optDouble("lens_intensity", 0.65).toFloat().coerceIn(0f, 1f),
+            spread = c.optDouble("lens_spread", 0.50).toFloat().coerceIn(0.1f, 1f),
+            angleDegrees = c.optDouble("lens_angle", 45.0).toFloat()
+        )
 
         // Gradient Scrim
         val scrimDirStr = c.optString("scrim_direction", CanvasGradientDirection.BOTTOM_TO_TOP.name)
@@ -328,6 +350,7 @@ object AtharProjectSerializer {
                         kashidaTargetIndex = targetIdx,
                         selectedEffect = effect,
                         selectedFont = font,
+                        fontWeight = lObj.optInt("font_weight", 400).coerceIn(100, 900),
                         fontSize = lObj.optDouble("font_size", 52.0).toFloat(),
                         customTextColorLong = if (customColor != 0L) customColor else null,
                         strokeWidth = lObj.optDouble("stroke_width", 0.0).toFloat(),
@@ -403,6 +426,7 @@ object AtharProjectSerializer {
                     kashidaTargetIndex = targetIdx,
                     selectedEffect = effect,
                     selectedFont = font,
+                    fontWeight = c.optInt("font_weight", 400).coerceIn(100, 900),
                     fontSize = c.optDouble("font_size", 52.0).toFloat(),
                     customTextColorLong = if (customColor != 0L) customColor else null,
                     strokeWidth = c.optDouble("stroke_width", 0.0).toFloat(),
@@ -525,7 +549,10 @@ object AtharProjectSerializer {
                         bottomNorm = o.optDouble("b", 1.0).toFloat(),
                         photoOffsetX = o.optDouble("ox", 0.0).toFloat(),
                         photoOffsetY = o.optDouble("oy", 0.0).toFloat(),
-                        photoScale = o.optDouble("scale", 1.0).toFloat()
+                        photoScale = o.optDouble("scale", 1.0).toFloat(),
+                        photoRotationDeg = o.optInt("rot", 0),
+                        isFlippedH = o.optBoolean("fh", false),
+                        isFlippedV = o.optBoolean("fv", false)
                     )
                 )
             }
@@ -561,6 +588,8 @@ object AtharProjectSerializer {
             isInverted = c.optBoolean("mask_inverted", false),
             tintColorLong = if (c.has("mask_tint_color")) c.optLong("mask_tint_color") else null,
             isLuminanceMode = c.optBoolean("mask_luminance_mode", false),
+            softness = c.optDouble("mask_softness", 0.25).toFloat().coerceIn(0f, 1f),
+            warmth = c.optDouble("mask_warmth", 0.35).toFloat().coerceIn(0f, 1f),
             blackGradient = BlackGradientState(
                 isEnabled = c.optBoolean("mask_bg_grad_enabled", false),
                 opacity = c.optDouble("mask_bg_grad_opacity", 0.60).toFloat(),
@@ -585,6 +614,7 @@ object AtharProjectSerializer {
             backgroundGrayscale = c.optBoolean("background_grayscale", false),
             isTransparentBg = c.optBoolean("is_transparent_bg", false),
             filmPreset = film,
+            filmPresetIntensity = filmIntensity,
             gradientScrim = scrim,
             bgPhotoOffsetX = c.optDouble("bg_photo_offset_x", 0.0).toFloat(),
             bgPhotoOffsetY = c.optDouble("bg_photo_offset_y", 0.0).toFloat(),
@@ -605,7 +635,8 @@ object AtharProjectSerializer {
             filmGrainState = deserializedGrain,
             collageState = deserializedCollage,
             maskState = deserializedMask,
-            glitchEffectState = deserializedGlitch
+            glitchEffectState = deserializedGlitch,
+            opticalLensState = deserializedLens
         )
     }
 }

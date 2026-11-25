@@ -23,6 +23,7 @@ import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.GlassBackdropPreset
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.LayerBlendMode
+import app.xrtm8.athar.model.OpticalLensState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
@@ -268,9 +269,11 @@ class AtharStudioViewModel : ViewModel() {
 
     fun justifyActiveLayerLines(context: Context) {
         val active = _canvasState.value.activeLayer
+        val effectiveWeight = if (active.isBold && active.fontWeight < 700) 700 else active.fontWeight
         val paint = Paint().apply {
             isAntiAlias = true
-            typeface = AtharFontManager.getTypeface(context, active.selectedFont, active.customFontPath)
+            typeface = AtharFontManager.getTypeface(context, active.selectedFont, active.customFontPath, effectiveWeight)
+            isFakeBoldText = active.isBold && !AtharFontManager.hasRealWeight(context, active.selectedFont, effectiveWeight, active.customFontPath)
             textSize = active.fontSize * 3f
             letterSpacing = active.letterSpacing
         }
@@ -304,7 +307,26 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setFont(font: ArabicFontFamily) {
-        pushActiveLayerHistory { it.copy(selectedFont = font, customFontPath = null, customFontName = null) }
+        val defWeight = font.defaultWeight
+        pushActiveLayerHistory {
+            it.copy(
+                selectedFont = font,
+                customFontPath = null,
+                customFontName = null,
+                fontWeight = defWeight,
+                isBold = defWeight >= 700
+            )
+        }
+    }
+
+    fun setFontWeight(weight: Int) {
+        val clamped = weight.coerceIn(100, 900)
+        pushActiveLayerHistory {
+            it.copy(
+                fontWeight = clamped,
+                isBold = clamped >= 700
+            )
+        }
     }
 
     fun setCustomColor(colorLong: Long?) {
@@ -659,11 +681,30 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     // ==========================================
-    // Film Camera Presets Operations
+    // Film Camera Presets & Optical Lens Operations
     // ==========================================
 
     fun setFilmPreset(preset: FilmPreset) {
         pushHistory(_canvasState.value.copy(filmPreset = preset))
+    }
+
+    fun setFilmPresetIntensity(intensity: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(filmPresetIntensity = intensity.coerceIn(0f, 1f)) }
+    }
+
+    fun setOpticalLensState(lensState: OpticalLensState) {
+        markSliderChange()
+        val sanitized = lensState.copy(
+            intensity = lensState.intensity.coerceIn(0f, 1f),
+            spread = lensState.spread.coerceIn(0.1f, 1f),
+            angleDegrees = ((lensState.angleDegrees % 360f) + 360f) % 360f
+        )
+        _canvasState.update { it.copy(opticalLensState = sanitized) }
+    }
+
+    fun resetOpticalLens() {
+        pushHistory(_canvasState.value.copy(opticalLensState = OpticalLensState()))
     }
 
     // ==========================================
@@ -706,11 +747,21 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
-    fun autoBalanceTypographicBlock() {
+    fun autoBalanceTypographicBlock(context: Context? = null) {
         val active = _canvasState.value.activeLayer
         if (!active.displayText.contains("\n")) return
 
-        val balanced = ArabicParagraphJustifier.balanceArabicBlock(active.displayText)
+        val paint = context?.let { ctx ->
+            val effectiveWeight = if (active.isBold && active.fontWeight < 700) 700 else active.fontWeight
+            Paint().apply {
+                isAntiAlias = true
+                typeface = AtharFontManager.getTypeface(ctx, active.selectedFont, active.customFontPath, effectiveWeight)
+                isFakeBoldText = active.isBold && !AtharFontManager.hasRealWeight(ctx, active.selectedFont, effectiveWeight, active.customFontPath)
+                textSize = active.fontSize * 3f
+                letterSpacing = active.letterSpacing
+            }
+        }
+        val balanced = ArabicParagraphJustifier.balanceArabicBlock(active.displayText, paint)
         pushActiveLayerHistory { it.copy(displayText = balanced) }
     }
 
@@ -910,10 +961,13 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun setCustomFont(customFont: CustomFont?) {
+        val weight = (customFont?.weightClass ?: 400).coerceIn(100, 900)
         pushActiveLayerHistory {
             it.copy(
                 customFontPath = customFont?.filePath,
-                customFontName = customFont?.name
+                customFontName = customFont?.name,
+                fontWeight = weight,
+                isBold = weight >= 700
             )
         }
     }
@@ -934,6 +988,7 @@ class AtharStudioViewModel : ViewModel() {
         pushActiveLayerHistory { target ->
             target.copy(
                 selectedFont = style.selectedFont,
+                fontWeight = style.fontWeight,
                 customFontPath = style.customFontPath,
                 customFontName = style.customFontName,
                 selectedEffect = style.selectedEffect,
@@ -962,7 +1017,12 @@ class AtharStudioViewModel : ViewModel() {
                 gradientPreset = style.gradientPreset,
                 gradientAngle = style.gradientAngle,
                 isRadialGradient = style.isRadialGradient,
-                isHollowText = style.isHollowText
+                isHollowText = style.isHollowText,
+                stylisticSet = style.stylisticSet,
+                enableSwash = style.enableSwash,
+                enableDiscretionaryLigatures = style.enableDiscretionaryLigatures,
+                wordSpacing = style.wordSpacing,
+                boxWidthRatio = style.boxWidthRatio
             )
         }
         _exportMessage.value = "تم تطبيق التنسيق على الطبقة"
@@ -1116,13 +1176,17 @@ class AtharStudioViewModel : ViewModel() {
         val def = app.xrtm8.athar.model.AtharMaskCatalog.getById(maskId)
         val newBlend = def?.defaultBlendMode ?: current.blendMode
         val newOpacity = def?.defaultOpacity ?: current.opacity
+        val newSoftness = def?.defaultSoftness ?: current.softness
+        val newWarmth = def?.defaultWarmth ?: current.warmth
         pushHistory(_canvasState.value.copy(
             maskState = current.copy(
                 isEnabled = true,
                 activeMaskId = maskId,
                 customMaskUri = null,
                 blendMode = newBlend,
-                opacity = newOpacity
+                opacity = newOpacity,
+                softness = newSoftness,
+                warmth = newWarmth
             )
         ))
     }
@@ -1205,6 +1269,16 @@ class AtharStudioViewModel : ViewModel() {
     fun setMaskContrast(contrast: Float) {
         markSliderChange()
         _canvasState.update { it.copy(maskState = it.maskState.copy(contrast = contrast.coerceIn(0.5f, 2.5f))) }
+    }
+
+    fun setMaskSoftness(softness: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(softness = softness.coerceIn(0f, 1f))) }
+    }
+
+    fun setMaskWarmth(warmth: Float) {
+        markSliderChange()
+        _canvasState.update { it.copy(maskState = it.maskState.copy(warmth = warmth.coerceIn(0f, 1f))) }
     }
 
     fun toggleMaskInvert() {

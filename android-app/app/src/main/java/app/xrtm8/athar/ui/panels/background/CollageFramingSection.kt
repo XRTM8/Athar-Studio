@@ -55,6 +55,8 @@ fun CollageFramingSection(
     modifier: Modifier = Modifier,
     isFramingMode: Boolean = false,
     onToggleFramingMode: ((Boolean) -> Unit)? = null,
+    onRotate90: (() -> Unit)? = null,
+    onToggleFlipH: (() -> Unit)? = null,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
@@ -81,7 +83,13 @@ fun CollageFramingSection(
                     Text("تأطير صورة الخلية ${cellIndex + 1}", color = PureWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 if (hasPhoto) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        if (onRotate90 != null) {
+                            CollageActionChip("تدوير") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onRotate90() }
+                        }
+                        if (onToggleFlipH != null) {
+                            CollageActionChip("عكس") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleFlipH() }
+                        }
                         CollageActionChip("استبدال") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPickPhoto() }
                         CollageActionChip("توسيط") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onResetFraming() }
                         CollageActionChip("حذف", isAccent = true) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onRemovePhoto() }

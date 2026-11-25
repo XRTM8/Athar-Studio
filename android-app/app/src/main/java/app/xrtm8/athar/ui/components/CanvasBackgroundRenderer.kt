@@ -99,7 +99,7 @@ object CanvasBackgroundRenderer {
                     val b = cellBitmaps[cell.id]
                     b == null || b.isRecycled
                 }
-                bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state)
+                bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state, includeFilmMatrix = false)
                 bgMatrix.reset()
                 bgMatrix.setScale(
                     canvasWidth / processedCollagePhotoLayer.width.coerceAtLeast(1),
@@ -108,7 +108,7 @@ object CanvasBackgroundRenderer {
                 nativeCanvas.drawBitmap(processedCollagePhotoLayer, bgMatrix, bgPaint)
                 bgPaint.colorFilter = null
             } else {
-                bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state)
+                bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state, includeFilmMatrix = true)
                 val activeCells = if (!isLiveFramingDrag && blurredCellBitmaps.isNotEmpty()) {
                     blurredCellBitmaps
                 } else {
@@ -126,7 +126,7 @@ object CanvasBackgroundRenderer {
                 bgPaint.colorFilter = null
             }
         } else if (bgBitmap != null && !bgBitmap.isRecycled) {
-            bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state)
+            bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state, includeFilmMatrix = false)
             CollageCoverFitMath.populateMatrix(
                 outMatrix = bgMatrix,
                 srcW = bgBitmap.width.toFloat(),

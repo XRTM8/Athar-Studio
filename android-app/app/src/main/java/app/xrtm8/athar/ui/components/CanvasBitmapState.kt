@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import app.xrtm8.athar.core.AtharBackgroundPipeline
 import app.xrtm8.athar.core.AtharColorMixEngine
 import app.xrtm8.athar.core.AtharImageProcessor
+import app.xrtm8.athar.core.AtharMaskRenderer
 import app.xrtm8.athar.model.AtharMaskCatalog
 import app.xrtm8.athar.model.CanvasState
 import kotlinx.coroutines.Dispatchers
@@ -44,12 +45,10 @@ fun rememberCanvasBackgroundBitmap(
         val loaded = withContext(Dispatchers.IO) {
             val customUriStr = state.maskState.customMaskUri
             if (!customUriStr.isNullOrEmpty()) {
-                runCatching { AtharImageProcessor.decodeSampledBitmap(context, android.net.Uri.parse(customUriStr), 1080, 1920) }.getOrNull()
+                runCatching { AtharMaskRenderer.decodeCappedUriBitmap(context, android.net.Uri.parse(customUriStr), 1080, 1440) }.getOrNull()
             } else {
                 val def = AtharMaskCatalog.getById(state.maskState.activeMaskId)
-                if (def != null && def.proceduralType == null) {
-                    AtharImageProcessor.decodeSampledAssetBitmap(context, def.assetFileName, 1080, 1920)
-                } else null
+                if (AtharMaskRenderer.shouldDecodeAssetBitmap(def)) AtharMaskRenderer.decodeCappedAssetBitmap(context, def, 1080, 1440) else null
             }
         }
         maskBitmap = loaded
@@ -105,12 +104,15 @@ fun rememberCanvasBackgroundBitmap(
         }
     }
 
-    LaunchedEffect(singleStageMix, state.cinematicGlowState, state.filmGrainState, state.glitchEffectState, state.collageState.isEnabled) {
+    val singleNeedsHeavy = AtharBackgroundPipeline.hasFilmLut(state) || state.opticalLensState.isEnabled ||
+        state.cinematicGlowState.isEnabled || state.filmGrainState.isEnabled || state.glitchEffectState.isEnabled
+    LaunchedEffect(
+        singleStageMix, state.filmPreset, state.filmPresetIntensity, state.opticalLensState,
+        state.cinematicGlowState, state.filmGrainState, state.glitchEffectState, state.collageState.isEnabled
+    ) {
         val base = singleStageMix
         if (base == null || base.isRecycled || state.collageState.isEnabled) { processedBgBitmap = null; return@LaunchedEffect }
-        if (!state.cinematicGlowState.isEnabled && !state.filmGrainState.isEnabled && !state.glitchEffectState.isEnabled) {
-            processedBgBitmap = base; return@LaunchedEffect
-        }
+        if (!singleNeedsHeavy) { processedBgBitmap = base; return@LaunchedEffect }
         processedBgBitmap = runTwoTierBitmapPass(base, 540) { input ->
             AtharBackgroundPipeline.renderSinglePhotoHeavyEffects(input, state, includeColorMix = false)
         }
@@ -180,11 +182,12 @@ fun rememberCanvasBackgroundBitmap(
         }
     }
 
-    val needsRasterFinal = state.cinematicGlowState.isEnabled || state.filmGrainState.isEnabled || state.glitchEffectState.isEnabled
+    val needsRasterFinal = AtharBackgroundPipeline.hasFilmLut(state) || state.opticalLensState.isEnabled ||
+        state.cinematicGlowState.isEnabled || state.filmGrainState.isEnabled || state.glitchEffectState.isEnabled
     LaunchedEffect(
         collageStageMix, needsRasterFinal, collageNeedsHeavy,
         state.collageState.frameColorLong, state.collageState.cells, state.collageState.spacingDp, state.collageState.cornerRadiusDp,
-        state.filmPreset, state.colorGradingEnabled,
+        state.filmPreset, state.filmPresetIntensity, state.opticalLensState, state.colorGradingEnabled,
         state.liftRed, state.liftGreen, state.liftBlue, state.gammaRed, state.gammaGreen, state.gammaBlue, state.gainRed, state.gainGreen, state.gainBlue,
         state.backgroundDim, state.backgroundBrightness, state.backgroundContrast, state.backgroundSaturation, state.backgroundGrayscale,
         state.cinematicGlowState, state.filmGrainState, state.glitchEffectState

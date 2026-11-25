@@ -103,6 +103,12 @@ fun AtharStudioScreen(
         isPickingCustomMask = false
     }
 
+    val launchImagePicker: (String?, Boolean) -> Unit = { cellId, customMask ->
+        isPickingCustomMask = customMask; pendingCollageCellId = cellId
+        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+    val pickCollagePhoto: (String) -> Unit = { cellId -> launchImagePicker(cellId, false) }
+
     val projectImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -184,7 +190,10 @@ fun AtharStudioScreen(
                         onCollageCellFramingFinished = { id, x, y, s -> viewModel.commitCollageCellFraming(id, x, y, s) },
                         onSelectLayer = { layerId -> viewModel.selectLayer(layerId) },
                         onSelectCollageCell = { cellId -> viewModel.selectCollageCell(cellId) },
-                        onDoubleTap = { showTextDialog = true }
+                        onDoubleTap = { showTextDialog = true },
+                        onPickCollageCellPhoto = pickCollagePhoto,
+                        onToggleFramingMode = { viewModel.toggleFramingMode(it) },
+                        onResetCollageCellFraming = { viewModel.resetCollageCellFraming(it) }
                     )
                 }
 
@@ -199,19 +208,10 @@ fun AtharStudioScreen(
                             onClosePanel = { isPanelExpanded = false },
                             onOpenTextEditor = { showTextDialog = true },
                             onOpenFontBrowser = { showFontBrowser = true },
-                            onPickImage = {
-                                isPickingCustomMask = false; pendingCollageCellId = null
-                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            },
+                            onPickImage = { launchImagePicker(null, false) },
                             onRemoveImage = { viewModel.setBackgroundImageUri(null); Toast.makeText(context, "تمت إزالة صورة الخلفية", Toast.LENGTH_SHORT).show() },
-                            onPickCollagePhoto = { cellId ->
-                                isPickingCustomMask = false; pendingCollageCellId = cellId
-                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            },
-                            onPickCustomMask = {
-                                isPickingCustomMask = true; pendingCollageCellId = null
-                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            }
+                            onPickCollagePhoto = pickCollagePhoto,
+                            onPickCustomMask = { launchImagePicker(null, true) }
                         )
 
                         Spacer(modifier = Modifier.height(6.dp))

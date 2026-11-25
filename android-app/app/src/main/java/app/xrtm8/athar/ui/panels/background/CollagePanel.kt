@@ -46,6 +46,8 @@ fun CollagePanel(
     onRemoveCellPhoto: (String) -> Unit = {},
     isFramingMode: Boolean = false,
     onToggleFramingMode: ((Boolean) -> Unit)? = null,
+    onRotateCell90: ((String) -> Unit)? = null,
+    onToggleCellFlipH: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
@@ -172,6 +174,8 @@ fun CollagePanel(
                     onRemovePhoto = { onRemoveCellPhoto(activeCell.id) },
                     isFramingMode = isFramingMode,
                     onToggleFramingMode = onToggleFramingMode,
+                    onRotate90 = onRotateCell90?.let { fn -> { fn(activeCell.id) } },
+                    onToggleFlipH = onToggleCellFlipH?.let { fn -> { fn(activeCell.id) } },
                     onSliderChangeFinished = onSliderChangeFinished
                 )
             }

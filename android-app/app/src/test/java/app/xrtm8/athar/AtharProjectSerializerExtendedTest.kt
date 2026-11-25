@@ -227,4 +227,75 @@ class AtharProjectSerializerExtendedTest {
         assertEquals(0.3f, restored.maskState.offsetY, 0.001f)
         assertEquals(90, restored.maskState.rotationDegrees)
     }
+
+    @Test
+    fun testV211FilmLensMaskFontWeightAndCollageTransformRoundTrip() {
+        val state = CanvasState(
+            layers = listOf(
+                TextLayer(
+                    id = "l_alex",
+                    rawText = "أثر تصميم",
+                    selectedFont = ArabicFontFamily.ALEXANDRIA,
+                    fontWeight = 300,
+                    stylisticSet = 2,
+                    enableSwash = true,
+                    enableDiscretionaryLigatures = true,
+                    wordSpacing = 8f
+                )
+            ),
+            activeLayerId = "l_alex",
+            filmPreset = app.xrtm8.athar.model.FilmPreset.DREAM_GLOW,
+            filmPresetIntensity = 0.72f,
+            opticalLensState = app.xrtm8.athar.model.OpticalLensState(
+                type = app.xrtm8.athar.model.OpticalLensType.HALATION_LEAK,
+                intensity = 0.85f,
+                spread = 0.60f,
+                angleDegrees = 120f
+            ),
+            maskState = app.xrtm8.athar.model.AtharMaskState(
+                isEnabled = true,
+                activeMaskId = "golden_hour_beams",
+                softness = 0.68f,
+                warmth = 0.82f
+            ),
+            collageState = app.xrtm8.athar.model.CollageState(
+                layout = app.xrtm8.athar.model.CollageLayoutType.DIPTYCH_V,
+                cells = listOf(
+                    app.xrtm8.athar.model.CollageCell(
+                        id = "c1",
+                        leftNorm = 0f, topNorm = 0f, rightNorm = 0.5f, bottomNorm = 1f,
+                        photoRotationDeg = 270,
+                        isFlippedH = true,
+                        isFlippedV = true
+                    )
+                )
+            )
+        )
+
+        val json = AtharProjectSerializer.serializeCanvasState(state, false)
+        val restored = AtharProjectSerializer.deserializeCanvasState(json)
+
+        assertEquals(300, restored.activeLayer.fontWeight)
+        assertEquals(ArabicFontFamily.ALEXANDRIA, restored.activeLayer.selectedFont)
+        assertEquals(app.xrtm8.athar.model.FilmPreset.DREAM_GLOW, restored.filmPreset)
+        assertEquals(0.72f, restored.filmPresetIntensity, 0.001f)
+        assertEquals(app.xrtm8.athar.model.OpticalLensType.HALATION_LEAK, restored.opticalLensState.type)
+        assertEquals(0.85f, restored.opticalLensState.intensity, 0.001f)
+        assertEquals(0.60f, restored.opticalLensState.spread, 0.001f)
+        assertEquals(120f, restored.opticalLensState.angleDegrees, 0.001f)
+        assertEquals(0.68f, restored.maskState.softness, 0.001f)
+        assertEquals(0.82f, restored.maskState.warmth, 0.001f)
+        assertEquals(270, restored.collageState.cells.first().photoRotationDeg)
+        assertTrue(restored.collageState.cells.first().isFlippedH)
+        assertTrue(restored.collageState.cells.first().isFlippedV)
+
+        // Safe fallback on unknown enum / legacy root font_weight
+        val legacyWithUnknown = JSONObject("""{"raw_text":"اختبار","font_weight":700,"lens_type":"FUTURE_UNKNOWN_LENS"}""")
+        val fallback = AtharProjectSerializer.deserializeCanvasState(legacyWithUnknown)
+        assertEquals(700, fallback.activeLayer.fontWeight)
+        assertEquals(app.xrtm8.athar.model.OpticalLensType.NONE, fallback.opticalLensState.type)
+        assertEquals(1.0f, fallback.filmPresetIntensity, 0.001f)
+        assertEquals(0.25f, fallback.maskState.softness, 0.001f)
+        assertEquals(0.35f, fallback.maskState.warmth, 0.001f)
+    }
 }

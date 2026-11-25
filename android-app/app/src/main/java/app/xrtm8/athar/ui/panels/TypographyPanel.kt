@@ -3,12 +3,15 @@ package app.xrtm8.athar.ui.panels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
+import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.panels.typography.*
 import app.xrtm8.athar.ui.theme.GlassBorder
 
@@ -28,6 +31,7 @@ fun TypographyPanel(
     onOpenTextEditor: () -> Unit,
     onOpenFontBrowser: () -> Unit,
     onSelectFont: (ArabicFontFamily) -> Unit,
+    onFontWeightChange: (Int) -> Unit = {},
     onFontSizeChange: (Float) -> Unit,
     onJustifyLines: () -> Unit,
     onToggleBold: () -> Unit,
@@ -51,6 +55,11 @@ fun TypographyPanel(
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val supportedFeatures = remember(state.selectedFont, state.customFontPath) {
+        AtharFontManager.getSupportedOpenTypeFeatures(context, state.selectedFont, state.customFontPath)
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         // 1. Text Editor Dialog Trigger
         TypographyEditorTrigger(
@@ -64,7 +73,12 @@ fun TypographyPanel(
         TypographyFontSection(
             selectedFont = state.selectedFont,
             onSelectFont = onSelectFont,
-            onOpenFontBrowser = onOpenFontBrowser
+            onOpenFontBrowser = onOpenFontBrowser,
+            fontWeight = state.activeLayer.fontWeight,
+            isBold = state.isBold,
+            customFontPath = state.customFontPath,
+            customFontName = state.activeLayer.customFontName,
+            onFontWeightChange = onFontWeightChange
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -144,7 +158,8 @@ fun TypographyPanel(
             onToggleSwash = onToggleSwash,
             onToggleDiscretionaryLigatures = onToggleDiscretionaryLigatures,
             onWordSpacingChange = onWordSpacingChange,
-            onSliderChangeFinished = onSliderChangeFinished
+            onSliderChangeFinished = onSliderChangeFinished,
+            supportedFeatures = supportedFeatures
         )
     }
 }

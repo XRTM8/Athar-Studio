@@ -33,9 +33,10 @@ object CanvasHitTester {
             val scale = layer.scaleFactor.coerceAtLeast(0.1f)
 
             val scaledTextSize = (layer.fontSize / 380f) * canvasW
+            val effectiveWeight = if (layer.isBold && layer.fontWeight < 700) 700 else layer.fontWeight
             val testPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                typeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath)
-                isFakeBoldText = layer.isBold
+                typeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath, effectiveWeight)
+                isFakeBoldText = layer.isBold && !AtharFontManager.hasRealWeight(context, layer.selectedFont, effectiveWeight, layer.customFontPath)
                 textSkewX = if (layer.isItalic) -0.25f else 0f
                 textSize = scaledTextSize
                 letterSpacing = layer.letterSpacing

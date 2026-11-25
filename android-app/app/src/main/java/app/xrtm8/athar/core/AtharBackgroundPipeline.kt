@@ -7,7 +7,11 @@ import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
 import android.net.Uri
+import android.os.Build
 import app.xrtm8.athar.model.AtharMaskCatalog
 import app.xrtm8.athar.model.AtharMaskState
 import app.xrtm8.athar.model.CanvasGradientScrim
@@ -18,6 +22,7 @@ import app.xrtm8.athar.model.ColorMixState
 import app.xrtm8.athar.model.FilmGrainState
 import app.xrtm8.athar.model.FilmPreset
 import app.xrtm8.athar.model.GlitchEffectState
+import app.xrtm8.athar.model.OpticalLensState
 import app.xrtm8.athar.model.PatternState
 import app.xrtm8.athar.ui.components.CanvasGradientScrimRenderer
 import app.xrtm8.athar.ui.components.CollageCanvasRenderer
@@ -42,11 +47,13 @@ object AtharBackgroundPipeline {
         backgroundVignette = 0f,
         backgroundGrayscale = false,
         filmPreset = FilmPreset.NONE,
+        filmPresetIntensity = 1.0f,
         colorGradingEnabled = false,
         colorMixState = ColorMixState(),
         cinematicGlowState = CinematicGlowState(),
         filmGrainState = FilmGrainState(),
         glitchEffectState = GlitchEffectState(),
+        opticalLensState = OpticalLensState(),
         patternState = PatternState(),
         maskState = AtharMaskState(),
         gradientScrim = CanvasGradientScrim(isEnabled = false)
@@ -61,8 +68,12 @@ object AtharBackgroundPipeline {
         }
     }
 
-    fun hasColorMatrixAdjustments(state: CanvasState): Boolean =
-        state.filmPreset != FilmPreset.NONE ||
+    fun hasFilmLut(state: CanvasState): Boolean =
+        state.filmPreset != FilmPreset.NONE && state.filmPresetIntensity > 0.001f
+
+    @JvmOverloads
+    fun hasColorMatrixAdjustments(state: CanvasState, includeFilmMatrix: Boolean = true): Boolean =
+        (includeFilmMatrix && hasFilmLut(state)) ||
             state.colorGradingEnabled ||
             state.backgroundDim > 0.001f ||
             state.backgroundBrightness != 0f ||
@@ -75,6 +86,8 @@ object AtharBackgroundPipeline {
 
     fun hasHeavyCollageCompositeEffects(state: CanvasState): Boolean =
         hasColorMix(state) ||
+            hasFilmLut(state) ||
+            state.opticalLensState.isEnabled ||
             state.cinematicGlowState.isEnabled ||
             state.filmGrainState.isEnabled ||
             state.glitchEffectState.isEnabled
@@ -82,10 +95,11 @@ object AtharBackgroundPipeline {
     fun hasAnyPixelEffects(state: CanvasState): Boolean =
         state.backgroundBlur > 0.5f || hasHeavyCollageCompositeEffects(state)
 
-    fun buildCompositeColorFilter(state: CanvasState): ColorFilter? {
-        if (!hasColorMatrixAdjustments(state)) return null
+    @JvmOverloads
+    fun buildCompositeColorFilter(state: CanvasState, includeFilmMatrix: Boolean = true): ColorFilter? {
+        if (!hasColorMatrixAdjustments(state, includeFilmMatrix)) return null
         return FilmPresetEngine.createCompositeFilter(
-            preset = state.filmPreset,
+            preset = if (includeFilmMatrix && hasFilmLut(state)) state.filmPreset else FilmPreset.NONE,
             dim = state.backgroundDim,
             brightness = state.backgroundBrightness,
             contrast = state.backgroundContrast,
@@ -184,6 +198,7 @@ object AtharBackgroundPipeline {
         applyColorMix: Boolean = true
     ): Bitmap {
         var current = photoLayerInput
+        val activePreset = if (hasFilmLut(state)) state.filmPreset else FilmPreset.NONE
 
         if (applyColorMix && hasColorMix(state)) {
             val mixed = AtharColorMixEngine.processBitmapInPlace(current, state.colorMixState)
@@ -191,7 +206,29 @@ object AtharBackgroundPipeline {
             current = mixed
         }
 
-        val colorFilter = buildCompositeColorFilter(state)
+        val lensGeo = AtharOpticalLensEngine.applyLensGeometryAndEdgeEffects(
+            source = current,
+            state = state.opticalLensState,
+            filmPreset = activePreset,
+            referenceWidthPx = width
+        )
+        if (lensGeo !== current) {
+            if (!current.isRecycled) current.recycle()
+            current = lensGeo
+        }
+
+        if (hasFilmLut(state)) {
+            val lutDone = FilmPresetEngine.applyFilmLut(
+                source = current,
+                preset = state.filmPreset,
+                intensity = state.filmPresetIntensity,
+                inPlace = true
+            )
+            if (lutDone !== current && !current.isRecycled) current.recycle()
+            current = lutDone
+        }
+
+        val colorFilter = buildCompositeColorFilter(state, includeFilmMatrix = false)
         if (colorFilter != null) {
             val filtered = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val c = Canvas(filtered)
@@ -202,53 +239,97 @@ object AtharBackgroundPipeline {
         }
 
         if (state.filmGrainState.isEnabled) {
-            val grained = AtharFilmGrainEngine.processBitmap(current, state.filmGrainState)
-            if (grained !== current && !current.isRecycled) current.recycle()
-            val clipped = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val c = Canvas(clipped)
-            val clipPath = CollageCanvasRenderer.buildAllCellsClipPath(
-                state.collageState, width.toFloat(), height.toFloat(), canvasDensity(width.toFloat())
+            val grained = AtharFilmGrainEngine.processBitmap(
+                source = current,
+                state = state.filmGrainState,
+                referenceWidthPx = width,
+                isMonochrome = activePreset.isMonochrome,
+                inPlace = true
             )
-            c.save()
-            c.clipPath(clipPath)
-            c.drawBitmap(grained, 0f, 0f, null)
-            c.restore()
-            if (!grained.isRecycled) grained.recycle()
-            current = clipped
-        }
-
-        // PHASE 2 HOOK (film-author): replace processBitmap with AtharOpticalGlowEngine.extractHighlightOverlay
-        // and composite onto the frame+photo canvas via SCREEN after frameColorLong.
-        if (state.cinematicGlowState.isEnabled) {
-            val glowed = AtharOpticalGlowEngine.processBitmap(current, state.cinematicGlowState)
-            if (glowed !== current && !current.isRecycled) current.recycle()
-            current = glowed
+            if (grained !== current && !current.isRecycled) current.recycle()
+            current = grained
         }
 
         return current
     }
 
-    fun renderSinglePhotoHeavyEffects(input: Bitmap, state: CanvasState, includeColorMix: Boolean): Bitmap {
+    @JvmOverloads
+    fun renderSinglePhotoHeavyEffects(
+        input: Bitmap,
+        state: CanvasState,
+        includeColorMix: Boolean,
+        referenceWidthPx: Int = input.width
+    ): Bitmap {
         var current = input
+        val activePreset = if (hasFilmLut(state)) state.filmPreset else FilmPreset.NONE
+
         if (includeColorMix && hasColorMix(state)) {
-            val mixed = AtharColorMixEngine.processBitmap(current, state.colorMixState)
+            val mixed = if (current !== input) {
+                AtharColorMixEngine.processBitmapInPlace(current, state.colorMixState)
+            } else {
+                AtharColorMixEngine.processBitmap(current, state.colorMixState)
+            }
             if (current !== input && mixed !== current && !current.isRecycled) current.recycle()
             current = mixed
         }
-        if (state.cinematicGlowState.isEnabled) {
-            val glowed = AtharOpticalGlowEngine.processBitmap(current, state.cinematicGlowState)
-            if (current !== input && glowed !== current && !current.isRecycled) current.recycle()
-            current = glowed
+
+        val lensGeo = AtharOpticalLensEngine.applyLensGeometryAndEdgeEffects(
+            source = current,
+            state = state.opticalLensState,
+            filmPreset = activePreset,
+            referenceWidthPx = referenceWidthPx
+        )
+        if (lensGeo !== current) {
+            if (current !== input && !current.isRecycled) current.recycle()
+            current = lensGeo
         }
+
+        if (hasFilmLut(state)) {
+            val lutDone = FilmPresetEngine.applyFilmLut(
+                source = current,
+                preset = state.filmPreset,
+                intensity = state.filmPresetIntensity,
+                inPlace = (current !== input)
+            )
+            if (lutDone !== current) {
+                if (current !== input && !current.isRecycled) current.recycle()
+                current = lutDone
+            }
+        }
+
         if (state.filmGrainState.isEnabled) {
-            val grained = AtharFilmGrainEngine.processBitmap(current, state.filmGrainState)
-            if (current !== input && grained !== current && !current.isRecycled) current.recycle()
-            current = grained
+            val grained = AtharFilmGrainEngine.processBitmap(
+                source = current,
+                state = state.filmGrainState,
+                referenceWidthPx = referenceWidthPx,
+                isMonochrome = activePreset.isMonochrome,
+                inPlace = (current !== input)
+            )
+            if (grained !== current) {
+                if (current !== input && !current.isRecycled) current.recycle()
+                current = grained
+            }
         }
+
+        val glowOverlay = AtharOpticalGlowEngine.extractHighlightOverlay(current, state.cinematicGlowState, referenceWidthPx)
+        val lensOverlay = AtharOpticalLensEngine.extractLensHighlightOverlay(current, state.opticalLensState, activePreset, referenceWidthPx)
+        if (glowOverlay != null || lensOverlay != null) {
+            val target = if (current !== input && current.isMutable) current else current.copy(Bitmap.Config.ARGB_8888, true)
+            drawHighlightOverlaysScreen(Canvas(target), target.width, target.height, state, glowOverlay, lensOverlay)
+            glowOverlay?.recycle()
+            lensOverlay?.recycle()
+            if (target !== current) {
+                if (current !== input && !current.isRecycled) current.recycle()
+                current = target
+            }
+        }
+
         if (state.glitchEffectState.isEnabled) {
-            val glitched = AtharGlitchEngine.processBitmap(current, state.glitchEffectState)
-            if (current !== input && glitched !== current && !current.isRecycled) current.recycle()
-            current = glitched
+            val glitched = AtharGlitchEngine.processBitmap(current, state.glitchEffectState, inPlace = (current !== input))
+            if (glitched !== current) {
+                if (current !== input && !current.isRecycled) current.recycle()
+                current = glitched
+            }
         }
         return current
     }
@@ -264,7 +345,7 @@ object AtharBackgroundPipeline {
         val c = Canvas(out)
         drawFrameAndPhotoLayer(c, width, height, state, processedPhotoLayer, isEmptyPredicate)
         if (state.glitchEffectState.isEnabled) {
-            val glitched = AtharGlitchEngine.processBitmap(out, state.glitchEffectState)
+            val glitched = AtharGlitchEngine.processBitmap(out, state.glitchEffectState, inPlace = true)
             if (glitched !== out) {
                 out.recycle()
                 return glitched
@@ -289,6 +370,33 @@ object AtharBackgroundPipeline {
         return composite
     }
 
+    private fun drawHighlightOverlaysScreen(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        state: CanvasState,
+        glowOverlay: Bitmap?,
+        lensOverlay: Bitmap?
+    ) {
+        if (glowOverlay == null && lensOverlay == null) return
+        val dst = Rect(0, 0, width, height)
+        val screenPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = android.graphics.BlendMode.SCREEN
+            } else {
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+            }
+        }
+        if (glowOverlay != null && !glowOverlay.isRecycled) {
+            screenPaint.alpha = ((state.cinematicGlowState.glow / 100f) * 255f).toInt().coerceIn(0, 255)
+            canvas.drawBitmap(glowOverlay, null, dst, screenPaint)
+        }
+        if (lensOverlay != null && !lensOverlay.isRecycled) {
+            screenPaint.alpha = 255
+            canvas.drawBitmap(lensOverlay, null, dst, screenPaint)
+        }
+    }
+
     private fun drawFrameAndPhotoLayer(
         canvas: Canvas,
         width: Int,
@@ -307,6 +415,15 @@ object AtharBackgroundPipeline {
             canvas, state.collageState, width.toFloat(), height.toFloat(), density, isEmptyPredicate
         )
         canvas.drawBitmap(processedPhotoLayer, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG))
+
+        val activePreset = if (hasFilmLut(state)) state.filmPreset else FilmPreset.NONE
+        val glowOverlay = AtharOpticalGlowEngine.extractHighlightOverlay(processedPhotoLayer, state.cinematicGlowState, width)
+        val lensOverlay = AtharOpticalLensEngine.extractLensHighlightOverlay(processedPhotoLayer, state.opticalLensState, activePreset, width)
+        if (glowOverlay != null || lensOverlay != null) {
+            drawHighlightOverlaysScreen(canvas, width, height, state, glowOverlay, lensOverlay)
+            glowOverlay?.recycle()
+            lensOverlay?.recycle()
+        }
     }
 
     fun renderSoftwareBackground(
@@ -404,10 +521,12 @@ object AtharBackgroundPipeline {
             }
         }
 
-        val processed = renderSinglePhotoHeavyEffects(current, state, includeColorMix = true)
+        val processed = renderSinglePhotoHeavyEffects(current, state, includeColorMix = true, referenceWidthPx = width)
         if (processed !== current && !current.isRecycled) current.recycle()
 
-        val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply { colorFilter = buildCompositeColorFilter(state) }
+        val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
+            colorFilter = buildCompositeColorFilter(state, includeFilmMatrix = false)
+        }
         if (processed.width != width || processed.height != height) {
             val m = Matrix().apply {
                 setScale(width.toFloat() / processed.width, height.toFloat() / processed.height)
@@ -426,20 +545,18 @@ object AtharBackgroundPipeline {
         width: Int,
         height: Int
     ): Bitmap? {
-        if (state.isTransparentBg || !state.maskState.isEffectActive) return null
-        val reqW = min(width, 1440)
-        val reqH = min(height, 1440)
+        if (state.isTransparentBg || !state.maskState.isMaskActive) return null
         val customUriStr = state.maskState.customMaskUri
         return if (!customUriStr.isNullOrEmpty()) {
             try {
-                AtharImageProcessor.decodeSampledBitmap(context, Uri.parse(customUriStr), reqW, reqH)
+                AtharMaskRenderer.decodeCappedUriBitmap(context, Uri.parse(customUriStr), width, height)
             } catch (_: Exception) {
                 null
             }
         } else {
             val maskDef = AtharMaskCatalog.getById(state.maskState.activeMaskId)
-            if (maskDef != null && maskDef.proceduralType == null) {
-                AtharImageProcessor.decodeSampledAssetBitmap(context, maskDef.assetFileName, reqW, reqH)
+            if (AtharMaskRenderer.shouldDecodeAssetBitmap(maskDef)) {
+                AtharMaskRenderer.decodeCappedAssetBitmap(context, maskDef, width, height)
             } else null
         }
     }
