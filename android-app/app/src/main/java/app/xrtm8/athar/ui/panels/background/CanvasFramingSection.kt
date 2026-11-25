@@ -230,10 +230,10 @@ fun CanvasFramingSection(
 
                         StudioSlider(
                             title = "تقريب / زووم الصورة",
-                            value = state.bgPhotoScale,
+                            value = state.bgPhotoScale.coerceIn(1.0f, 4.0f),
                             onValueChange = onBgPhotoScaleChange,
                             onValueChangeFinished = onSliderChangeFinished,
-                            valueRange = 0.5f..3.0f,
+                            valueRange = 1.0f..4.0f,
                             step = 0.05f,
                             valueDisplay = String.format(Locale.US, "%.1fx", state.bgPhotoScale),
                             icon = Icons.Default.ZoomIn

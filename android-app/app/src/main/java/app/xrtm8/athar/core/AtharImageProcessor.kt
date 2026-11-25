@@ -8,30 +8,91 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import android.media.ExifInterface
 import kotlin.math.max
 import kotlin.math.min
 
 /**
  * High-performance image processing engine for Athar Studio:
- * - Deterministic, multi-pass StackBlur for backgrounds
+ * - EXIF-aware sampled bitmap decoding
+ * - Alpha-safe deterministic StackBlur for photos and collage cells
  * - Accelerated downscaled preview blur (< 2ms) for real-time 120Hz sliders
  * - Composite ColorMatrix pipeline (Brightness, Contrast, Saturation, Dim)
  * - Cinematic Radial Vignette
  */
 object AtharImageProcessor {
 
+    fun readExifOrientation(context: Context, uri: Uri): Int {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                ExifInterface(stream).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+                )
+            } ?: ExifInterface.ORIENTATION_NORMAL
+        } catch (_: Throwable) {
+            ExifInterface.ORIENTATION_NORMAL
+        }
+    }
+
+    fun isExifOrientationSwappingAxes(orientation: Int): Boolean {
+        return orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+            orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+            orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+            orientation == ExifInterface.ORIENTATION_TRANSVERSE
+    }
+
+    fun buildExifMatrix(orientation: Int): Matrix? {
+        val m = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> m.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.setScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                m.setRotate(90f)
+                m.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> m.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                m.setRotate(270f)
+                m.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_270 -> m.setRotate(270f)
+            else -> return null
+        }
+        return m
+    }
+
+    fun applyExifOrientation(bitmap: Bitmap, orientation: Int): Bitmap {
+        val matrix = buildExifMatrix(orientation) ?: return bitmap
+        return try {
+            val oriented = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (oriented != bitmap && !bitmap.isRecycled) {
+                bitmap.recycle()
+            }
+            oriented
+        } catch (_: OutOfMemoryError) {
+            bitmap
+        }
+    }
+
     fun decodeSampledBitmap(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
         return try {
+            val orientation = readExifOrientation(context, uri)
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             context.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, options)
             }
+            val swapAxes = isExifOrientationSwappingAxes(orientation)
+            val rawW = if (swapAxes) options.outHeight else options.outWidth
+            val rawH = if (swapAxes) options.outWidth else options.outHeight
             var inSampleSize = 1
-            while ((options.outHeight / inSampleSize) > reqHeight * 1.5 ||
-                (options.outWidth / inSampleSize) > reqWidth * 1.5
+            while ((rawH / inSampleSize) > reqHeight * 1.5 ||
+                (rawW / inSampleSize) > reqWidth * 1.5
             ) {
                 inSampleSize *= 2
             }
@@ -39,9 +100,10 @@ object AtharImageProcessor {
                 this.inSampleSize = inSampleSize
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
-            context.contentResolver.openInputStream(uri)?.use {
+            val decoded = context.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, finalOptions)
-            }
+            } ?: return null
+            applyExifOrientation(decoded, orientation)
         } catch (e: Exception) {
             null
         }
@@ -201,25 +263,37 @@ object AtharImageProcessor {
     }
 
     /**
-     * Ultra-fast StackBlur algorithm for Android Bitmaps.
-     * Operates in linear time O(W * H), suitable for real-time and export rendering.
+     * Ultra-fast alpha-preserving StackBlur algorithm for Android Bitmaps.
+     * Premultiplies RGB by alpha during blur and un-premultiplies on output so
+     * transparent collage gaps never bleed black halos into rounded cell corners.
      */
     fun fastStackBlur(src: Bitmap, radiusInput: Int): Bitmap {
         val radius = radiusInput.coerceIn(1, 40)
         val w = src.width
         val h = src.height
+        if (w <= 0 || h <= 0) return src
 
         val pix = IntArray(w * h)
         src.getPixels(pix, 0, w, 0, 0, w, h)
+        stackBlurPixels(pix, w, h, radius)
 
+        val outBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        outBitmap.setPixels(pix, 0, w, 0, 0, w, h)
+        return outBitmap
+    }
+
+    internal fun stackBlurPixels(pix: IntArray, w: Int, h: Int, radiusInput: Int) {
+        val radius = radiusInput.coerceIn(1, 40)
         val wm = w - 1
         val hm = h - 1
         val wh = w * h
         val div = radius + radius + 1
 
+        val a = IntArray(wh)
         val r = IntArray(wh)
         val g = IntArray(wh)
         val b = IntArray(wh)
+        var asum: Int
         var rsum: Int
         var gsum: Int
         var bsum: Int
@@ -239,95 +313,97 @@ object AtharImageProcessor {
         yi = 0
         yw = 0
 
-        val stack = Array(div) { IntArray(3) }
+        val stack = Array(div) { IntArray(4) }
         var stackpointer: Int
         var stackstart: Int
         var sir: IntArray
         var rbs: Int
         val r1 = radius + 1
+        var aoutsum: Int
         var routsum: Int
         var goutsum: Int
         var boutsum: Int
+        var ainsum: Int
         var rinsum: Int
         var ginsum: Int
         var binsum: Int
 
         for (curY in 0 until h) {
-            rinsum = 0
-            ginsum = 0
-            binsum = 0
-            routsum = 0
-            goutsum = 0
-            boutsum = 0
-            rsum = 0
-            gsum = 0
-            bsum = 0
+            ainsum = 0; rinsum = 0; ginsum = 0; binsum = 0
+            aoutsum = 0; routsum = 0; goutsum = 0; boutsum = 0
+            asum = 0; rsum = 0; gsum = 0; bsum = 0
             for (curI in -radius..radius) {
                 p = pix[yi + min(wm, max(curI, 0))]
                 sir = stack[curI + radius]
-                sir[0] = (p and 0xff0000) shr 16
-                sir[1] = (p and 0x00ff00) shr 8
-                sir[2] = (p and 0x0000ff)
+                val pa = (p ushr 24) and 0xff
+                val pr = (p and 0xff0000) shr 16
+                val pg = (p and 0x00ff00) shr 8
+                val pb = p and 0x0000ff
+                sir[3] = pa
+                if (pa == 255) {
+                    sir[0] = pr; sir[1] = pg; sir[2] = pb
+                } else if (pa == 0) {
+                    sir[0] = 0; sir[1] = 0; sir[2] = 0
+                } else {
+                    sir[0] = (pr * pa + 127) / 255
+                    sir[1] = (pg * pa + 127) / 255
+                    sir[2] = (pb * pa + 127) / 255
+                }
 
                 rbs = r1 - kotlin.math.abs(curI)
+                asum += sir[3] * rbs
                 rsum += sir[0] * rbs
                 gsum += sir[1] * rbs
                 bsum += sir[2] * rbs
                 if (curI > 0) {
-                    rinsum += sir[0]
-                    ginsum += sir[1]
-                    binsum += sir[2]
+                    ainsum += sir[3]; rinsum += sir[0]; ginsum += sir[1]; binsum += sir[2]
                 } else {
-                    routsum += sir[0]
-                    goutsum += sir[1]
-                    boutsum += sir[2]
+                    aoutsum += sir[3]; routsum += sir[0]; goutsum += sir[1]; boutsum += sir[2]
                 }
             }
             stackpointer = radius
 
             for (curX in 0 until w) {
+                a[yi] = dv[asum]
                 r[yi] = dv[rsum]
                 g[yi] = dv[gsum]
                 b[yi] = dv[bsum]
 
-                rsum -= routsum
-                gsum -= goutsum
-                bsum -= boutsum
+                asum -= aoutsum; rsum -= routsum; gsum -= goutsum; bsum -= boutsum
 
                 stackstart = stackpointer - radius + div
                 sir = stack[stackstart % div]
 
-                routsum -= sir[0]
-                goutsum -= sir[1]
-                boutsum -= sir[2]
+                aoutsum -= sir[3]; routsum -= sir[0]; goutsum -= sir[1]; boutsum -= sir[2]
 
                 if (curY == 0) {
                     vmin[curX] = min(curX + radius + 1, wm)
                 }
                 p = pix[yw + vmin[curX]]
 
-                sir[0] = (p and 0xff0000) shr 16
-                sir[1] = (p and 0x00ff00) shr 8
-                sir[2] = (p and 0x0000ff)
+                val pa = (p ushr 24) and 0xff
+                val pr = (p and 0xff0000) shr 16
+                val pg = (p and 0x00ff00) shr 8
+                val pb = p and 0x0000ff
+                sir[3] = pa
+                if (pa == 255) {
+                    sir[0] = pr; sir[1] = pg; sir[2] = pb
+                } else if (pa == 0) {
+                    sir[0] = 0; sir[1] = 0; sir[2] = 0
+                } else {
+                    sir[0] = (pr * pa + 127) / 255
+                    sir[1] = (pg * pa + 127) / 255
+                    sir[2] = (pb * pa + 127) / 255
+                }
 
-                rinsum += sir[0]
-                ginsum += sir[1]
-                binsum += sir[2]
-
-                rsum += rinsum
-                gsum += ginsum
-                bsum += binsum
+                ainsum += sir[3]; rinsum += sir[0]; ginsum += sir[1]; binsum += sir[2]
+                asum += ainsum; rsum += rinsum; gsum += ginsum; bsum += binsum
 
                 stackpointer = (stackpointer + 1) % div
                 sir = stack[stackpointer % div]
 
-                routsum += sir[0]
-                goutsum += sir[1]
-                boutsum += sir[2]
-
-                rinsum -= sir[0]
-                ginsum -= sir[1]
-                binsum -= sir[2]
+                aoutsum += sir[3]; routsum += sir[0]; goutsum += sir[1]; boutsum += sir[2]
+                ainsum -= sir[3]; rinsum -= sir[0]; ginsum -= sir[1]; binsum -= sir[2]
 
                 yi++
             }
@@ -335,37 +411,26 @@ object AtharImageProcessor {
         }
 
         for (curX in 0 until w) {
-            rinsum = 0
-            ginsum = 0
-            binsum = 0
-            routsum = 0
-            goutsum = 0
-            boutsum = 0
-            rsum = 0
-            gsum = 0
-            bsum = 0
+            ainsum = 0; rinsum = 0; ginsum = 0; binsum = 0
+            aoutsum = 0; routsum = 0; goutsum = 0; boutsum = 0
+            asum = 0; rsum = 0; gsum = 0; bsum = 0
             yp = -radius * w
             for (curI in -radius..radius) {
                 yi = max(0, yp) + curX
 
                 sir = stack[curI + radius]
-                sir[0] = r[yi]
-                sir[1] = g[yi]
-                sir[2] = b[yi]
+                sir[3] = a[yi]; sir[0] = r[yi]; sir[1] = g[yi]; sir[2] = b[yi]
 
                 rbs = r1 - kotlin.math.abs(curI)
+                asum += a[yi] * rbs
                 rsum += r[yi] * rbs
                 gsum += g[yi] * rbs
                 bsum += b[yi] * rbs
 
                 if (curI > 0) {
-                    rinsum += sir[0]
-                    ginsum += sir[1]
-                    binsum += sir[2]
+                    ainsum += sir[3]; rinsum += sir[0]; ginsum += sir[1]; binsum += sir[2]
                 } else {
-                    routsum += sir[0]
-                    goutsum += sir[1]
-                    boutsum += sir[2]
+                    aoutsum += sir[3]; routsum += sir[0]; goutsum += sir[1]; boutsum += sir[2]
                 }
 
                 if (curI < hm) {
@@ -375,53 +440,43 @@ object AtharImageProcessor {
             yi = curX
             stackpointer = radius
             for (curY in 0 until h) {
-                pix[yi] = (0xff000000.toInt() or (dv[rsum] shl 16) or (dv[gsum] shl 8) or dv[bsum])
+                val outA = dv[asum].coerceIn(0, 255)
+                pix[yi] = when (outA) {
+                    0 -> 0
+                    255 -> 0xff000000.toInt() or (dv[rsum] shl 16) or (dv[gsum] shl 8) or dv[bsum]
+                    else -> {
+                        val outR = ((dv[rsum] * 255) / outA).coerceIn(0, 255)
+                        val outG = ((dv[gsum] * 255) / outA).coerceIn(0, 255)
+                        val outB = ((dv[bsum] * 255) / outA).coerceIn(0, 255)
+                        (outA shl 24) or (outR shl 16) or (outG shl 8) or outB
+                    }
+                }
 
-                rsum -= routsum
-                gsum -= goutsum
-                bsum -= boutsum
+                asum -= aoutsum; rsum -= routsum; gsum -= goutsum; bsum -= boutsum
 
                 stackstart = stackpointer - radius + div
                 sir = stack[stackstart % div]
 
-                routsum -= sir[0]
-                goutsum -= sir[1]
-                boutsum -= sir[2]
+                aoutsum -= sir[3]; routsum -= sir[0]; goutsum -= sir[1]; boutsum -= sir[2]
 
                 if (curX == 0) {
                     vmin[curY] = min(curY + r1, hm) * w
                 }
                 p = curX + vmin[curY]
 
-                sir[0] = r[p]
-                sir[1] = g[p]
-                sir[2] = b[p]
+                sir[3] = a[p]; sir[0] = r[p]; sir[1] = g[p]; sir[2] = b[p]
 
-                rinsum += sir[0]
-                ginsum += sir[1]
-                binsum += sir[2]
-
-                rsum += rinsum
-                gsum += ginsum
-                bsum += binsum
+                ainsum += sir[3]; rinsum += sir[0]; ginsum += sir[1]; binsum += sir[2]
+                asum += ainsum; rsum += rinsum; gsum += ginsum; bsum += binsum
 
                 stackpointer = (stackpointer + 1) % div
                 sir = stack[stackpointer]
 
-                routsum += sir[0]
-                goutsum += sir[1]
-                boutsum += sir[2]
-
-                rinsum -= sir[0]
-                ginsum -= sir[1]
-                binsum -= sir[2]
+                aoutsum += sir[3]; routsum += sir[0]; goutsum += sir[1]; boutsum += sir[2]
+                ainsum -= sir[3]; rinsum -= sir[0]; ginsum -= sir[1]; binsum -= sir[2]
 
                 yi += w
             }
         }
-
-        val outBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        outBitmap.setPixels(pix, 0, w, 0, 0, w, h)
-        return outBitmap
     }
 }

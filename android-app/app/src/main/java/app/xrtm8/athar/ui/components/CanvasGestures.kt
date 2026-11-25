@@ -24,7 +24,8 @@ suspend fun PointerInputScope.detectCanvasGestures(
     onGestureEnd: () -> Unit,
     onTap: (Offset) -> Unit,
     onDoubleTap: (Offset) -> Unit,
-    onHoldBeforeAfter: ((Boolean) -> Unit)? = null
+    onHoldBeforeAfter: ((Boolean) -> Unit)? = null,
+    onTransformStart: ((Offset) -> Unit)? = null
 ) {
     var lastTapTime = 0L
     var lastTapPos = Offset.Zero
@@ -71,6 +72,7 @@ suspend fun PointerInputScope.detectCanvasGestures(
                 val panMotion = pan.getDistance()
 
                 if (zoomMotion > touchSlop || rotationMotion > touchSlop || panMotion > touchSlop) {
+                    onTransformStart?.invoke(downPos)
                     if (zoomChange != 1f || rotationChange != 0f || panChange != Offset.Zero) {
                         onTransform(panChange, zoomChange, rotationChange)
                     }

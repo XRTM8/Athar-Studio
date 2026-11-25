@@ -45,14 +45,14 @@ class CollageFramingAndEffectsTest {
         val scaledCell = vm.canvasState.value.collageState.cells.first { it.id == cellId }
         assertEquals(2.35f, scaledCell.photoScale, 0.001f)
 
-        // Verify scale clamping in [0.5f, 4.0f]
+        // Verify scale clamping in [1.0f, 4.0f] (gapless cover-fit prevents distortion < 1.0f)
         vm.setCollageCellPhotoScale(cellId, 10.0f)
         val clampedScaleMax = vm.canvasState.value.collageState.cells.first { it.id == cellId }
         assertEquals(4.0f, clampedScaleMax.photoScale, 0.001f)
 
         vm.setCollageCellPhotoScale(cellId, 0.1f)
         val clampedScaleMin = vm.canvasState.value.collageState.cells.first { it.id == cellId }
-        assertEquals(0.5f, clampedScaleMin.photoScale, 0.001f)
+        assertEquals(1.0f, clampedScaleMin.photoScale, 0.001f)
     }
 
     @Test

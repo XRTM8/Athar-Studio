@@ -21,14 +21,49 @@ object AtharColorMixEngine {
 
         val width = src.width
         val height = src.height
-        val totalPixels = width * height
-        val pixels = IntArray(totalPixels)
-        src.getPixels(pixels, 0, width, 0, 0, width, height)
+        if (width <= 0 || height <= 0) return src
+
+        val outBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        processInStrips(src, outBitmap, state)
+        return outBitmap
+    }
+
+    /**
+     * Processes a mutable bitmap in place using small 64-row strips to avoid 4K heap spikes.
+     * Falls back to allocating an output bitmap if [bitmap] is immutable.
+     */
+    fun processBitmapInPlace(bitmap: Bitmap, state: ColorMixState): Bitmap {
+        if (!state.isEnabled || state.isDefault) return bitmap
+        if (bitmap.width <= 0 || bitmap.height <= 0) return bitmap
+        if (!bitmap.isMutable) return processBitmap(bitmap, state)
+
+        processInStrips(bitmap, bitmap, state)
+        return bitmap
+    }
+
+    private fun processInStrips(src: Bitmap, dst: Bitmap, state: ColorMixState) {
+        val width = src.width
+        val height = src.height
+        val stripRows = min(64, height)
+        val stripPixels = IntArray(width * stripRows)
+
+        var y = 0
+        while (y < height) {
+            val rows = min(stripRows, height - y)
+            val count = width * rows
+            src.getPixels(stripPixels, 0, width, 0, y, width, rows)
+            processPixelArray(stripPixels, count, state)
+            dst.setPixels(stripPixels, 0, width, 0, y, width, rows)
+            y += rows
+        }
+    }
+
+    internal fun processPixelArray(pixels: IntArray, count: Int, state: ColorMixState) {
+        if (!state.isEnabled || state.isDefault) return
 
         val isolated = state.isolatedChannel
         val monochrome = state.monochromeChannel
 
-        // Precompute channel adjustment arrays to minimize overhead in hot loop
         val hueShifts = FloatArray(8)
         val satMultipliers = FloatArray(8)
         val lumShifts = FloatArray(8)
@@ -45,9 +80,11 @@ object AtharColorMixEngine {
 
         val hsl = FloatArray(3)
 
-        for (i in 0 until totalPixels) {
+        for (i in 0 until count) {
             val color = pixels[i]
             val a = (color ushr 24) and 0xFF
+            if (a == 0) continue
+
             val r = (color ushr 16) and 0xFF
             val g = (color ushr 8) and 0xFF
             val b = color and 0xFF
@@ -85,10 +122,6 @@ object AtharColorMixEngine {
 
             pixels[i] = hslToRgb(h, s, l, a)
         }
-
-        val outBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        outBitmap.setPixels(pixels, 0, width, 0, 0, width, height)
-        return outBitmap
     }
 
     private fun rgbToHsl(r: Int, g: Int, b: Int, hsl: FloatArray) {

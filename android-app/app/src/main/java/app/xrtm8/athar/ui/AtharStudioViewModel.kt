@@ -637,7 +637,7 @@ class AtharStudioViewModel : ViewModel() {
         pushHistory(_canvasState.value.copy(
             bgPhotoOffsetX = normX.coerceIn(-1f, 1f),
             bgPhotoOffsetY = normY.coerceIn(-1f, 1f),
-            bgPhotoScale = scale.coerceIn(0.5f, 4.0f)
+            bgPhotoScale = scale.coerceIn(1.0f, 4.0f)
         ))
     }
 
@@ -654,7 +654,7 @@ class AtharStudioViewModel : ViewModel() {
     fun setBgPhotoScale(scale: Float) {
         markSliderChange()
         _canvasState.update {
-            it.copy(bgPhotoScale = scale.coerceIn(0.5f, 4.0f))
+            it.copy(bgPhotoScale = scale.coerceIn(1.0f, 4.0f))
         }
     }
 
@@ -1387,7 +1387,19 @@ class AtharStudioViewModel : ViewModel() {
 
     fun setCollageCellPhoto(cellId: String, uri: Uri?) {
         val cur = _canvasState.value.collageState
-        val updated = cur.cells.map { if (it.id == cellId) it.copy(imageUri = uri) else it }
+        val updated = cur.cells.map {
+            if (it.id == cellId) {
+                it.copy(
+                    imageUri = uri,
+                    photoOffsetX = 0f,
+                    photoOffsetY = 0f,
+                    photoScale = 1.0f,
+                    photoRotationDeg = 0,
+                    isFlippedH = false,
+                    isFlippedV = false
+                )
+            } else it
+        }
         pushHistory(_canvasState.value.copy(
             collageState = cur.copy(cells = updated)
         ))
@@ -1438,7 +1450,12 @@ class AtharStudioViewModel : ViewModel() {
         _canvasState.update { state ->
             val cur = state.collageState
             val updated = cur.cells.map {
-                if (it.id == cellId) it.copy(photoScale = scale.coerceIn(0.5f, 4.0f)) else it
+                if (it.id == cellId) it.copy(
+                    photoScale = scale.coerceIn(
+                        app.xrtm8.athar.model.CollageState.MIN_CELL_SCALE,
+                        app.xrtm8.athar.model.CollageState.MAX_CELL_SCALE
+                    )
+                ) else it
             }
             state.copy(collageState = cur.copy(cells = updated))
         }
@@ -1450,7 +1467,10 @@ class AtharStudioViewModel : ViewModel() {
             if (it.id == cellId) it.copy(
                 photoOffsetX = offsetX.coerceIn(-1f, 1f),
                 photoOffsetY = offsetY.coerceIn(-1f, 1f),
-                photoScale = scale.coerceIn(0.5f, 4.0f)
+                photoScale = scale.coerceIn(
+                    app.xrtm8.athar.model.CollageState.MIN_CELL_SCALE,
+                    app.xrtm8.athar.model.CollageState.MAX_CELL_SCALE
+                )
             ) else it
         }
         pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
@@ -1459,7 +1479,32 @@ class AtharStudioViewModel : ViewModel() {
     fun resetCollageCellFraming(cellId: String) {
         val cur = _canvasState.value.collageState
         val updated = cur.cells.map {
-            if (it.id == cellId) it.copy(photoOffsetX = 0f, photoOffsetY = 0f, photoScale = 1.0f) else it
+            if (it.id == cellId) {
+                it.copy(
+                    photoOffsetX = 0f,
+                    photoOffsetY = 0f,
+                    photoScale = 1.0f,
+                    photoRotationDeg = 0,
+                    isFlippedH = false,
+                    isFlippedV = false
+                )
+            } else it
+        }
+        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
+    }
+
+    fun rotateCollageCell90(cellId: String) {
+        val cur = _canvasState.value.collageState
+        val updated = cur.cells.map {
+            if (it.id == cellId) it.copy(photoRotationDeg = (it.photoRotationDeg + 90) % 360) else it
+        }
+        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
+    }
+
+    fun toggleCollageCellFlipH(cellId: String) {
+        val cur = _canvasState.value.collageState
+        val updated = cur.cells.map {
+            if (it.id == cellId) it.copy(isFlippedH = !it.isFlippedH) else it
         }
         pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
     }
@@ -1467,7 +1512,17 @@ class AtharStudioViewModel : ViewModel() {
     fun removeCollageCellPhoto(cellId: String) {
         val cur = _canvasState.value.collageState
         val updated = cur.cells.map {
-            if (it.id == cellId) it.copy(imageUri = null, photoOffsetX = 0f, photoOffsetY = 0f, photoScale = 1.0f) else it
+            if (it.id == cellId) {
+                it.copy(
+                    imageUri = null,
+                    photoOffsetX = 0f,
+                    photoOffsetY = 0f,
+                    photoScale = 1.0f,
+                    photoRotationDeg = 0,
+                    isFlippedH = false,
+                    isFlippedV = false
+                )
+            } else it
         }
         pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
     }

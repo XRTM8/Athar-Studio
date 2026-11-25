@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import app.xrtm8.athar.core.AtharBackgroundPipeline
 import app.xrtm8.athar.model.CanvasState
 import java.io.File
 import java.io.FileOutputStream
@@ -36,7 +37,7 @@ object AtharPdfExporter {
             val page = document.startPage(pageInfo)
 
             if (!state.isTransparentBg) {
-                AtharExportManager.drawBackground(context, page.canvas, state, baseWidth, baseHeight)
+                AtharBackgroundPipeline.renderSoftwareBackground(context, page.canvas, state, baseWidth, baseHeight)
             }
             AtharExportManager.drawLayers(context, page.canvas, state.layers, baseWidth, baseHeight)
             document.finishPage(page)

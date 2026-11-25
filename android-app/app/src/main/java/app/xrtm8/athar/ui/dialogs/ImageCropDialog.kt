@@ -1,7 +1,6 @@
 package app.xrtm8.athar.ui.dialogs
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -29,12 +28,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.max
 
 enum class CropAspect(val label: String, val ratio: Float?) {
     FREE("حر", null),
@@ -67,23 +66,15 @@ fun ImageCropDialog(
     LaunchedEffect(sourceUri, rotationAngle) {
         withContext(Dispatchers.IO) {
             try {
-                context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                    val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    BitmapFactory.decodeStream(input, null, opts)
-                    val maxDim = max(opts.outWidth, opts.outHeight)
-                    var sample = 1
-                    while (maxDim / sample > 2048) sample *= 2
-                    context.contentResolver.openInputStream(sourceUri)?.use { stream2 ->
-                        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
-                        val raw = BitmapFactory.decodeStream(stream2, null, decodeOpts)
-                        if (raw != null) {
-                            if (rotationAngle != 0) {
-                                val matrix = Matrix().apply { postRotate(rotationAngle.toFloat()) }
-                                loadedBitmap = Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
-                            } else {
-                                loadedBitmap = raw
-                            }
-                        }
+                val raw = AtharImageProcessor.decodeSampledBitmap(context, sourceUri, 2048, 2048)
+                if (raw != null) {
+                    if (rotationAngle != 0) {
+                        val matrix = Matrix().apply { postRotate(rotationAngle.toFloat()) }
+                        val rotated = Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
+                        if (rotated !== raw && !raw.isRecycled) raw.recycle()
+                        loadedBitmap = rotated
+                    } else {
+                        loadedBitmap = raw
                     }
                 }
             } catch (_: Exception) {}

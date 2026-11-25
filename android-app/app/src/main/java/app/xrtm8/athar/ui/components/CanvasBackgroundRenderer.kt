@@ -4,28 +4,23 @@ import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.Shader
-import app.xrtm8.athar.core.AtharImageProcessor
-import app.xrtm8.athar.core.FilmPresetEngine
+import app.xrtm8.athar.core.AtharBackgroundPipeline
+import app.xrtm8.athar.core.CollageCoverFitMath
 import app.xrtm8.athar.model.CanvasState
 
 /**
- * Ultra-optimized canvas viewport background renderer:
- * - Hardware-accelerated BitmapShader for transparency checkerboard (1 single draw call instead of 1,100+)
- * - Zero-allocation image blitting via pre-allocated Rect caches
- * - Precision photo framing pan & zoom (bgPhotoOffsetX, bgPhotoOffsetY, bgPhotoScale)
- * - Film stock emulation & cinematic adjustments
- * - Directional atmospheric gradient scrim
- * - Fast cinematic vignette overlay
+ * Hardware-accelerated canvas viewport background renderer using the shared
+ * AtharBackgroundPipeline for 100% Preview-to-Export parity.
  */
 object CanvasBackgroundRenderer {
 
     private var cachedCheckerboardDensity = 0f
     private var cachedCheckerboardPaint: Paint? = null
-    private val reusableSrcRect = Rect()
-    private val reusableDstRect = Rect()
+    private val bgMatrix = Matrix()
+    private val solidFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
     private fun getCheckerboardPaint(density: Float): Paint {
         val existing = cachedCheckerboardPaint
@@ -60,135 +55,103 @@ object CanvasBackgroundRenderer {
         bgBitmap: Bitmap?,
         bgPaint: Paint,
         cellBitmaps: Map<String, Bitmap> = emptyMap(),
-        maskBitmap: Bitmap? = null
+        maskBitmap: Bitmap? = null,
+        processedCollagePhotoLayer: Bitmap? = null,
+        processedCollageBitmap: Bitmap? = null,
+        blurredCellBitmaps: Map<String, Bitmap> = emptyMap(),
+        isLiveFramingDrag: Boolean = false
     ) {
         if (state.isTransparentBg) {
-            // Instant 1-draw-call hardware repeated pattern (1,100x faster than loop drawRect)
             nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, getCheckerboardPaint(density))
-        } else if (state.collageState.isEnabled) {
-            // Apply unified composite atmospheric filter (Film presets, Dimming, Color Grading) to collage cells
-            bgPaint.colorFilter = FilmPresetEngine.createCompositeFilter(
-                preset = state.filmPreset,
-                dim = state.backgroundDim,
-                brightness = state.backgroundBrightness,
-                contrast = state.backgroundContrast,
-                saturation = state.backgroundSaturation,
-                isGrayscale = state.backgroundGrayscale,
-                colorGradingEnabled = state.colorGradingEnabled,
-                liftR = state.liftRed, liftG = state.liftGreen, liftB = state.liftBlue,
-                gammaR = state.gammaRed, gammaG = state.gammaGreen, gammaB = state.gammaBlue,
-                gainR = state.gainRed, gainG = state.gainGreen, gainB = state.gainBlue
-            )
-            CollageCanvasRenderer.drawCollage(
-                canvas = nativeCanvas,
-                state = state.collageState,
-                width = canvasWidth,
-                height = canvasHeight,
-                density = density,
-                cellBitmaps = cellBitmaps,
-                paint = bgPaint
-            )
-            if (state.backgroundVignette > 0f) {
-                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
-            }
-        } else if (bgBitmap != null) {
-            // Apply composite adjustments combined with Film Preset ColorMatrix and 3-Way Color Wheels
-            bgPaint.colorFilter = FilmPresetEngine.createCompositeFilter(
-                preset = state.filmPreset,
-                dim = state.backgroundDim,
-                brightness = state.backgroundBrightness,
-                contrast = state.backgroundContrast,
-                saturation = state.backgroundSaturation,
-                isGrayscale = state.backgroundGrayscale,
-                colorGradingEnabled = state.colorGradingEnabled,
-                liftR = state.liftRed, liftG = state.liftGreen, liftB = state.liftBlue,
-                gammaR = state.gammaRed, gammaG = state.gammaGreen, gammaB = state.gammaBlue,
-                gainR = state.gainRed, gainG = state.gainGreen, gainB = state.gainBlue
-            )
+            return
+        }
 
-            val srcW = bgBitmap.width.toFloat()
-            val srcH = bgBitmap.height.toFloat()
-            val srcRatio = srcW / srcH
-            val dstRatio = canvasWidth / canvasHeight
+        val worldDensity = AtharBackgroundPipeline.canvasDensity(canvasWidth)
 
-            val scale = state.bgPhotoScale.coerceIn(0.5f, 4.0f)
+        if (state.collageState.isEnabled) {
+            val useFullBaked = !isLiveFramingDrag &&
+                processedCollageBitmap != null &&
+                !processedCollageBitmap.isRecycled
 
-            if (srcRatio > dstRatio) {
-                val newW = ((srcH * dstRatio) / scale).toInt().coerceIn(1, srcW.toInt())
-                val newH = (srcH / scale).toInt().coerceIn(1, srcH.toInt())
-                val maxShiftX = (srcW - newW) / 2f
-                val maxShiftY = (srcH - newH) / 2f
-                val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
-                val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
-                reusableSrcRect.set(xOffset, yOffset, xOffset + newW, yOffset + newH)
+            val useMixedPhotoLayer = !isLiveFramingDrag &&
+                !useFullBaked &&
+                processedCollagePhotoLayer != null &&
+                !processedCollagePhotoLayer.isRecycled
+
+            if (useFullBaked && processedCollageBitmap != null) {
+                bgPaint.colorFilter = null
+                bgMatrix.reset()
+                bgMatrix.setScale(
+                    canvasWidth / processedCollageBitmap.width.coerceAtLeast(1),
+                    canvasHeight / processedCollageBitmap.height.coerceAtLeast(1)
+                )
+                nativeCanvas.drawBitmap(processedCollageBitmap, bgMatrix, bgPaint)
+            } else if (useMixedPhotoLayer && processedCollagePhotoLayer != null) {
+                solidFillPaint.color = state.collageState.frameColorLong.toInt()
+                nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, solidFillPaint)
+                CollageCanvasRenderer.drawEmptyPlaceholders(
+                    canvas = nativeCanvas,
+                    state = state.collageState,
+                    width = canvasWidth,
+                    height = canvasHeight,
+                    density = worldDensity
+                ) { cell ->
+                    val b = cellBitmaps[cell.id]
+                    b == null || b.isRecycled
+                }
+                bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state)
+                bgMatrix.reset()
+                bgMatrix.setScale(
+                    canvasWidth / processedCollagePhotoLayer.width.coerceAtLeast(1),
+                    canvasHeight / processedCollagePhotoLayer.height.coerceAtLeast(1)
+                )
+                nativeCanvas.drawBitmap(processedCollagePhotoLayer, bgMatrix, bgPaint)
+                bgPaint.colorFilter = null
             } else {
-                val newW = (srcW / scale).toInt().coerceIn(1, srcW.toInt())
-                val newH = ((srcW / dstRatio) / scale).toInt().coerceIn(1, srcH.toInt())
-                val maxShiftX = (srcW - newW) / 2f
-                val maxShiftY = (srcH - newH) / 2f
-                val xOffset = (((srcW - newW) / 2f) + (state.bgPhotoOffsetX * maxShiftX)).toInt().coerceIn(0, (srcW - newW).toInt())
-                val yOffset = (((srcH - newH) / 2f) + (state.bgPhotoOffsetY * maxShiftY)).toInt().coerceIn(0, (srcH - newH).toInt())
-                reusableSrcRect.set(xOffset, yOffset, xOffset + newW, yOffset + newH)
+                bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state)
+                val activeCells = if (!isLiveFramingDrag && blurredCellBitmaps.isNotEmpty()) {
+                    blurredCellBitmaps
+                } else {
+                    cellBitmaps
+                }
+                CollageCanvasRenderer.drawCollage(
+                    canvas = nativeCanvas,
+                    state = state.collageState,
+                    width = canvasWidth,
+                    height = canvasHeight,
+                    density = worldDensity,
+                    cellBitmaps = activeCells,
+                    paint = bgPaint
+                )
+                bgPaint.colorFilter = null
             }
-            reusableDstRect.set(0, 0, canvasWidth.toInt(), canvasHeight.toInt())
-            nativeCanvas.drawBitmap(bgBitmap, reusableSrcRect, reusableDstRect, bgPaint)
-
-            // Cinematic Vignette overlay
-            if (state.backgroundVignette > 0f) {
-                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
-            }
-        } else if (state.solidBgColorLong != null) {
-            val fillPaint = Paint().apply {
-                isAntiAlias = true
-                style = Paint.Style.FILL
-                color = state.solidBgColorLong.toInt()
-            }
-            nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, fillPaint)
-            if (state.backgroundVignette > 0f) {
-                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
-            }
+        } else if (bgBitmap != null && !bgBitmap.isRecycled) {
+            bgPaint.colorFilter = AtharBackgroundPipeline.buildCompositeColorFilter(state)
+            CollageCoverFitMath.populateMatrix(
+                outMatrix = bgMatrix,
+                srcW = bgBitmap.width.toFloat(),
+                srcH = bgBitmap.height.toFloat(),
+                dstLeft = 0f,
+                dstTop = 0f,
+                dstRight = canvasWidth,
+                dstBottom = canvasHeight,
+                offsetX = state.bgPhotoOffsetX,
+                offsetY = state.bgPhotoOffsetY,
+                scale = state.bgPhotoScale.coerceIn(1.0f, 4.0f)
+            )
+            nativeCanvas.drawBitmap(bgBitmap, bgMatrix, bgPaint)
+            bgPaint.colorFilter = null
         } else {
-            val fillPaint = Paint().apply {
-                isAntiAlias = true
-                style = Paint.Style.FILL
-                color = Color.BLACK
-            }
-            nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, fillPaint)
-            if (state.backgroundVignette > 0f) {
-                AtharImageProcessor.drawVignette(nativeCanvas, canvasWidth, canvasHeight, state.backgroundVignette)
-            }
+            solidFillPaint.color = state.solidBgColorLong?.toInt() ?: Color.BLACK
+            nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, solidFillPaint)
         }
 
-        // Atmospheric Directional Gradient Scrim (Over background, behind text layers)
-        if (!state.isTransparentBg && state.gradientScrim.isEnabled) {
-            CanvasGradientScrimRenderer.drawGradientScrim(
-                canvas = nativeCanvas,
-                width = canvasWidth,
-                height = canvasHeight,
-                scrim = state.gradientScrim
-            )
-        }
-
-        // Procedural Micro-Texture & Pattern Overlay
-        if (!state.isTransparentBg && state.patternState.isEnabled) {
-            app.xrtm8.athar.core.AtharPatternFactory.drawPattern(
-                canvas = nativeCanvas,
-                width = canvasWidth,
-                height = canvasHeight,
-                state = state.patternState,
-                density = density
-            )
-        }
-
-        // Athar Masks & Atmospheric Black Gradient (Behind text layers)
-        if (!state.isTransparentBg && state.maskState.isEffectActive) {
-            app.xrtm8.athar.core.AtharMaskRenderer.drawMaskAndGradient(
-                canvas = nativeCanvas,
-                state = state.maskState,
-                width = canvasWidth,
-                height = canvasHeight,
-                maskBitmap = maskBitmap
-            )
-        }
+        AtharBackgroundPipeline.drawPostBackgroundOverlays(
+            canvas = nativeCanvas,
+            state = state,
+            width = canvasWidth,
+            height = canvasHeight,
+            maskBitmap = maskBitmap
+        )
     }
 }

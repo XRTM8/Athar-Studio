@@ -22,7 +22,10 @@ data class CollageCell(
     val bottomNorm: Float,
     val photoOffsetX: Float = 0f,
     val photoOffsetY: Float = 0f,
-    val photoScale: Float = 1.0f
+    val photoScale: Float = 1.0f,
+    val photoRotationDeg: Int = 0,
+    val isFlippedH: Boolean = false,
+    val isFlippedV: Boolean = false
 )
 
 data class CollageState(
@@ -34,4 +37,9 @@ data class CollageState(
     val frameColorLong: Long = 0xFF0D0F14
 ) {
     val isEnabled: Boolean get() = layout != CollageLayoutType.NONE && cells.isNotEmpty()
+
+    companion object {
+        const val MIN_CELL_SCALE = 1.0f
+        const val MAX_CELL_SCALE = 4.0f
+    }
 }
