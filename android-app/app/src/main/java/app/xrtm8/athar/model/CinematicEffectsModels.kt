@@ -40,3 +40,24 @@ data class GlitchEffectState(
     val isDefault: Boolean get() = rgbSplit == 0f && sliceJitter == 0f && scanlines == 0f && noise == 0f && pixelate == 0f && seed == 1337L
 }
 
+enum class OpticalLensType(
+    val labelAr: String,
+    val descriptionAr: String
+) {
+    NONE("بدون عدسة", "عرض طبيعي بدون إضافة بصرية"),
+    SOFT_WIDE("عدسة واسعة ناعمة", "نعومة تدريجية للحواف مع انحراف لوني طفيف"),
+    ORGANIC_VIGNETTE("تظليل عدسة طبيعي", "تدرج ضوئي بيضاوي يحاكي سقوط الضوء الطبيعي"),
+    HALATION_LEAK("هالة وتسريب فيلمي", "هالة قرمزية حول الإضاءة الساطعة وتسريب دافئ"),
+    PRISM_DIFFRACTION("انكسار موشوري", "تشتت طيفي موجه من نقاط الإضاءة الساطعة"),
+    STARBURST_4PT("نجمة ضوئية رباعية", "أشعة متعامدة على اللمعان الساطع بأطراف بنفسجية")
+}
+
+data class OpticalLensState(
+    val type: OpticalLensType = OpticalLensType.NONE,
+    val intensity: Float = 0.65f,
+    val spread: Float = 0.50f,
+    val angleDegrees: Float = 45f
+) {
+    val isEnabled: Boolean get() = type != OpticalLensType.NONE && intensity > 0.01f
+    val isDefault: Boolean get() = type == OpticalLensType.NONE && intensity == 0.65f && spread == 0.50f && angleDegrees == 45f
+}

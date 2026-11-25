@@ -1,5 +1,6 @@
 package app.xrtm8.athar
 
+import app.xrtm8.athar.core.AtharGlitchEngine
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.GlitchEffectState
 import app.xrtm8.athar.project.AtharProjectSerializer
@@ -9,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for Glitch, RGB Split & Analog CRT Engine state and serialization.
+ * Unit tests for Glitch, RGB Split & Analog CRT Engine state, serialization, and buffer math.
  */
 class AtharGlitchSystemTest {
 
@@ -46,6 +47,37 @@ class AtharGlitchSystemTest {
     }
 
     @Test
+    fun testGlitchScanlineNormalizationAndAlphaPreservation() {
+        // Verify alpha=0 stays 0 and rgbSplit doesn't darken opaque edges near transparent gaps
+        val w = 32
+        val h1 = 108
+        val h2 = 216
+        val src1 = IntArray(w * h1) { idx ->
+            val x = idx % w
+            if (x < 4) 0x00000000 else 0xFFC8C8C8.toInt()
+        }
+        val out1 = IntArray(src1.size)
+        val state = GlitchEffectState(rgbSplit = 60f, scanlines = 80f)
+        AtharGlitchEngine.applyGlitchToBuffer(src1, out1, w, h1, state)
+
+        for (y in 0 until h1) {
+            assertEquals("Transparent pixel must stay transparent", 0, out1[y * w])
+            val opaqueEdge = out1[y * w + 4]
+            assertEquals(0xFF, (opaqueEdge ushr 24) and 0xFF)
+            assertTrue("Edge pixel should not pull black from transparent gap", ((opaqueEdge shr 16) and 0xFF) > 50)
+        }
+
+        // Verify normalized scanline dark-row ratio matches between h1 and h2 (2x scale)
+        val src2 = IntArray(w * h2) { 0xFFC8C8C8.toInt() }
+        val out2 = IntArray(src2.size)
+        AtharGlitchEngine.applyGlitchToBuffer(src2, out2, w, h2, GlitchEffectState(scanlines = 100f))
+
+        val darkRatio1 = (0 until h1).count { ((out1[it * w + 16] shr 16) and 0xFF) < 180 }.toFloat() / h1
+        val darkRatio2 = (0 until h2).count { ((out2[it * w + 16] shr 16) and 0xFF) < 180 }.toFloat() / h2
+        assertEquals("Scanline density must remain invariant across resolutions", darkRatio1, darkRatio2, 0.05f)
+    }
+
+    @Test
     fun testGlitchSerializationRoundtrip() {
         val originalGlitch = GlitchEffectState(
             rgbSplit = 42.5f,
@@ -75,7 +107,6 @@ class AtharGlitchSystemTest {
 
     @Test
     fun testGlitchBackwardCompatibilityWithLegacyProjects() {
-        // Legacy JSON without any glitch fields
         val legacyJson = org.json.JSONObject("""
             {
                 "canvas": {

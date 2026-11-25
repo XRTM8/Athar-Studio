@@ -1,38 +1,32 @@
 package app.xrtm8.athar.ui.panels
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.xrtm8.athar.model.AtharFavoritesManager
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.FilmPreset
+import app.xrtm8.athar.model.OpticalLensState
+import app.xrtm8.athar.ui.components.ColorGradingWheelsPanel
+import app.xrtm8.athar.ui.panels.background.FilmLensStripSection
+import app.xrtm8.athar.ui.panels.background.FilmPresetSwatchStrip
 import app.xrtm8.athar.ui.theme.*
 
 /**
- * Professional Film Camera Presets & 3-Way Color Grading Panel.
- * Includes:
- * - Emulation of Fujifilm, Kodak, Leica, and Hollywood Cinematic color stocks
- * - Favorites management
- * - Lift / Gamma / Gain color wheels
+ * Film Camera Presets, Optical Lens Attachments & 3-Way Color Grading Coordinator Panel (< 120 lines).
  */
 @Composable
 fun FilmFilterPanel(
@@ -44,30 +38,18 @@ fun FilmFilterPanel(
     onGainChange: ((r: Float, g: Float, b: Float) -> Unit)? = null,
     onResetColorGrading: (() -> Unit)? = null,
     onSliderChangeFinished: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    filmPresetIntensity: Float = state.filmPresetIntensity,
+    onFilmPresetIntensityChange: (Float) -> Unit = {},
+    opticalLensState: OpticalLensState = state.opticalLensState,
+    onOpticalLensChange: (OpticalLensState) -> Unit = {},
+    previewThumbnailBitmap: Bitmap? = null
 ) {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-
     var mainFilterSubTab by remember { mutableIntStateOf(0) }
-    var selectedCategory by remember { mutableStateOf("الكل") }
-    var favoriteFilters by remember { mutableStateOf(AtharFavoritesManager.getFavoriteFilters(context)) }
-
-    val categories = listOf("الكل", "المفضلة", "كاميرات كلاسيكية", "أبيض وأسود", "سينمائي")
-
-    val filteredPresets = FilmPreset.entries.filter { preset ->
-        when (selectedCategory) {
-            "الكل" -> true
-            "المفضلة" -> favoriteFilters.contains(preset.id)
-            "كاميرات كلاسيكية" -> preset.brand in listOf("Fujifilm", "Kodak")
-            "أبيض وأسود" -> preset.id in listOf("kodak_tri_x", "leica_mono")
-            "سينمائي" -> preset.id in listOf("teal_orange", "vintage_warmth")
-            else -> true
-        }
-    }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Sub-segment switcher: Film Presets vs 3-Way Color Wheels
+        // Sub-segment switcher: Film Cameras & Lenses vs 3-Way Color Wheels
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -78,15 +60,15 @@ fun FilmFilterPanel(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             listOf(
-                0 to "فلاتر الأفلام والوصفات",
-                1 to "عجلات التدريج اللوني (3-Way)"
+                0 to "الكاميرات والعدسات",
+                1 to "عجلات التدريج (3-Way)"
             ).forEach { (idx, title) ->
                 val isSelected = mainFilterSubTab == idx
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(9.dp))
-                        .background(if (isSelected) CherryAccent else Color.Transparent)
+                        .background(if (isSelected) BurgundyAccent else Color.Transparent)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             mainFilterSubTab = idx
@@ -96,7 +78,7 @@ fun FilmFilterPanel(
                 ) {
                     Text(
                         text = title,
-                        color = if (isSelected) AmoledBlack else MutedWhite,
+                        color = if (isSelected) PureWhite else MutedWhite,
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
@@ -106,8 +88,14 @@ fun FilmFilterPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        if (mainFilterSubTab == 1 && onToggleColorGrading != null && onLiftChange != null && onGammaChange != null && onGainChange != null && onResetColorGrading != null) {
-            app.xrtm8.athar.ui.components.ColorGradingWheelsPanel(
+        if (mainFilterSubTab == 1 &&
+            onToggleColorGrading != null &&
+            onLiftChange != null &&
+            onGammaChange != null &&
+            onGainChange != null &&
+            onResetColorGrading != null
+        ) {
+            ColorGradingWheelsPanel(
                 state = state,
                 onToggleColorGrading = onToggleColorGrading,
                 onLiftChange = onLiftChange,
@@ -117,119 +105,22 @@ fun FilmFilterPanel(
                 onSliderChangeFinished = onSliderChangeFinished
             )
         } else {
-            // Category Chips
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            categories.forEach { cat ->
-                val isSelected = selectedCategory == cat
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(if (isSelected) CherryAccent else GlassSurface)
-                        .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(9.dp))
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            selectedCategory = cat
-                        }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = cat,
-                        color = if (isSelected) AmoledBlack else PureWhite,
-                        fontSize = 10.5.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                    )
-                }
-            }
-        }
+            FilmPresetSwatchStrip(
+                selectedPreset = state.filmPreset,
+                filmPresetIntensity = filmPresetIntensity,
+                previewThumbnailBitmap = previewThumbnailBitmap,
+                onSelectFilmPreset = onSelectFilmPreset,
+                onFilmPresetIntensityChange = onFilmPresetIntensityChange,
+                onSliderChangeFinished = onSliderChangeFinished
+            )
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-        // Presets Carousel
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            filteredPresets.forEach { preset ->
-                val isSelected = state.filmPreset == preset
-                val isFav = favoriteFilters.contains(preset.id)
-
-                Box(
-                    modifier = Modifier
-                        .width(140.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) CherryAccent else GlassSurface)
-                        .border(
-                            width = if (isSelected) 1.5.dp else 0.5.dp,
-                            color = if (isSelected) CherryAccent else GlassBorder,
-                            shape = RoundedCornerShape(14.dp)
-                        )
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelectFilmPreset(preset)
-                        }
-                        .padding(10.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = preset.brand,
-                                color = if (isSelected) AmoledBlack else SubtleGray,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            if (preset != FilmPreset.NONE) {
-                                Box(
-                                    modifier = Modifier.clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        AtharFavoritesManager.toggleFilterFavorite(context, preset.id)
-                                        favoriteFilters = AtharFavoritesManager.getFavoriteFilters(context)
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = "مفضلة",
-                                        tint = if (isFav) Color(0xFFFF4081) else if (isSelected) AmoledBlack else SubtleGray,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = preset.titleAr,
-                            color = if (isSelected) AmoledBlack else PureWhite,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-
-                        Spacer(modifier = Modifier.height(3.dp))
-
-                        Text(
-                            text = preset.description,
-                            color = if (isSelected) AmoledBlack.copy(alpha = 0.8f) else SubtleGray,
-                            fontSize = 9.sp,
-                            lineHeight = 12.sp,
-                            maxLines = 2
-                        )
-                    }
-                }
-            }
+            FilmLensStripSection(
+                opticalLensState = opticalLensState,
+                onOpticalLensChange = onOpticalLensChange,
+                onSliderChangeFinished = onSliderChangeFinished
+            )
         }
     }
-}
 }

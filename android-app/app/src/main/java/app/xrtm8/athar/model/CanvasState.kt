@@ -20,6 +20,7 @@ data class CanvasState(
     val isTransparentBg: Boolean = false,
     val gradientScrim: CanvasGradientScrim = CanvasGradientScrim(),
     val filmPreset: FilmPreset = FilmPreset.NONE,
+    val filmPresetIntensity: Float = 1.0f,
     val bgPhotoOffsetX: Float = 0f,
     val bgPhotoOffsetY: Float = 0f,
     val bgPhotoScale: Float = 1.0f,
@@ -41,7 +42,8 @@ data class CanvasState(
     val filmGrainState: FilmGrainState = FilmGrainState(),
     val collageState: CollageState = CollageState(),
     val maskState: AtharMaskState = AtharMaskState(),
-    val glitchEffectState: GlitchEffectState = GlitchEffectState()
+    val glitchEffectState: GlitchEffectState = GlitchEffectState(),
+    val opticalLensState: OpticalLensState = OpticalLensState()
 ) {
     val activeLayer: TextLayer
         get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()

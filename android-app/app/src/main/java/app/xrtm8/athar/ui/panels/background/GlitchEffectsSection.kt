@@ -80,7 +80,8 @@ fun GlitchEffectsSection(
         StudioSlider(
             title = "انحراف القنوات (RGB Split)",
             value = state.rgbSplit,
-            range = 0f..100f,
+            valueRange = 0f..100f,
+            valueDisplay = "${state.rgbSplit.toInt()}",
             onValueChange = onRgbSplitChange,
             onValueChangeFinished = onSliderChangeFinished
         )
@@ -89,7 +90,8 @@ fun GlitchEffectsSection(
         StudioSlider(
             title = "تمزق الشرائح (Slice Tearing)",
             value = state.sliceJitter,
-            range = 0f..100f,
+            valueRange = 0f..100f,
+            valueDisplay = "${state.sliceJitter.toInt()}",
             onValueChange = onSliceJitterChange,
             onValueChangeFinished = onSliderChangeFinished
         )
@@ -98,7 +100,8 @@ fun GlitchEffectsSection(
         StudioSlider(
             title = "خطوط المسح (CRT Scanlines)",
             value = state.scanlines,
-            range = 0f..100f,
+            valueRange = 0f..100f,
+            valueDisplay = "${state.scanlines.toInt()}",
             onValueChange = onScanlinesChange,
             onValueChangeFinished = onSliderChangeFinished
         )
@@ -107,7 +110,8 @@ fun GlitchEffectsSection(
         StudioSlider(
             title = "الشوشرة الرقمية (Noise Static)",
             value = state.noise,
-            range = 0f..100f,
+            valueRange = 0f..100f,
+            valueDisplay = "${state.noise.toInt()}",
             onValueChange = onNoiseChange,
             onValueChangeFinished = onSliderChangeFinished
         )
@@ -116,7 +120,8 @@ fun GlitchEffectsSection(
         StudioSlider(
             title = "التقطيع البكسلي (Pixelate)",
             value = state.pixelate,
-            range = 0f..100f,
+            valueRange = 0f..100f,
+            valueDisplay = "${state.pixelate.toInt()}",
             onValueChange = onPixelateChange,
             onValueChangeFinished = onSliderChangeFinished
         )
