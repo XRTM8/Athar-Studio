@@ -199,8 +199,8 @@ fun ExportBottomSheet(
                         Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(text = "مستند فيكتور للطباعة (Vector PDF)", color = primaryTextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(text = "دقة متجهة صافية 100% جاهزة للمطابع دون أي بكسلة", color = subtleTextColor, fontSize = 10.sp)
+                            Text(text = "ملف PDF للطباعة", color = primaryTextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(text = "مستند جاهز للطباعة بدقة 1080p ونصوص حادة", color = subtleTextColor, fontSize = 10.sp)
                         }
                     }
                 }
@@ -229,8 +229,8 @@ fun ExportBottomSheet(
                         Icon(Icons.Default.Polyline, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(text = "ملف فيكتور مفتوح (Vector SVG)", color = primaryTextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(text = "متوافق مع Figma و Illustrator مع نصوص قابلة للتعديل", color = subtleTextColor, fontSize = 10.sp)
+                            Text(text = "تصدير النصوص متجهياً (SVG)", color = primaryTextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(text = "نصوص وتدرجات لـ Figma و Illustrator (لا يشمل صور الخلفية)", color = subtleTextColor, fontSize = 10.sp)
                         }
                     }
                 }

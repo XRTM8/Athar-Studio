@@ -7,60 +7,59 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
-import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.typography.TypographyLayoutResult
 
 /**
- * Renders an ultra-luxurious frosted glass plaque / card behind Arabic typography.
- * Provides instant readability and high-end visual elegance over photos or solid backdrops.
+ * Thread-safe frosted glass plaque renderer behind Arabic typography.
+ * Scratch objects and gradient shaders are cached per-thread so UI drawing and background
+ * exports never contend or allocate repeatedly on steady frames.
  */
 object TextGlassBackdropRenderer {
 
-    private val reusableRectF = RectF()
-    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(100, 0, 0, 0) }
-    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val sheenStops = floatArrayOf(0.0f, 0.45f, 1.0f)
-    private val sheenColors = IntArray(3)
+    private class GlassScratch {
+        val rectF = RectF()
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(100, 0, 0, 0) }
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+        val sheenStops = floatArrayOf(0.0f, 0.45f, 1.0f)
+        val sheenColors = IntArray(3)
+        var cachedFilterDensity = 0f
+        var cachedBlurFilter: BlurMaskFilter? = null
+        var lastLeft = Float.NaN
+        var lastTop = Float.NaN
+        var lastRight = Float.NaN
+        var lastBottom = Float.NaN
+        var lastAlpha = -1
+        var cachedSheen: LinearGradient? = null
 
-    private var cachedFilterDensity = 0f
-    private var cachedBlurFilter: BlurMaskFilter? = null
-
-    private fun getShadowBlurFilter(density: Float): BlurMaskFilter {
-        val existing = cachedBlurFilter
-        if (existing != null && cachedFilterDensity == density) {
-            return existing
+        fun getShadowBlurFilter(density: Float): BlurMaskFilter {
+            val existing = cachedBlurFilter
+            if (existing != null && cachedFilterDensity == density) return existing
+            val filter = BlurMaskFilter((16f * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+            cachedFilterDensity = density
+            cachedBlurFilter = filter
+            return filter
         }
-        val filter = BlurMaskFilter((16f * density).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
-        cachedFilterDensity = density
-        cachedBlurFilter = filter
-        return filter
+
+        fun getSheenShader(bLeft: Float, bTop: Float, bRight: Float, bBottom: Float, alphaInt: Int): LinearGradient {
+            val existing = cachedSheen
+            if (existing != null && lastLeft == bLeft && lastTop == bTop && lastRight == bRight && lastBottom == bBottom && lastAlpha == alphaInt) {
+                return existing
+            }
+            sheenColors[0] = Color.argb((alphaInt * 0.40f).toInt(), 255, 255, 255)
+            sheenColors[1] = Color.argb(0, 255, 255, 255)
+            sheenColors[2] = Color.argb((alphaInt * 0.15f).toInt(), 255, 255, 255)
+            val grad = LinearGradient(bLeft, bTop, bRight, bBottom, sheenColors, sheenStops, Shader.TileMode.CLAMP)
+            lastLeft = bLeft; lastTop = bTop; lastRight = bRight; lastBottom = bBottom; lastAlpha = alphaInt
+            cachedSheen = grad
+            return grad
+        }
     }
 
-    fun drawGlassBackdrop(
-        canvas: Canvas,
-        state: CanvasState,
-        layout: TypographyLayoutResult,
-        textSizePx: Float,
-        density: Float
-    ) {
-        drawGlassBackdrop(
-            canvas = canvas,
-            enableGlassBackdrop = state.enableGlassBackdrop,
-            glassBackdropPadding = state.glassBackdropPadding,
-            glassBackdropCornerRadius = state.glassBackdropCornerRadius,
-            glassBackdropColorLong = state.glassBackdropColorLong,
-            glassBackdropBorderColorLong = state.glassBackdropBorderColorLong,
-            glassBackdropOpacity = state.glassBackdropOpacity,
-            textAlign = state.textAlign,
-            layout = layout,
-            textSizePx = textSizePx,
-            density = density
-        )
-    }
+    private val threadScratch = ThreadLocal.withInitial { GlassScratch() }
 
     fun drawGlassBackdrop(
         canvas: Canvas,
@@ -84,7 +83,6 @@ object TextGlassBackdropRenderer {
         )
     }
 
-    @Synchronized
     fun drawGlassBackdrop(
         canvas: Canvas,
         enableGlassBackdrop: Boolean,
@@ -100,6 +98,7 @@ object TextGlassBackdropRenderer {
     ) {
         if (!enableGlassBackdrop || layout.maxLineWidth <= 0f) return
 
+        val s = threadScratch.get()!!
         val pad = glassBackdropPadding * density
         val bLeft = when (textAlign) {
             TextAlignOption.RIGHT -> -layout.maxLineWidth - pad
@@ -114,36 +113,22 @@ object TextGlassBackdropRenderer {
         val bTop = layout.startY - textSizePx * 0.75f - pad
         val bBottom = layout.startY + layout.totalHeight + textSizePx * 0.25f + pad
 
-        reusableRectF.set(bLeft, bTop, bRight, bBottom)
+        s.rectF.set(bLeft, bTop, bRight, bBottom)
         val cornerR = (glassBackdropCornerRadius * density).coerceAtLeast(4f)
 
-        // 1. Soft Card Elevation Shadow (zero allocation)
-        shadowPaint.maskFilter = getShadowBlurFilter(density)
-        canvas.drawRoundRect(reusableRectF, cornerR, cornerR, shadowPaint)
+        s.shadowPaint.maskFilter = s.getShadowBlurFilter(density)
+        canvas.drawRoundRect(s.rectF, cornerR, cornerR, s.shadowPaint)
 
-        // 2. Frosted Glass Tint Base Fill
         val baseColor = glassBackdropColorLong.toInt()
         val alphaInt = (glassBackdropOpacity.coerceIn(0.1f, 0.98f) * 255).toInt()
-        fillPaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
-        canvas.drawRoundRect(reusableRectF, cornerR, cornerR, fillPaint)
+        s.fillPaint.color = (baseColor and 0x00FFFFFF) or (alphaInt shl 24)
+        canvas.drawRoundRect(s.rectF, cornerR, cornerR, s.fillPaint)
 
-        // 3. Diagonal Specular Glass Sheen Highlight
-        sheenColors[0] = Color.argb((alphaInt * 0.40f).toInt(), 255, 255, 255)
-        sheenColors[1] = Color.argb(0, 255, 255, 255)
-        sheenColors[2] = Color.argb((alphaInt * 0.15f).toInt(), 255, 255, 255)
+        s.sheenPaint.shader = s.getSheenShader(bLeft, bTop, bRight, bBottom, alphaInt)
+        canvas.drawRoundRect(s.rectF, cornerR, cornerR, s.sheenPaint)
 
-        sheenPaint.shader = LinearGradient(
-            bLeft, bTop,
-            bRight, bBottom,
-            sheenColors,
-            sheenStops,
-            Shader.TileMode.CLAMP
-        )
-        canvas.drawRoundRect(reusableRectF, cornerR, cornerR, sheenPaint)
-
-        // 4. Fine Precision Glass Border Stroke
-        strokePaint.strokeWidth = 1.2f * density
-        strokePaint.color = glassBackdropBorderColorLong.toInt()
-        canvas.drawRoundRect(reusableRectF, cornerR, cornerR, strokePaint)
+        s.strokePaint.strokeWidth = 1.2f * density
+        s.strokePaint.color = glassBackdropBorderColorLong.toInt()
+        canvas.drawRoundRect(s.rectF, cornerR, cornerR, s.strokePaint)
     }
 }

@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -24,21 +25,19 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 class AtharUpdateManager(private val context: Context) {
     companion object {
         private const val TAG = "AtharUpdateManager"
         private const val CHANNEL_ID = "athar_updates"
         private const val NOTIFICATION_ID = 1001
-        private const val GITHUB_REPO = "XRTM8/Athar-Studio"
+        const val GITHUB_REPO = "XRTM8/Athar-Studio"
+        const val REPO_URL = "https://github.com/$GITHUB_REPO"
         private const val RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 
         data class ReleaseAsset(val name: String, val downloadUrl: String)
 
-        /**
-         * Intelligently selects the optimal APK asset matching device architecture.
-         * Prioritizes ARM64-v8a native build on 64-bit devices, falling back to universal or first available APK.
-         */
         fun selectBestApkAsset(
             assets: List<ReleaseAsset>,
             deviceAbis: Array<String>? = null
@@ -54,15 +53,11 @@ class AtharUpdateManager(private val context: Context) {
             if (isArm64) {
                 val arm64Asset = assets.find {
                     it.name.contains("arm64", ignoreCase = true) ||
-                    it.name.contains("aarch64", ignoreCase = true) ||
-                    it.name.contains("arm64-v8a", ignoreCase = true)
+                        it.name.contains("aarch64", ignoreCase = true) ||
+                        it.name.contains("arm64-v8a", ignoreCase = true)
                 }
                 if (arm64Asset != null) {
-                    try {
-                        Log.i(TAG, "Selected native ARM64-v8a asset: ${arm64Asset.name}")
-                    } catch (_: Throwable) {
-                        // Safe in unit tests
-                    }
+                    runCatching { Log.i(TAG, "Selected native ARM64-v8a asset: ${arm64Asset.name}") }
                     return arm64Asset.downloadUrl
                 }
             }
@@ -99,9 +94,6 @@ class AtharUpdateManager(private val context: Context) {
         notificationManager.createNotificationChannel(channel)
     }
 
-    /**
-     * Checks if a remote version tag is strictly newer than current local version using Semantic Versioning.
-     */
     fun isNewerVersion(remoteTag: String, localVersionName: String): Boolean {
         val cleanRemote = remoteTag.removePrefix("v").trim()
         val cleanLocal = localVersionName.removePrefix("v").trim()
@@ -120,64 +112,68 @@ class AtharUpdateManager(private val context: Context) {
         return false
     }
 
-    suspend fun checkForUpdates(currentVersionName: String = BuildConfig.VERSION_NAME, showNotificationOnFound: Boolean = true): UpdateInfo? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = URL(RELEASES_API_URL)
-                val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 7000
-                conn.readTimeout = 7000
-                conn.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                conn.setRequestProperty("User-Agent", "Athar-App-Android")
+    suspend fun checkForUpdates(
+        currentVersionName: String = BuildConfig.VERSION_NAME,
+        showNotificationOnFound: Boolean = true
+    ): UpdateInfo? = withContext(Dispatchers.IO) {
+        var conn: HttpURLConnection? = null
+        try {
+            val url = URL(RELEASES_API_URL)
+            conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 7000
+                readTimeout = 7000
+                setRequestProperty("Accept", "application/vnd.github.v3+json")
+                setRequestProperty("User-Agent", "Athar-App-Android")
+            }
 
-                if (conn.responseCode == 200) {
-                    val response = conn.inputStream.bufferedReader().use { it.readText() }
-                    val json = JSONObject(response)
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val response = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(response)
 
-                    val tagName = json.optString("tag_name", "").trim()
-                    val body = json.optString("body", "تحسينات جديدة وتأثيرات إضافية")
+                val tagName = json.optString("tag_name", "").trim()
+                val body = json.optString("body", "تحسينات وإصلاحات")
 
-                    val apkAssets = ArrayList<ReleaseAsset>()
-                    val assets = json.optJSONArray("assets")
-                    if (assets != null) {
-                        for (i in 0 until assets.length()) {
-                            val asset = assets.getJSONObject(i)
-                            val name = asset.optString("name", "")
-                            val dUrl = asset.optString("browser_download_url", "")
-                            if (name.endsWith(".apk", ignoreCase = true) && dUrl.isNotEmpty()) {
-                                apkAssets.add(ReleaseAsset(name, dUrl))
-                            }
+                val apkAssets = ArrayList<ReleaseAsset>()
+                val assets = json.optJSONArray("assets")
+                if (assets != null) {
+                    for (i in 0 until assets.length()) {
+                        val asset = assets.getJSONObject(i)
+                        val name = asset.optString("name", "")
+                        val dUrl = asset.optString("browser_download_url", "")
+                        if (name.endsWith(".apk", ignoreCase = true) && dUrl.startsWith("https://")) {
+                            apkAssets.add(ReleaseAsset(name, dUrl))
                         }
-                    }
-
-                    val downloadUrl = selectBestApkAsset(apkAssets) ?: ""
-                    val cleanTag = tagName.removePrefix("v")
-
-                    if (isNewerVersion(tagName, currentVersionName) && downloadUrl.isNotEmpty()) {
-                        val updateInfo = UpdateInfo(
-                            hasUpdate = true,
-                            latestVersionName = cleanTag,
-                            latestVersionCode = 0,
-                            releaseNotes = body,
-                            downloadUrl = downloadUrl,
-                            isMandatory = false
-                        )
-                        _updateState.value = updateInfo
-
-                        if (showNotificationOnFound) {
-                            showGentleNotification(updateInfo)
-                        }
-                        return@withContext updateInfo
-                    } else {
-                        // Already up to date! Clear any stale update state
-                        _updateState.value = null
                     }
                 }
-            } catch (e: Exception) {
-                Log.d(TAG, "Update check completed without update or offline: ${e.message}")
+
+                val downloadUrl = selectBestApkAsset(apkAssets) ?: ""
+                val cleanTag = tagName.removePrefix("v")
+
+                if (isNewerVersion(tagName, currentVersionName) && downloadUrl.isNotEmpty()) {
+                    val updateInfo = UpdateInfo(
+                        hasUpdate = true,
+                        latestVersionName = cleanTag,
+                        latestVersionCode = 0,
+                        releaseNotes = body,
+                        downloadUrl = downloadUrl,
+                        isMandatory = false
+                    )
+                    _updateState.value = updateInfo
+
+                    if (showNotificationOnFound) {
+                        showGentleNotification(updateInfo)
+                    }
+                    return@withContext updateInfo
+                } else {
+                    _updateState.value = null
+                }
             }
-            null
+        } catch (e: Exception) {
+            Log.d(TAG, "Update check completed without update or offline: ${e.message}")
+        } finally {
+            conn?.disconnect()
         }
+        null
     }
 
     private fun showGentleNotification(updateInfo: UpdateInfo) {
@@ -207,53 +203,60 @@ class AtharUpdateManager(private val context: Context) {
 
     suspend fun downloadAndInstallApk(downloadUrl: String) {
         withContext(Dispatchers.IO) {
-            try {
-                _downloadProgress.value = 0.05f
-                var currentUrl = downloadUrl
-                var conn: HttpURLConnection
-                var redirects = 0
+            var activeConn: HttpURLConnection? = null
+            val updatesDir = File(context.cacheDir, "updates").apply { if (!exists()) mkdirs() }
+            val tempPartFile = File(updatesDir, "athar-latest.apk.part")
+            val apkFile = File(updatesDir, "athar-latest.apk")
 
+            try {
+                require(downloadUrl.startsWith("https://")) { "يُرفض تنزيل التحديث عبر رابط غير آمن" }
+                _downloadProgress.value = 0.05f
+
+                var currentUrl = downloadUrl
+                var redirects = 0
                 while (true) {
-                    val url = URL(currentUrl)
-                    conn = url.openConnection() as HttpURLConnection
-                    conn.instanceFollowRedirects = true
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 30000
-                    conn.setRequestProperty("User-Agent", "Athar-App-Android")
-                    conn.connect()
+                    require(currentUrl.startsWith("https://")) { "تم رفض إعادة توجيه غير آمنة (HTTP)" }
+                    val conn = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
+                        instanceFollowRedirects = false
+                        connectTimeout = 15000
+                        readTimeout = 30000
+                        setRequestProperty("User-Agent", "Athar-App-Android")
+                        connect()
+                    }
+                    activeConn = conn
 
                     val code = conn.responseCode
                     if ((code == HttpURLConnection.HTTP_MOVED_PERM ||
-                                code == HttpURLConnection.HTTP_MOVED_TEMP ||
-                                code == HttpURLConnection.HTTP_SEE_OTHER ||
-                                code == 307 || code == 308) && redirects < 5
+                            code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                            code == HttpURLConnection.HTTP_SEE_OTHER ||
+                            code == 307 || code == 308) && redirects < 5
                     ) {
                         val location = conn.getHeaderField("Location")
+                        conn.disconnect()
+                        activeConn = null
                         if (!location.isNullOrBlank()) {
-                            currentUrl = location
+                            currentUrl = URL(URL(currentUrl), location).toString()
                             redirects++
-                            conn.disconnect()
                             continue
                         }
                     }
+                    check(code == HttpURLConnection.HTTP_OK) { "فشل تنزيل التحديث: HTTP $code" }
                     break
                 }
 
-                val fileLength = conn.contentLength
-                val updatesDir = File(context.cacheDir, "updates")
-                if (!updatesDir.exists()) updatesDir.mkdirs()
-
-                val apkFile = File(updatesDir, "athar-latest.apk")
+                val conn = checkNotNull(activeConn)
+                val fileLength = conn.contentLengthLong
+                if (tempPartFile.exists()) tempPartFile.delete()
                 if (apkFile.exists()) apkFile.delete()
 
+                var total = 0L
                 conn.inputStream.use { input ->
-                    FileOutputStream(apkFile).use { output ->
+                    FileOutputStream(tempPartFile).use { output ->
                         val data = ByteArray(8192)
-                        var total: Long = 0
                         var count: Int
                         while (input.read(data).also { count = it } != -1) {
                             total += count
-                            if (fileLength > 0) {
+                            if (fileLength > 0L) {
                                 _downloadProgress.value = (total.toFloat() / fileLength.toFloat()).coerceIn(0f, 1f)
                             }
                             output.write(data, 0, count)
@@ -262,23 +265,63 @@ class AtharUpdateManager(private val context: Context) {
                     }
                 }
 
+                if (fileLength > 0L && total != fileLength) {
+                    tempPartFile.delete()
+                    Log.e(TAG, "Incomplete APK download: $total of $fileLength bytes")
+                    return@withContext
+                }
+                check(tempPartFile.renameTo(apkFile)) { "تعذر تجهيز ملف الحزمة للتثبيت" }
                 _downloadProgress.value = null
 
-                // Verify package integrity and matching packageName before triggering installation
-                val pm = context.packageManager
-                val archiveInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, 0)
-                if (archiveInfo == null || archiveInfo.packageName != context.packageName) {
+                if (!verifyDownloadedApkMatchesInstalledSignature(apkFile)) {
                     apkFile.delete()
-                    Log.e(TAG, "Downloaded APK failed archive integrity check or package mismatch: ${archiveInfo?.packageName}")
+                    Log.e(TAG, "Downloaded APK failed package or signing certificate verification")
                     return@withContext
                 }
 
                 installApk(apkFile)
             } catch (e: Exception) {
+                tempPartFile.delete()
                 Log.e(TAG, "Download and install failed: ${e.message}")
                 _downloadProgress.value = null
+            } finally {
+                activeConn?.disconnect()
             }
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun verifyDownloadedApkMatchesInstalledSignature(apkFile: File): Boolean {
+        val pm = context.packageManager
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
+
+        val archiveInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, flags) ?: return false
+        if (archiveInfo.packageName != context.packageName) return false
+
+        val installedInfo = runCatching { pm.getPackageInfo(context.packageName, flags) }.getOrNull() ?: return false
+        val installedDigests = extractSigningSha256Digests(installedInfo)
+        val archiveDigests = extractSigningSha256Digests(archiveInfo)
+        if (installedDigests.isEmpty() || archiveDigests.isEmpty()) return false
+        return archiveDigests.any { it in installedDigests }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun extractSigningSha256Digests(pkgInfo: PackageInfo): Set<String> {
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val signingInfo = pkgInfo.signingInfo ?: return emptySet()
+            if (signingInfo.hasMultipleSigners()) signingInfo.apkContentsSigners else signingInfo.signingCertificateHistory
+        } else {
+            pkgInfo.signatures
+        } ?: return emptySet()
+
+        val md = MessageDigest.getInstance("SHA-256")
+        return signatures.map { sig ->
+            md.digest(sig.toByteArray()).joinToString("") { "%02x".format(it) }
+        }.toSet()
     }
 
     private fun installApk(file: File) {

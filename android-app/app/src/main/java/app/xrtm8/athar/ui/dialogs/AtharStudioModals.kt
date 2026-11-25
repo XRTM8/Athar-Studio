@@ -62,36 +62,53 @@ fun AtharStudioModals(
         )
     }
 
+    var pendingExportType by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingResolution by rememberSaveable { mutableStateOf<ExportResolution?>(null) }
     var pendingSticker by rememberSaveable { mutableStateOf(false) }
-    fun export(resolution: ExportResolution, sticker: Boolean) {
-        viewModel.exportDesign(context, resolution, sticker || canvasState.isTransparentBg, sticker)
+
+    fun executePendingExport(type: String, resolution: ExportResolution?, sticker: Boolean) {
+        when (type) {
+            "RASTER" -> {
+                val res = resolution ?: ExportResolution.HD_1080P
+                viewModel.exportDesign(context, res, sticker || canvasState.isTransparentBg, sticker)
+            }
+            "PDF" -> viewModel.exportPdf(context)
+            "SVG" -> viewModel.exportSvg(context)
+        }
         onDismissExportSheet()
     }
+
     val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val type = pendingExportType
         val resolution = pendingResolution
+        pendingExportType = null
         pendingResolution = null
-        if (granted && resolution != null) export(resolution, pendingSticker)
-        else if (!granted) Toast.makeText(context, "يلزم إذن التخزين لحفظ الصورة في المعرض", Toast.LENGTH_SHORT).show()
+        if (granted && type != null) executePendingExport(type, resolution, pendingSticker)
+        else if (!granted) Toast.makeText(context, "يلزم إذن التخزين لحفظ الملف", Toast.LENGTH_SHORT).show()
     }
-    fun requestExport(resolution: ExportResolution, sticker: Boolean) {
+
+    fun requestStorageExport(type: String, resolution: ExportResolution? = null, sticker: Boolean = false) {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) {
+            pendingExportType = type
             pendingResolution = resolution
             pendingSticker = sticker
             storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        } else export(resolution, sticker)
+        } else {
+            executePendingExport(type, resolution, sticker)
+        }
     }
+
     if (showExportSheet) {
         ExportBottomSheet(
             state = canvasState,
             isExporting = isExporting,
             onDismiss = onDismissExportSheet,
-            onExportFullCanvas = { requestExport(it, false) },
-            onExportSticker = { requestExport(it, true) },
-            onExportPdf = { viewModel.exportPdf(context); onDismissExportSheet() },
-            onExportSvg = { viewModel.exportSvg(context); onDismissExportSheet() },
+            onExportFullCanvas = { requestStorageExport("RASTER", it, false) },
+            onExportSticker = { requestStorageExport("RASTER", it, true) },
+            onExportPdf = { requestStorageExport("PDF") },
+            onExportSvg = { requestStorageExport("SVG") },
             onSaveProject = { viewModel.saveCurrentProject(context); onDismissExportSheet() },
             onShareAtharProject = { viewModel.exportProjectAsAthar(context); onDismissExportSheet() }
         )

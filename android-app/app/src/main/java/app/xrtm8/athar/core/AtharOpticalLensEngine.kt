@@ -56,6 +56,34 @@ object AtharOpticalLensEngine {
         val h = source.height
         if (w <= 0 || h <= 0) return source
 
+        val needsFullFrameSoftWide = needsToyOptics ||
+            (needsLensGeo && state.type == OpticalLensType.SOFT_WIDE)
+
+        if (!needsFullFrameSoftWide) {
+            // Strip-based row processing (~64 rows) avoids a full 33MB IntArray at 4K
+            val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val stripRows = min(64, h)
+            val strip = IntArray(w * stripRows)
+            val rowScratch = if (needsMiniDvBleed) IntArray(w) else IntArray(0)
+            val vignetteActive = needsLensGeo && state.type == OpticalLensType.ORGANIC_VIGNETTE
+            val miniDvRadius = if (needsMiniDvBleed) ((referenceWidthPx / 1080f) * 3f).toInt().coerceIn(1, 8) else 0
+
+            var yStart = 0
+            while (yStart < h) {
+                val rows = min(stripRows, h - yStart)
+                source.getPixels(strip, 0, w, 0, yStart, w, rows)
+                if (needsMiniDvBleed) {
+                    applyMiniDvChromaBleedRows(strip, w, rows, miniDvRadius, rowScratch)
+                }
+                if (vignetteActive) {
+                    applyOrganicVignetteRows(strip, w, h, yStart, rows, state.intensity, state.spread)
+                }
+                out.setPixels(strip, 0, w, 0, yStart, w, rows)
+                yStart += rows
+            }
+            return out
+        }
+
         val pixels = IntArray(w * h)
         source.getPixels(pixels, 0, w, 0, 0, w, h)
 
@@ -64,7 +92,6 @@ object AtharOpticalLensEngine {
         }
 
         if (needsToyOptics) {
-            // Subtle Holga-style corner softness & natural edge falloff
             val softToy = OpticalLensState(
                 type = OpticalLensType.SOFT_WIDE,
                 intensity = 0.42f,
@@ -75,12 +102,8 @@ object AtharOpticalLensEngine {
             applyOrganicVignetteToBuffer(pixels, w, h, intensity = 0.40f, spread = 0.55f)
         }
 
-        if (needsLensGeo) {
-            when (state.type) {
-                OpticalLensType.SOFT_WIDE -> applySoftWideToBuffer(pixels, w, h, state, referenceWidthPx)
-                OpticalLensType.ORGANIC_VIGNETTE -> applyOrganicVignetteToBuffer(pixels, w, h, state.intensity, state.spread)
-                else -> Unit
-            }
+        if (needsLensGeo && state.type == OpticalLensType.SOFT_WIDE) {
+            applySoftWideToBuffer(pixels, w, h, state, referenceWidthPx)
         }
 
         val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -183,9 +206,18 @@ object AtharOpticalLensEngine {
     ) {
         val radius = ((referenceWidthPx / 1080f) * 3f).toInt().coerceIn(1, 8)
         val rowOut = IntArray(w)
-        val window = radius * 2 + 1
+        applyMiniDvChromaBleedRows(pixels, w, h, radius, rowOut)
+    }
 
-        for (y in 0 until h) {
+    private fun applyMiniDvChromaBleedRows(
+        pixels: IntArray,
+        w: Int,
+        rows: Int,
+        radius: Int,
+        rowOut: IntArray
+    ) {
+        val window = radius * 2 + 1
+        for (y in 0 until rows) {
             val rowOff = y * w
             var sumRg = 0
             var sumBg = 0
@@ -235,7 +267,32 @@ object AtharOpticalLensEngine {
 
         val blurRadius = ((referenceWidthPx / 1080f) * (3f + state.spread * 7f) * intensity)
             .toInt().coerceIn(1, 14)
-        val blurred = AtharOpticalGlowEngine.convolveGaussianBuffer(pixels, w, h, blurRadius, passes = 2)
+
+        // Downscale the soft-edge Gaussian pass on large (>720px) buffers to prevent 4K heap spikes
+        val maxSide = max(w, h)
+        val bw: Int
+        val bh: Int
+        val blurred: IntArray
+        if (maxSide > 720) {
+            val scale = 720f / maxSide
+            bw = (w * scale).toInt().coerceAtLeast(32)
+            bh = (h * scale).toInt().coerceAtLeast(32)
+            val down = IntArray(bw * bh)
+            for (dy in 0 until bh) {
+                val sy = (dy * h / bh).coerceIn(0, h - 1)
+                val dstRow = dy * bw
+                val srcRow = sy * w
+                for (dx in 0 until bw) {
+                    down[dstRow + dx] = pixels[srcRow + (dx * w / bw).coerceIn(0, w - 1)]
+                }
+            }
+            val scaledRadius = (blurRadius * scale).toInt().coerceIn(1, 12)
+            blurred = AtharOpticalGlowEngine.convolveGaussianBuffer(down, bw, bh, scaledRadius, passes = 2)
+        } else {
+            bw = w
+            bh = h
+            blurred = AtharOpticalGlowEngine.convolveGaussianBuffer(pixels, w, h, blurRadius, passes = 2)
+        }
         val orig = pixels.copyOf()
 
         val cx = (w - 1) * 0.5f
@@ -247,6 +304,8 @@ object AtharOpticalLensEngine {
         for (y in 0 until h) {
             val ny = (y - cy) * invHalfH
             val rowOff = y * w
+            val byBlur = if (bh == h) y else (y * bh / h).coerceIn(0, bh - 1)
+            val blurRowOff = byBlur * bw
             for (x in 0 until w) {
                 val c = orig[rowOff + x]
                 val a = c and 0xFF000000.toInt()
@@ -258,7 +317,6 @@ object AtharOpticalLensEngine {
                 val smoothEdge = edgeT * edgeT * (3f - 2f * edgeT)
                 val blurMix = (smoothEdge * intensity * 0.88f).coerceIn(0f, 1f)
 
-                // Radial edge chromatic aberration (R pushed outward, B pulled inward)
                 val r2 = rDist * rDist
                 val rx = (cx + (x - cx) * (1f + caStrength * r2)).toInt().coerceIn(0, w - 1)
                 val ry = (cy + (y - cy) * (1f + caStrength * r2)).toInt().coerceIn(0, h - 1)
@@ -269,7 +327,8 @@ object AtharOpticalLensEngine {
                 val sharpG = (c shr 8) and 0xFF
                 val sharpB = orig[by * w + bx] and 0xFF
 
-                val bc = blurred[rowOff + x]
+                val bxBlur = if (bw == w) x else (x * bw / w).coerceIn(0, bw - 1)
+                val bc = blurred[blurRowOff + bxBlur]
                 val blurR = (bc shr 16) and 0xFF
                 val blurG = (bc shr 8) and 0xFF
                 val blurB = bc and 0xFF
@@ -290,18 +349,31 @@ object AtharOpticalLensEngine {
         intensity: Float,
         spread: Float = 0.50f
     ) {
+        applyOrganicVignetteRows(pixels, w, h, yStart = 0, rows = h, intensity = intensity, spread = spread)
+    }
+
+    private fun applyOrganicVignetteRows(
+        pixels: IntArray,
+        w: Int,
+        totalH: Int,
+        yStart: Int,
+        rows: Int,
+        intensity: Float,
+        spread: Float
+    ) {
         val safeIntensity = intensity.coerceIn(0f, 1f)
-        if (safeIntensity <= 0.01f || w <= 1 || h <= 1) return
+        if (safeIntensity <= 0.01f || w <= 1 || totalH <= 1) return
 
         val cx = (w - 1) * 0.5f
-        val cy = (h - 1) * 0.5f
+        val cy = (totalH - 1) * 0.5f
         val invHalfW = 1f / max(1f, cx)
         val invHalfH = 1f / max(1f, cy)
         val angleScale = (0.58f + (1f - spread.coerceIn(0f, 1f)) * 0.40f) * (PI.toFloat() * 0.48f)
 
-        for (y in 0 until h) {
+        for (localY in 0 until rows) {
+            val y = yStart + localY
             val ny = (y - cy) * invHalfH
-            val rowOff = y * w
+            val rowOff = localY * w
             for (x in 0 until w) {
                 val c = pixels[rowOff + x]
                 val a = c and 0xFF000000.toInt()

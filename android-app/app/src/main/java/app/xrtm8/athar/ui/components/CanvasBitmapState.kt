@@ -67,7 +67,6 @@ fun rememberCanvasBackgroundBitmap(
             cellPhotos.mapNotNull { (id, uri) -> AtharImageProcessor.decodeSampledBitmap(context, uri, 1080, 1920)?.let { id to it } }.toMap()
         }
         cellBitmaps = newMap
-        oldMap.forEach { (id, bmp) -> if (newMap[id] != bmp && !bmp.isRecycled) bmp.recycle() }
     }
 
     var singleStageBlur by remember { mutableStateOf<Bitmap?>(null) }
@@ -128,12 +127,12 @@ fun rememberCanvasBackgroundBitmap(
     LaunchedEffect(cellBitmaps, state.backgroundBlur, state.collageState.isEnabled, state.isTransparentBg, collageNeedsHeavy) {
         val old = blurredCellBitmaps
         if (!state.collageState.isEnabled || state.isTransparentBg || collageNeedsHeavy || state.backgroundBlur <= 0.5f) {
-            blurredCellBitmaps = emptyMap(); old.values.forEach { if (!it.isRecycled) it.recycle() }; return@LaunchedEffect
+            if (old.isNotEmpty()) blurredCellBitmaps = emptyMap()
+            return@LaunchedEffect
         }
         val radius = state.backgroundBlur.toInt().coerceIn(1, 35)
         val next = withContext(Dispatchers.Default) { cellBitmaps.mapValues { (_, bmp) -> if (bmp.isRecycled) bmp else AtharImageProcessor.fastPreviewBlur(bmp, radius) } }
         blurredCellBitmaps = next
-        old.forEach { (id, bmp) -> if (next[id] != bmp && cellBitmaps[id] != bmp && !bmp.isRecycled) bmp.recycle() }
     }
 
     val effectiveRatio = state.aspectRatio.ratio ?: viewportAspectRatio ?: (9f / 16f)
@@ -205,14 +204,17 @@ fun rememberCanvasBackgroundBitmap(
 
     DisposableEffect(Unit) {
         onDispose {
-            val toDispose = Collections.newSetFromMap(IdentityHashMap<Bitmap, Boolean>())
-            listOfNotNull(
-                maskBitmap, rawBgBitmap, singleStageBlur, singleStageMix, processedBgBitmap,
-                collageStageBase, collageStageMix, processedCollagePhotoLayer, processedCollageBitmap
-            ).forEach { toDispose.add(it) }
-            toDispose.addAll(cellBitmaps.values)
-            toDispose.addAll(blurredCellBitmaps.values)
-            toDispose.forEach { if (!it.isRecycled) it.recycle() }
+            rawBgBitmap = null
+            singleStageBlur = null
+            singleStageMix = null
+            processedBgBitmap = null
+            maskBitmap = null
+            cellBitmaps = emptyMap()
+            blurredCellBitmaps = emptyMap()
+            collageStageBase = null
+            collageStageMix = null
+            processedCollagePhotoLayer = null
+            processedCollageBitmap = null
         }
     }
 
@@ -223,8 +225,14 @@ fun rememberCanvasBackgroundBitmap(
     )
 }
 
+/**
+ * UI-bound Bitmaps on API 26+ are backed by native memory reclaimed safely by GC once
+ * Compose drops references; manual recycle() while RenderThread still holds a RecordingCanvas
+ * risks "Canvas: trying to use a recycled bitmap" crashes during rapid scrubbing.
+ */
+@Suppress("UNUSED_PARAMETER")
 private fun recycleIfUnused(candidate: Bitmap?, vararg keep: Bitmap?) {
-    if (candidate != null && !candidate.isRecycled && keep.none { it === candidate }) candidate.recycle()
+    // Intentionally left as a no-op for Compose-referenced Bitmaps; GC handles native memory safely.
 }
 
 private suspend fun runTwoTierBitmapPass(base: Bitmap, proxyMaxDim: Int, transform: (Bitmap) -> Bitmap): Bitmap =

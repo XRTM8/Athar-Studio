@@ -29,7 +29,9 @@ import app.xrtm8.athar.ui.AtharStudioViewModel
 import app.xrtm8.athar.ui.theme.AmoledBlack
 import app.xrtm8.athar.ui.theme.AmoledWhite
 import app.xrtm8.athar.ui.theme.AtharTheme
+import app.xrtm8.athar.ui.viewmodel.StudioUiEvent
 import app.xrtm8.athar.updater.AtharUpdateManager
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.launch
 
 enum class AtharScreen {
@@ -83,6 +85,26 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            LaunchedEffect(studioViewModel) {
+                studioViewModel.uiEvents.collect { event ->
+                    when (event) {
+                        is StudioUiEvent.ShareFile -> {
+                            val uri = FileProvider.getUriForFile(
+                                this@MainActivity,
+                                "${packageName}.fileprovider",
+                                event.file
+                            )
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = event.mimeType
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            }
+                            startActivity(Intent.createChooser(shareIntent, event.chooserTitle))
+                        }
+                    }
+                }
+            }
+
             val isAmoledWhite by studioViewModel.isAmoledWhite.collectAsState()
 
             // 2. Synchronize Status Bar & Navigation Bar light/dark appearance dynamically with AMOLED Theme

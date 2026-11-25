@@ -1,15 +1,10 @@
 package app.xrtm8.athar.export
 
-import android.content.ContentValues
 import android.content.Context
-import android.content.Intent
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PathMeasure
 import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
-import androidx.core.content.FileProvider
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.LuxuryGradientPreset
 import app.xrtm8.athar.model.TextAlignOption
@@ -375,57 +370,22 @@ object AtharSvgExporter {
                 out.write(svgContent.toByteArray(Charsets.UTF_8))
             }
 
-            saveSvgToMediaStore(context, shareFile, filename)
+            AtharDocumentFileHelper.saveDocumentToDownloads(context, shareFile, filename, "image/svg+xml")
 
             if (onShareRequested) {
-                shareSvgFile(context, shareFile, filename)
+                AtharDocumentFileHelper.shareDocumentFile(
+                    context = context,
+                    shareFile = shareFile,
+                    filename = filename,
+                    mimeType = "image/svg+xml",
+                    chooserTitle = "مشاركة ملف SVG من أثر"
+                )
             }
 
-            Result.success("تم تصدير ملف SVG المتجهي بنجاح (قابل للتعديل في برامج التصميم)")
+            Result.success("تم تصدير النصوص متجهياً بنجاح (SVG)")
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    private fun saveSvgToMediaStore(context: Context, sourceFile: File, filename: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, filename)
-                put(MediaStore.Downloads.MIME_TYPE, "image/svg+xml")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Athar")
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: throw IllegalStateException("تعذر إنشاء ملف SVG في التنزيلات")
-
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                sourceFile.inputStream().use { input -> input.copyTo(out) }
-            }
-            values.clear()
-            values.put(MediaStore.Downloads.IS_PENDING, 0)
-            context.contentResolver.update(uri, values, null, null)
-        } else {
-            @Suppress("DEPRECATION")
-            val targetDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "Athar"
-            ).apply { mkdirs() }
-            val targetFile = File(targetDir, filename)
-            sourceFile.copyTo(targetFile, overwrite = true)
-        }
-    }
-
-    private fun shareSvgFile(context: Context, shareFile: File, filename: String) {
-        val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", shareFile)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "image/svg+xml"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, filename)
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-        }
-        val chooser = Intent.createChooser(intent, "مشاركة ملف SVG من أثر")
-        chooser.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        context.startActivity(chooser)
     }
 
     private fun colorToHex(colorLong: Long): String {

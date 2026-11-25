@@ -22,15 +22,15 @@ object AtharProceduralMaskRenderer {
     private const val PREVIEW_BUFFER_MAX_DIM = 480
     private const val EXPORT_BUFFER_MAX_DIM = 720
 
-    private val goboCache by lazy(LazyThreadSafetyMode.PUBLICATION) { object : LruCache<String, Bitmap>(4) {} }
-    private val reusablePath by lazy(LazyThreadSafetyMode.PUBLICATION) { Path() }
-    private val reusableMatrix by lazy(LazyThreadSafetyMode.PUBLICATION) { Matrix() }
-    private val reusableShaderMatrix by lazy(LazyThreadSafetyMode.PUBLICATION) { Matrix() }
-    private val reusableSrcRect by lazy(LazyThreadSafetyMode.PUBLICATION) { Rect() }
-    private val reusableDstRect by lazy(LazyThreadSafetyMode.PUBLICATION) { RectF() }
-    private val reusableDrawPaint by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+    private class ProceduralScratch {
+        val path = Path()
+        val srcRect = Rect()
+        val dstRect = RectF()
+        val drawPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
     }
+
+    private val goboCache by lazy(LazyThreadSafetyMode.PUBLICATION) { object : LruCache<String, Bitmap>(4) {} }
+    private val threadScratch = ThreadLocal.withInitial { ProceduralScratch() }
 
     /**
      * Backward-compatible 5-argument entry point using default softness/warmth.
@@ -68,10 +68,11 @@ object AtharProceduralMaskRenderer {
             ProceduralMaskType.GOLDEN_HOUR_BEAMS,
             ProceduralMaskType.OPTICAL_SUNBURST,
             ProceduralMaskType.ANAMORPHIC_STREAK -> {
+                val s = threadScratch.get()!!
                 val buffered = getOrBuildBufferedMask(type, width, height, softness, warmth)
-                reusableSrcRect.set(0, 0, buffered.width, buffered.height)
-                reusableDstRect.set(0f, 0f, width, height)
-                canvas.drawBitmap(buffered, reusableSrcRect, reusableDstRect, paint)
+                s.srcRect.set(0, 0, buffered.width, buffered.height)
+                s.dstRect.set(0f, 0f, width, height)
+                canvas.drawBitmap(buffered, s.srcRect, s.dstRect, paint)
             }
             ProceduralMaskType.FILM_BORDER_35MM -> drawFilmBorder35mm(canvas, width, height, paint)
             ProceduralMaskType.STUDIO_PASSEPARTOUT -> drawStudioPassepartout(canvas, width, height, paint)
@@ -334,19 +335,21 @@ object AtharProceduralMaskRenderer {
         val archTop = h * 0.12f
         val archBottom = h * 0.90f
 
-        reusablePath.reset()
-        reusablePath.moveTo(archLeft, archBottom)
-        reusablePath.lineTo(archLeft, archTop + archWidth * 0.5f)
-        reusablePath.arcTo(RectF(archLeft, archTop, archRight, archTop + archWidth), 180f, 180f, false)
-        reusablePath.lineTo(archRight, archBottom)
-        reusablePath.close()
+        val s = threadScratch.get()!!
+        val path = s.path
+        path.reset()
+        path.moveTo(archLeft, archBottom)
+        path.lineTo(archLeft, archTop + archWidth * 0.5f)
+        path.arcTo(RectF(archLeft, archTop, archRight, archTop + archWidth), 180f, 180f, false)
+        path.lineTo(archRight, archBottom)
+        path.close()
 
         val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = w * 0.03f
             color = penumbraFringeColor(warmth)
         }
-        canvas.drawPath(reusablePath, glowPaint)
+        canvas.drawPath(path, glowPaint)
 
         val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
@@ -357,7 +360,7 @@ object AtharProceduralMaskRenderer {
                 Shader.TileMode.CLAMP
             )
         }
-        canvas.drawPath(reusablePath, fillPaint)
+        canvas.drawPath(path, fillPaint)
         canvas.restore()
     }
 
@@ -387,21 +390,22 @@ object AtharProceduralMaskRenderer {
         val shoulderY = top + archW * 0.52f
 
         // Islamic pointed ogee/horseshoe arch path
-        reusablePath.reset()
-        reusablePath.moveTo(left, bottom)
-        reusablePath.lineTo(left, shoulderY)
-        reusablePath.cubicTo(
+        val path = threadScratch.get()!!.path
+        path.reset()
+        path.moveTo(left, bottom)
+        path.lineTo(left, shoulderY)
+        path.cubicTo(
             left, top + archW * 0.16f,
             w * 0.42f, top + archW * 0.10f,
             w * 0.50f, top
         )
-        reusablePath.cubicTo(
+        path.cubicTo(
             w * 0.58f, top + archW * 0.10f,
             right, top + archW * 0.16f,
             right, shoulderY
         )
-        reusablePath.lineTo(right, bottom)
-        reusablePath.close()
+        path.lineTo(right, bottom)
+        path.close()
 
         // Warm edge penumbra around the pointed arch
         val fringePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -409,11 +413,11 @@ object AtharProceduralMaskRenderer {
             strokeWidth = w * 0.028f
             color = penumbraFringeColor(warmth)
         }
-        canvas.drawPath(reusablePath, fringePaint)
+        canvas.drawPath(path, fringePaint)
 
         // Bright sunlit interior clipped to the arch
         canvas.save()
-        canvas.clipPath(reusablePath)
+        canvas.clipPath(path)
 
         val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(
@@ -613,33 +617,36 @@ object AtharProceduralMaskRenderer {
         val count = (width / spacing).toInt()
         val startX = (width - (count * spacing)) * 0.5f
 
-        reusablePath.reset()
-        reusablePath.fillType = Path.FillType.EVEN_ODD
-        reusablePath.addRect(0f, 0f, width, barHeight, Path.Direction.CW)
-        reusablePath.addRect(0f, height - barHeight, width, height, Path.Direction.CW)
+        val s = threadScratch.get()!!
+        val path = s.path
+        val drawPaint = s.drawPaint
+        path.reset()
+        path.fillType = Path.FillType.EVEN_ODD
+        path.addRect(0f, 0f, width, barHeight, Path.Direction.CW)
+        path.addRect(0f, height - barHeight, width, height, Path.Direction.CW)
 
         val topY = (barHeight - sprocketH) * 0.5f
         val botY = height - barHeight + (barHeight - sprocketH) * 0.5f
         for (i in 0..count) {
             val sx = startX + i * spacing
             if (sx + sprocketW <= 0f || sx >= width) continue
-            reusablePath.addRoundRect(
+            path.addRoundRect(
                 RectF(sx, topY, sx + sprocketW, topY + sprocketH),
                 sprocketRadius, sprocketRadius, Path.Direction.CCW
             )
-            reusablePath.addRoundRect(
+            path.addRoundRect(
                 RectF(sx, botY, sx + sprocketW, botY + sprocketH),
                 sprocketRadius, sprocketRadius, Path.Direction.CCW
             )
         }
 
         val callerAlpha = paint.alpha
-        reusableDrawPaint.set(paint)
-        reusableDrawPaint.style = Paint.Style.FILL
-        reusableDrawPaint.shader = null
-        reusableDrawPaint.color = 0xFF07080B.toInt()
-        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 248)
-        canvas.drawPath(reusablePath, reusableDrawPaint)
+        drawPaint.set(paint)
+        drawPaint.style = Paint.Style.FILL
+        drawPaint.shader = null
+        drawPaint.color = 0xFF07080B.toInt()
+        drawPaint.alpha = scaleAlpha(callerAlpha, 248)
+        canvas.drawPath(path, drawPaint)
     }
 
     // ==========================================
@@ -649,25 +656,28 @@ object AtharProceduralMaskRenderer {
         val marginX = width * 0.08f
         val marginY = height * 0.08f
         val callerAlpha = paint.alpha
+        val s = threadScratch.get()!!
+        val path = s.path
+        val drawPaint = s.drawPaint
 
-        reusablePath.reset()
-        reusablePath.fillType = Path.FillType.EVEN_ODD
-        reusablePath.addRect(0f, 0f, width, height, Path.Direction.CW)
-        reusablePath.addRect(marginX, marginY, width - marginX, height - marginY, Path.Direction.CCW)
+        path.reset()
+        path.fillType = Path.FillType.EVEN_ODD
+        path.addRect(0f, 0f, width, height, Path.Direction.CW)
+        path.addRect(marginX, marginY, width - marginX, height - marginY, Path.Direction.CCW)
 
-        reusableDrawPaint.set(paint)
-        reusableDrawPaint.style = Paint.Style.FILL
-        reusableDrawPaint.shader = null
-        reusableDrawPaint.color = 0xFF12141A.toInt()
-        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 238)
-        canvas.drawPath(reusablePath, reusableDrawPaint)
+        drawPaint.set(paint)
+        drawPaint.style = Paint.Style.FILL
+        drawPaint.shader = null
+        drawPaint.color = 0xFF12141A.toInt()
+        drawPaint.alpha = scaleAlpha(callerAlpha, 238)
+        canvas.drawPath(path, drawPaint)
 
         // Inner bevel hairline respecting caller alpha & filters
-        reusableDrawPaint.style = Paint.Style.STROKE
-        reusableDrawPaint.strokeWidth = max(2f, min(width, height) * 0.003f)
-        reusableDrawPaint.color = 0xFF000000.toInt()
-        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 110)
-        canvas.drawRect(marginX, marginY, width - marginX, height - marginY, reusableDrawPaint)
+        drawPaint.style = Paint.Style.STROKE
+        drawPaint.strokeWidth = max(2f, min(width, height) * 0.003f)
+        drawPaint.color = 0xFF000000.toInt()
+        drawPaint.alpha = scaleAlpha(callerAlpha, 110)
+        canvas.drawRect(marginX, marginY, width - marginX, height - marginY, drawPaint)
     }
 
     // ==========================================
@@ -680,11 +690,12 @@ object AtharProceduralMaskRenderer {
         val maxRadius = step * 0.42f
 
         val callerAlpha = paint.alpha
-        reusableDrawPaint.set(paint)
-        reusableDrawPaint.style = Paint.Style.FILL
-        reusableDrawPaint.shader = null
-        reusableDrawPaint.color = 0xFF000000.toInt()
-        reusableDrawPaint.alpha = scaleAlpha(callerAlpha, 204)
+        val drawPaint = threadScratch.get()!!.drawPaint
+        drawPaint.set(paint)
+        drawPaint.style = Paint.Style.FILL
+        drawPaint.shader = null
+        drawPaint.color = 0xFF000000.toInt()
+        drawPaint.alpha = scaleAlpha(callerAlpha, 204)
 
         val centerX = width * 0.5f
         val centerY = height * 0.5f
@@ -697,7 +708,7 @@ object AtharProceduralMaskRenderer {
                 val dist = hypot(x - centerX, y - centerY)
                 val factor = (dist / maxDist).coerceIn(0.05f, 1f)
                 val dotRadius = maxRadius * factor
-                canvas.drawCircle(x, y, dotRadius, reusableDrawPaint)
+                canvas.drawCircle(x, y, dotRadius, drawPaint)
             }
         }
     }
@@ -713,11 +724,12 @@ object AtharProceduralMaskRenderer {
             floatArrayOf(0f, 0.49f, 0.50f, 1f),
             Shader.TileMode.REPEAT
         )
-        reusableDrawPaint.set(paint)
-        reusableDrawPaint.style = Paint.Style.FILL
-        reusableDrawPaint.shader = scanlineShader
-        canvas.drawRect(0f, 0f, width, height, reusableDrawPaint)
-        reusableDrawPaint.shader = null
+        val drawPaint = threadScratch.get()!!.drawPaint
+        drawPaint.set(paint)
+        drawPaint.style = Paint.Style.FILL
+        drawPaint.shader = scanlineShader
+        canvas.drawRect(0f, 0f, width, height, drawPaint)
+        drawPaint.shader = null
     }
 
     // ==========================================

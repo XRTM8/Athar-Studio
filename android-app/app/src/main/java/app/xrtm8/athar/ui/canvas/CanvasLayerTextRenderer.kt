@@ -77,18 +77,12 @@ object CanvasLayerTextRenderer {
         strokePaint.isFakeBoldText = useFakeBold
         strokePaint.textSkewX = basePaint.textSkewX
 
-        // OpenType Features: Stylistic Sets (ss01..ss20), Swash, and Discretionary Ligatures
-        val fontFeatures = buildString {
-            if (layer.stylisticSet in 1..20) {
-                append(String.format(java.util.Locale.US, "\"ss%02d\" 1, ", layer.stylisticSet))
-            }
-            if (layer.enableSwash) {
-                append("\"swsh\" 1, ")
-            }
-            if (layer.enableDiscretionaryLigatures) {
-                append("\"dlig\" 1, ")
-            }
-        }.trimEnd(',', ' ').ifEmpty { null }
+        // OpenType Features: Stylistic Sets (ss01..ss20), Swash, and Discretionary Ligatures (cached)
+        val fontFeatures = paints.getFontFeatureString(
+            stylisticSet = layer.stylisticSet,
+            enableSwash = layer.enableSwash,
+            enableDlig = layer.enableDiscretionaryLigatures
+        )
 
         basePaint.fontFeatureSettings = fontFeatures
         shadowPaint.fontFeatureSettings = fontFeatures
@@ -239,43 +233,25 @@ object CanvasLayerTextRenderer {
         canvasWidth: Float,
         canvasHeight: Float,
         density: Float,
-        isAmoledWhite: Boolean
+        isAmoledWhite: Boolean,
+        paints: CanvasPaintPool? = null
     ) {
         val promptW = (230f * density).coerceAtMost(canvasWidth * 0.85f)
         val promptH = 68f * density
         val left = (canvasWidth - promptW) / 2f
         val top = (canvasHeight - promptH) / 2f
 
-        val dashedBoxPaint = Paint().apply {
-            isAntiAlias = true
-            style = Paint.Style.STROKE
-            color = 0x55E02447.toInt()
-            strokeWidth = 1.4f * density
-            pathEffect = DashPathEffect(floatArrayOf(8f * density, 6f * density), 0f)
-        }
-        val bgBoxPaint = Paint().apply {
-            isAntiAlias = true
-            style = Paint.Style.FILL
-            color = if (isAmoledWhite) 0x14000000.toInt() else 0x33000000.toInt()
-        }
-        val textPromptPaint = Paint().apply {
-            isAntiAlias = true
-            color = 0xCCE02447.toInt()
-            textSize = 13.5f * density
-            textAlign = Paint.Align.CENTER
-            typeface = AtharFontManager.getTypeface(context, app.xrtm8.athar.model.ArabicFontFamily.AREF_RUQAA)
-        }
-        val subTextPaint = Paint().apply {
-            isAntiAlias = true
-            color = if (isAmoledWhite) 0x99000000.toInt() else 0x88FFFFFF.toInt()
-            textSize = 10f * density
-            textAlign = Paint.Align.CENTER
-        }
+        val pool = paints ?: CanvasPaintPool(density)
+        pool.emptyPromptBgPaint.color = if (isAmoledWhite) 0x14000000.toInt() else 0x33000000.toInt()
+        val textPromptPaint = pool.getEmptyPromptTextPaint(
+            AtharFontManager.getTypeface(context, app.xrtm8.athar.model.ArabicFontFamily.AREF_RUQAA)
+        )
+        pool.emptyPromptSubPaint.color = if (isAmoledWhite) 0x99000000.toInt() else 0x88FFFFFF.toInt()
 
-        val rectF = RectF(left, top, left + promptW, top + promptH)
-        nativeCanvas.drawRoundRect(rectF, 14f * density, 14f * density, bgBoxPaint)
-        nativeCanvas.drawRoundRect(rectF, 14f * density, 14f * density, dashedBoxPaint)
+        pool.emptyPromptRect.set(left, top, left + promptW, top + promptH)
+        nativeCanvas.drawRoundRect(pool.emptyPromptRect, 14f * density, 14f * density, pool.emptyPromptBgPaint)
+        nativeCanvas.drawRoundRect(pool.emptyPromptRect, 14f * density, 14f * density, pool.emptyPromptDashPaint)
         nativeCanvas.drawText("انقر مرتين هنا لكتابة النص العربي", canvasWidth / 2f, top + 30f * density, textPromptPaint)
-        nativeCanvas.drawText("أو استخدم خيار الخط والنص بالأسفل", canvasWidth / 2f, top + 50f * density, subTextPaint)
+        nativeCanvas.drawText("أو استخدم خيار الخط والنص بالأسفل", canvasWidth / 2f, top + 50f * density, pool.emptyPromptSubPaint)
     }
 }

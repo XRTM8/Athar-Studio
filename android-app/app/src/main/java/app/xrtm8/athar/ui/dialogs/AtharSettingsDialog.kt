@@ -30,7 +30,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.xrtm8.athar.project.AtharProjectManager
 import app.xrtm8.athar.ui.theme.*
+import app.xrtm8.athar.updater.AtharUpdateManager
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * Settings & About Dialog:
@@ -122,7 +124,7 @@ fun AtharSettingsDialog(
                             Text(text = "الذاكرة المؤقتة", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                         val mb = cacheSizeBytes / (1024f * 1024f)
-                        Text(text = String.format("%.1f ميجابايت", mb), color = subtleText, fontSize = 12.sp)
+                        Text(text = String.format(Locale.US, "%.1f ميجابايت", mb), color = subtleText, fontSize = 12.sp)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -145,7 +147,7 @@ fun AtharSettingsDialog(
                                     val freed = AtharProjectManager.clearAppCache(context)
                                     cacheSizeBytes = AtharProjectManager.getCacheSizeBytes(context)
                                     val freedMb = freed / (1024f * 1024f)
-                                    cacheMessage = "تم إخلاء ${String.format("%.1f", freedMb)} ميجابايت بنجاح"
+                                    cacheMessage = "تم إخلاء ${String.format(Locale.US, "%.1f", freedMb)} ميجابايت بنجاح"
                                     isClearingCache = false
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 }
@@ -212,7 +214,7 @@ fun AtharSettingsDialog(
 
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "استوديو التايبوغرافي وتصميم النصوص العربية الأصيلة بتقنيات المد والكشيدة الذكية ومعالجة الطبقات الرقمية.",
+                        text = "أداة تصميم وكتابة عربية تدعم الكشيدة السياقية وتنسيق الطبقات والتصدير متعدد الصيغ.",
                         color = subtleText, fontSize = 11.5.sp, lineHeight = 16.sp
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -221,8 +223,8 @@ fun AtharSettingsDialog(
                         onClick = {
                             val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "تطبيق أثر للتايبوغرافي العربي")
-                                putExtra(Intent.EXTRA_TEXT, "أثر - استوديو التايبوغرافي وتصميم النصوص العربية\nhttps://github.com/mjd-20/ATHAR")
+                                putExtra(Intent.EXTRA_SUBJECT, "تطبيق أثر للتصميم والخط العربي")
+                                putExtra(Intent.EXTRA_TEXT, "تطبيق أثر للتصميم والخط العربي\n${AtharUpdateManager.REPO_URL}")
                             }
                             context.startActivity(Intent.createChooser(sendIntent, "مشاركة التطبيق"))
                         },

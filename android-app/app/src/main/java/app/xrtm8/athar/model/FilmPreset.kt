@@ -35,14 +35,14 @@ enum class FilmPreset(
         id = "fuji_velvia",
         titleAr = "فوجي فيلفيا 50",
         brand = "Fujifilm",
-        description = "تشبع فائق وألوان حية حارة للطبيعة والسماء",
+        description = "تشبع عالٍ وألوان حية للطبيعة والسماء",
         category = FilmCategory.CLASSIC_CAMERAS
     ),
     FUJI_PROVIA(
         id = "fuji_provia",
         titleAr = "فوجي بروفيا 100F",
         brand = "Fujifilm",
-        description = "تدرج متزن وألوان حقيقية فائقة الواقعية",
+        description = "تدرج متزن وألوان طبيعية متعادلة",
         category = FilmCategory.CLASSIC_CAMERAS
     ),
     KODAK_PORTRA_400(
@@ -105,7 +105,7 @@ enum class FilmPreset(
     ),
     SLIDE_CHROME_100(
         id = "slide_chrome_100",
-        titleAr = "شرائح سينيمائية",
+        titleAr = "شرائح عرض 100",
         brand = "Slide",
         description = "تباين شرائح العرض العميق وألوان مشبعة متماسكة",
         category = FilmCategory.CLASSIC_CAMERAS

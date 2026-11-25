@@ -229,7 +229,7 @@ fun CanvasView(
                         )
                     }
                     if (!state.layers.any { it.isVisible && it.displayText.isNotBlank() } && !effectiveFramingMode) {
-                        CanvasLayerTextRenderer.drawEmptyPrompt(native, context, canvasW, canvasH, density, isAmoledWhite)
+                        CanvasLayerTextRenderer.drawEmptyPrompt(native, context, canvasW, canvasH, density, isAmoledWhite, paints)
                     }
                 }
             }

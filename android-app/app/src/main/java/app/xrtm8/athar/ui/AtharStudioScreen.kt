@@ -65,7 +65,10 @@ fun AtharStudioScreen(
             showProjectsSheet -> showProjectsSheet = false
             isPanelExpanded -> isPanelExpanded = false
             else -> {
-                if (canvasState.layers.any { it.displayText.isNotBlank() } || canvasState.backgroundImageUri != null || canvasState.collageState.cells.any { it.imageUri != null }) {
+                val hasContent = canvasState.layers.any { it.displayText.isNotBlank() } ||
+                    canvasState.backgroundImageUri != null ||
+                    canvasState.collageState.cells.any { it.imageUri != null }
+                if (hasContent && viewModel.hasUnsavedChanges()) {
                     viewModel.saveCurrentProject(context)
                 }
                 onNavigateBackToHome?.invoke()

@@ -1,66 +1,48 @@
 package app.xrtm8.athar.ui
 
 import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Paint
 import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.xrtm8.athar.core.AtharPaletteExtractor
-import app.xrtm8.athar.core.PureArabicKashidaEngine
 import app.xrtm8.athar.export.AtharExportManager
-import app.xrtm8.athar.model.ArabicFontFamily
-import app.xrtm8.athar.model.CanvasAspectRatio
-import app.xrtm8.athar.model.CanvasGradientDirection
-import app.xrtm8.athar.model.CanvasGradientScrim
-import app.xrtm8.athar.model.CanvasState
-import app.xrtm8.athar.model.CustomFont
-import app.xrtm8.athar.model.ExportResolution
-import app.xrtm8.athar.model.FilmPreset
-import app.xrtm8.athar.model.GlassBackdropPreset
-import app.xrtm8.athar.model.KashidaMode
-import app.xrtm8.athar.model.LayerBlendMode
-import app.xrtm8.athar.model.OpticalLensState
-import app.xrtm8.athar.model.TextAlignOption
-import app.xrtm8.athar.model.TextLayer
-import app.xrtm8.athar.model.VisualEffect
+import app.xrtm8.athar.model.*
 import app.xrtm8.athar.project.AtharProjectManager
 import app.xrtm8.athar.project.AtharProjectMeta
-import app.xrtm8.athar.typography.ArabicParagraphJustifier
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.ui.viewmodel.StudioEffectsCollageOps
+import app.xrtm8.athar.ui.viewmodel.StudioHistoryController
+import app.xrtm8.athar.ui.viewmodel.StudioLayerTypographyOps
+import app.xrtm8.athar.ui.viewmodel.StudioLayerTypographyOps.withKashida
+import app.xrtm8.athar.ui.viewmodel.StudioUiEvent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.ArrayDeque
-import java.util.UUID
 
+/**
+ * Orchestrating ViewModel for Athar Studio.
+ * Delegates history/undo state to [StudioHistoryController], typography/layer mutations
+ * to [StudioLayerTypographyOps], and background/collage mutations to [StudioEffectsCollageOps].
+ */
 class AtharStudioViewModel : ViewModel() {
 
-    private val _canvasState = MutableStateFlow(CanvasState())
-    val canvasState: StateFlow<CanvasState> = _canvasState.asStateFlow()
+    private val history = StudioHistoryController()
+    val canvasState: StateFlow<CanvasState> = history.canvasState
+    val canUndo: StateFlow<Boolean> = history.canUndo
+    val canRedo: StateFlow<Boolean> = history.canRedo
 
     private val _isExporting = MutableStateFlow(false)
     val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
 
     private val _exportMessage = MutableStateFlow<String?>(null)
     val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
-
-    // Undo / Redo History Stacks
-    private val undoStack = ArrayDeque<CanvasState>()
-    private val redoStack = ArrayDeque<CanvasState>()
-
-    private val _canUndo = MutableStateFlow(false)
-    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
-
-    private val _canRedo = MutableStateFlow(false)
-    val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
 
     private val _projectsList = MutableStateFlow<List<AtharProjectMeta>>(emptyList())
     val projectsList: StateFlow<List<AtharProjectMeta>> = _projectsList.asStateFlow()
@@ -78,747 +60,380 @@ class AtharStudioViewModel : ViewModel() {
     private val _hasCopiedStyle = MutableStateFlow(false)
     val hasCopiedStyle: StateFlow<Boolean> = _hasCopiedStyle.asStateFlow()
 
+    private val _uiEvents = MutableSharedFlow<StudioUiEvent>(extraBufferCapacity = 8)
+    val uiEvents: SharedFlow<StudioUiEvent> = _uiEvents.asSharedFlow()
+
+    @Volatile
+    var currentProjectId: String? = null
+        private set
+
+    private var initialProjectOpened = false
+
+    fun hasUnsavedChanges(): Boolean = history.isDirty
+
     fun initTheme(context: Context) {
-        try {
+        runCatching {
             val sp = context.getSharedPreferences("athar_prefs", Context.MODE_PRIVATE)
             _isAmoledWhite.value = sp.getBoolean("pref_amoled_white", false)
-        } catch (_: Exception) {}
+        }
     }
 
     fun toggleAmoledWhite(context: Context) {
         val next = !_isAmoledWhite.value
         _isAmoledWhite.value = next
-        try {
-            val sp = context.getSharedPreferences("athar_prefs", Context.MODE_PRIVATE)
-            sp.edit().putBoolean("pref_amoled_white", next).apply()
-        } catch (_: Exception) {}
-    }
-
-    private var sliderDragInitialState: CanvasState? = null
-
-    private fun markSliderChange() {
-        if (sliderDragInitialState == null) {
-            sliderDragInitialState = _canvasState.value
+        runCatching {
+            context.getSharedPreferences("athar_prefs", Context.MODE_PRIVATE)
+                .edit().putBoolean("pref_amoled_white", next).apply()
         }
     }
 
-    fun commitHistoryCheckpoint() {
-        val initial = sliderDragInitialState
-        val current = _canvasState.value
-        if (initial != null && initial != current) {
-            undoStack.addLast(initial)
-            if (undoStack.size > 100) undoStack.removeFirst()
-            redoStack.clear()
-            _canUndo.value = true
-            _canRedo.value = false
-        }
-        sliderDragInitialState = null
-    }
-
-    private fun pushHistory(newState: CanvasState) {
-        if (_canvasState.value != newState) {
-            undoStack.addLast(_canvasState.value)
-            if (undoStack.size > 100) undoStack.removeFirst()
-            redoStack.clear()
-            _canUndo.value = true
-            _canRedo.value = false
-            _canvasState.value = newState
-        }
-    }
-
-    private fun updateActiveLayer(transform: (TextLayer) -> TextLayer) {
-        val current = _canvasState.value
-        val activeId = current.activeLayer.id
-        val updatedLayers = current.layers.map { layer ->
-            if (layer.id == activeId) transform(layer) else layer
-        }
-        _canvasState.update { it.copy(layers = updatedLayers) }
-    }
-
-    private fun pushActiveLayerHistory(transform: (TextLayer) -> TextLayer) {
-        val current = _canvasState.value
-        val activeId = current.activeLayer.id
-        val updatedLayers = current.layers.map { layer ->
-            if (layer.id == activeId) transform(layer) else layer
-        }
-        pushHistory(current.copy(layers = updatedLayers))
-    }
-
-    fun undo() {
-        if (undoStack.isNotEmpty()) {
-            val previous = undoStack.removeLast()
-            redoStack.addLast(_canvasState.value)
-            _canvasState.value = previous
-            _canUndo.value = undoStack.isNotEmpty()
-            _canRedo.value = true
-        }
-    }
-
-    fun redo() {
-        if (redoStack.isNotEmpty()) {
-            val next = redoStack.removeLast()
-            undoStack.addLast(_canvasState.value)
-            _canvasState.value = next
-            _canUndo.value = true
-            _canRedo.value = redoStack.isNotEmpty()
-        }
-    }
+    fun commitHistoryCheckpoint() = history.commitCheckpoint()
+    fun undo() = history.undo()
+    fun redo() = history.redo()
 
     // ==========================================
-    // Multi-Layer Architecture Operations
+    // Layers & Typography
     // ==========================================
 
-    fun addTextLayer(initialText: String = "نص جديد") {
-        val current = _canvasState.value
-        val newLayer = TextLayer(
-            id = UUID.randomUUID().toString(),
-            name = "نص ${current.layers.size + 1}",
-            rawText = initialText,
-            fontSize = 44f,
-            normOffsetX = 0f,
-            normOffsetY = (current.layers.size * 0.08f).coerceAtMost(0.35f)
-        ).withKashida()
-        val newLayers = current.layers + newLayer
-        pushHistory(current.copy(layers = newLayers, activeLayerId = newLayer.id))
-    }
+    fun addTextLayer(initialText: String = "نص جديد") =
+        history.pushHistory(StudioLayerTypographyOps.addLayer(history.current(), initialText))
 
-    fun duplicateActiveLayer() {
-        val current = _canvasState.value
-        val active = current.activeLayer
-        val dup = active.copy(
-            id = UUID.randomUUID().toString(),
-            name = "${active.name} (نسخة)",
-            normOffsetX = (active.normOffsetX + 0.04f).coerceAtMost(0.4f),
-            normOffsetY = (active.normOffsetY + 0.04f).coerceAtMost(0.4f)
-        )
-        val newLayers = current.layers + dup
-        pushHistory(current.copy(layers = newLayers, activeLayerId = dup.id))
-    }
+    fun duplicateActiveLayer() =
+        history.pushHistory(StudioLayerTypographyOps.duplicateActiveLayer(history.current()))
 
-    fun removeActiveLayer() {
-        val current = _canvasState.value
-        if (current.layers.size <= 1) {
-            pushActiveLayerHistory { it.copy(rawText = "", displayText = "") }
-            return
-        }
-        val activeId = current.activeLayer.id
-        val remaining = current.layers.filter { it.id != activeId }
-        val nextActive = remaining.lastOrNull()?.id ?: ""
-        pushHistory(current.copy(layers = remaining, activeLayerId = nextActive))
-    }
+    fun removeActiveLayer() =
+        history.pushHistory(StudioLayerTypographyOps.removeActiveLayer(history.current()))
 
-    fun moveActiveLayerUp() {
-        val current = _canvasState.value
-        val activeId = current.activeLayer.id
-        val index = current.layers.indexOfFirst { it.id == activeId }
-        if (index >= 0 && index < current.layers.size - 1) {
-            val mutable = current.layers.toMutableList()
-            val item = mutable.removeAt(index)
-            mutable.add(index + 1, item)
-            pushHistory(current.copy(layers = mutable))
-        }
-    }
+    fun moveActiveLayerUp() =
+        StudioLayerTypographyOps.moveLayer(history.current(), 1)?.let { history.pushHistory(it) }
 
-    fun moveActiveLayerDown() {
-        val current = _canvasState.value
-        val activeId = current.activeLayer.id
-        val index = current.layers.indexOfFirst { it.id == activeId }
-        if (index > 0) {
-            val mutable = current.layers.toMutableList()
-            val item = mutable.removeAt(index)
-            mutable.add(index - 1, item)
-            pushHistory(current.copy(layers = mutable))
-        }
-    }
+    fun moveActiveLayerDown() =
+        StudioLayerTypographyOps.moveLayer(history.current(), -1)?.let { history.pushHistory(it) }
 
     fun selectLayer(layerId: String) {
-        if (_canvasState.value.activeLayerId != layerId) {
-            _canvasState.update { it.copy(activeLayerId = layerId) }
+        if (history.current().activeLayerId != layerId) {
+            history.updateState(markDirty = false) { it.copy(activeLayerId = layerId) }
         }
     }
 
-    // ==========================================
-    // Active Text Layer Operations
-    // ==========================================
-
-    private fun TextLayer.withKashida(): TextLayer =
-        copy(displayText = PureArabicKashidaEngine.stretchText(rawText, stretchLevel, kashidaMode, kashidaTargetIndex))
-
     fun setText(newText: String) {
-        if (newText == _canvasState.value.rawText) return
-        pushActiveLayerHistory { it.copy(rawText = newText).withKashida() }
+        if (newText == history.current().rawText) return
+        history.pushActiveLayerHistory { it.copy(rawText = newText).withKashida() }
     }
 
     fun setStretchLevel(newLevel: Int) {
         val level = newLevel.coerceIn(0, 8)
-        if (level == _canvasState.value.stretchLevel) return
-        markSliderChange()
-        updateActiveLayer { it.copy(stretchLevel = level).withKashida() }
+        if (level == history.current().stretchLevel) return
+        history.markSliderChange()
+        history.updateActiveLayer { it.copy(stretchLevel = level).withKashida() }
     }
 
     fun setKashidaMode(mode: KashidaMode) {
-        if (mode == _canvasState.value.kashidaMode) return
-        pushActiveLayerHistory { it.copy(kashidaMode = mode).withKashida() }
-    }
-
-    fun setKashidaTargetIndex(targetIndex: Int) {
-        pushActiveLayerHistory {
-            it.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM).withKashida()
+        if (mode != history.current().kashidaMode) {
+            history.pushActiveLayerHistory { it.copy(kashidaMode = mode).withKashida() }
         }
     }
+
+    fun setKashidaTargetIndex(targetIndex: Int) =
+        history.pushActiveLayerHistory { it.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM).withKashida() }
 
     fun justifyActiveLayerLines(context: Context) {
-        val active = _canvasState.value.activeLayer
-        val effectiveWeight = if (active.isBold && active.fontWeight < 700) 700 else active.fontWeight
-        val paint = Paint().apply {
-            isAntiAlias = true
-            typeface = AtharFontManager.getTypeface(context, active.selectedFont, active.customFontPath, effectiveWeight)
-            isFakeBoldText = active.isBold && !AtharFontManager.hasRealWeight(context, active.selectedFont, effectiveWeight, active.customFontPath)
-            textSize = active.fontSize * 3f
-            letterSpacing = active.letterSpacing
-        }
-        if (!active.rawText.contains('\n')) return
-        val justified = ArabicParagraphJustifier.justifyLines(active.rawText, paint)
-        if (justified != active.displayText) {
-            pushActiveLayerHistory { it.copy(displayText = justified) }
-        }
+        val justified = StudioLayerTypographyOps.justifyLines(context, history.current().activeLayer) ?: return
+        history.pushActiveLayerHistory { it.copy(displayText = justified) }
+    }
+
+    fun autoBalanceTypographicBlock(context: Context? = null) {
+        val balanced = StudioLayerTypographyOps.balanceBlock(context, history.current().activeLayer) ?: return
+        history.pushActiveLayerHistory { it.copy(displayText = balanced) }
     }
 
     fun setEffect(effect: VisualEffect) {
         val mappedPreset = when (effect) {
-            VisualEffect.ROYAL_GOLD -> app.xrtm8.athar.model.LuxuryGradientPreset.ANDALUSIAN_GOLD
-            VisualEffect.LIQUID_CHROME -> app.xrtm8.athar.model.LuxuryGradientPreset.TITANIUM_CHROME
-            VisualEffect.CYBER_NEON -> app.xrtm8.athar.model.LuxuryGradientPreset.CYBER_EMERALD
-            VisualEffect.FROSTED_GLASS -> app.xrtm8.athar.model.LuxuryGradientPreset.FROSTED_PEARL
-            else -> app.xrtm8.athar.model.LuxuryGradientPreset.NONE
+            VisualEffect.ROYAL_GOLD -> LuxuryGradientPreset.ANDALUSIAN_GOLD
+            VisualEffect.LIQUID_CHROME -> LuxuryGradientPreset.TITANIUM_CHROME
+            VisualEffect.CYBER_NEON -> LuxuryGradientPreset.CYBER_EMERALD
+            VisualEffect.FROSTED_GLASS -> LuxuryGradientPreset.FROSTED_PEARL
+            else -> LuxuryGradientPreset.NONE
         }
         val customColor = when (effect) {
             VisualEffect.MINIMAL_LUXURY -> 0xFFFFFFFF
             VisualEffect.CINEMATIC_SHADOW -> 0xFFF2F2F2
             else -> null
         }
-        pushActiveLayerHistory {
-            it.copy(
-                selectedEffect = effect,
-                gradientPreset = mappedPreset,
-                customTextColorLong = customColor
-            )
+        history.pushActiveLayerHistory {
+            it.copy(selectedEffect = effect, gradientPreset = mappedPreset, customTextColorLong = customColor)
         }
     }
 
     fun setFont(font: ArabicFontFamily) {
         val defWeight = font.defaultWeight
-        pushActiveLayerHistory {
-            it.copy(
-                selectedFont = font,
-                customFontPath = null,
-                customFontName = null,
-                fontWeight = defWeight,
-                isBold = defWeight >= 700
-            )
+        history.pushActiveLayerHistory {
+            it.copy(selectedFont = font, customFontPath = null, customFontName = null, fontWeight = defWeight, isBold = defWeight >= 700)
         }
     }
 
     fun setFontWeight(weight: Int) {
         val clamped = weight.coerceIn(100, 900)
-        pushActiveLayerHistory {
-            it.copy(
-                fontWeight = clamped,
-                isBold = clamped >= 700
-            )
-        }
+        history.pushActiveLayerHistory { it.copy(fontWeight = clamped, isBold = clamped >= 700) }
     }
 
-    fun setCustomColor(colorLong: Long?) {
-        pushActiveLayerHistory {
-            it.copy(
-                customTextColorLong = colorLong,
-                gradientPreset = if (colorLong != null) app.xrtm8.athar.model.LuxuryGradientPreset.NONE else it.gradientPreset
-            )
-        }
+    fun setCustomColor(colorLong: Long?) = history.pushActiveLayerHistory {
+        it.copy(customTextColorLong = colorLong, gradientPreset = if (colorLong != null) LuxuryGradientPreset.NONE else it.gradientPreset)
     }
 
-    fun setStrokeWidth(width: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(strokeWidth = width.coerceIn(0f, 20f)) }
+    fun setStrokeWidth(width: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(strokeWidth = width.coerceIn(0f, 20f)) } }
+    fun setStrokeColor(colorLong: Long) = history.pushActiveLayerHistory { it.copy(strokeColorLong = colorLong) }
+    fun setShadowRadius(radius: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(shadowRadius = radius.coerceIn(0f, 60f)) } }
+    fun setShadowDx(dx: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(shadowDx = dx.coerceIn(-30f, 30f)) } }
+    fun setShadowDy(dy: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(shadowDy = dy.coerceIn(-30f, 40f)) } }
+    fun setShadowColor(colorLong: Long) = history.pushActiveLayerHistory { it.copy(shadowColorLong = colorLong) }
+    fun setLetterSpacing(spacing: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(letterSpacing = spacing.coerceIn(-0.05f, 0.35f)) } }
+    fun setTextOpacity(opacity: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(textOpacity = opacity.coerceIn(0.1f, 1.0f)) } }
+    fun toggleBold() = history.pushActiveLayerHistory { it.copy(isBold = !it.isBold) }
+    fun toggleItalic() = history.pushActiveLayerHistory { it.copy(isItalic = !it.isItalic) }
+    fun toggleUnderline() = history.pushActiveLayerHistory { it.copy(isUnderline = !it.isUnderline) }
+    fun toggleLock() = history.updateActiveLayer { it.copy(isLocked = !it.isLocked) }
+    fun toggleGridGuides() = history.updateState(markDirty = false) { it.copy(showGridGuides = !it.showGridGuides) }
+    fun setRotationAngle(angle: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(rotationAngle = (angle % 360f + 360f) % 360f) } }
+    fun setScale(scale: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(scaleFactor = scale.coerceIn(0.3f, 4.0f)) } }
+    fun setTextAlign(alignment: TextAlignOption) = history.pushActiveLayerHistory { it.copy(textAlign = alignment) }
+    fun setLineSpacing(multiplier: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)) } }
+    fun setBoxWidthRatio(ratio: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(boxWidthRatio = ratio.coerceIn(0.30f, 1.0f)) } }
+    fun setStylisticSet(set: Int) = history.pushActiveLayerHistory { it.copy(stylisticSet = set.coerceIn(0, 20)) }
+    fun toggleSwash(enabled: Boolean) = history.pushActiveLayerHistory { it.copy(enableSwash = enabled) }
+    fun toggleDiscretionaryLigatures(enabled: Boolean) = history.pushActiveLayerHistory { it.copy(enableDiscretionaryLigatures = enabled) }
+    fun setWordSpacing(spacing: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(wordSpacing = spacing.coerceIn(-20f, 60f)) } }
+    fun toggleGlassBackdrop(enabled: Boolean) = history.pushActiveLayerHistory { it.copy(enableGlassBackdrop = enabled) }
+    fun setGlassBackdropOpacity(opacity: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(glassBackdropOpacity = opacity.coerceIn(0.1f, 0.98f)) } }
+    fun setGlassBackdropCornerRadius(radius: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(glassBackdropCornerRadius = radius.coerceIn(4f, 48f)) } }
+    fun setGlassBackdropPadding(padding: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(glassBackdropPadding = padding.coerceIn(8f, 56f)) } }
+    fun setFontSize(size: Float) = history.updateActiveLayer { it.copy(fontSize = size.coerceIn(6f, 100f)) }
+    fun setBlendMode(mode: LayerBlendMode) = history.pushActiveLayerHistory { it.copy(blendMode = mode) }
+    fun toggleCurvedText(enabled: Boolean) = history.pushActiveLayerHistory { it.copy(isCurved = enabled) }
+    fun setCurveAngle(angle: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(curveAngle = angle.coerceIn(-180f, 180f)) } }
+    fun setLuxuryGradient(preset: LuxuryGradientPreset) = history.pushActiveLayerHistory { it.copy(gradientPreset = preset, customTextColorLong = null) }
+    fun setGradientAngle(angle: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(gradientAngle = angle % 360f) } }
+    fun setGradientRadial(isRadial: Boolean) = history.pushActiveLayerHistory { it.copy(isRadialGradient = isRadial) }
+    fun setHollowText(isHollow: Boolean) = history.pushActiveLayerHistory { it.copy(isHollowText = isHollow) }
+
+    fun setGlassBackdropPreset(preset: GlassBackdropPreset) = history.pushActiveLayerHistory {
+        it.copy(enableGlassBackdrop = true, glassBackdropColorLong = preset.bgArgb, glassBackdropBorderColorLong = preset.strokeArgb, glassBackdropOpacity = preset.opacity)
     }
 
-    fun setStrokeColor(colorLong: Long) {
-        pushActiveLayerHistory { it.copy(strokeColorLong = colorLong) }
+    fun updateTransform(normX: Float, normY: Float, scale: Float, rotation: Float) =
+        history.updateActiveLayer { it.copy(normOffsetX = normX, normOffsetY = normY, scaleFactor = scale, rotationAngle = rotation) }
+
+    fun commitTransform(normX: Float, normY: Float, scale: Float, rotation: Float) =
+        history.pushActiveLayerHistory { it.copy(normOffsetX = normX, normOffsetY = normY, scaleFactor = scale, rotationAngle = rotation) }
+
+    fun alignCenter() = history.pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f) }
+    fun alignTop() = history.pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = -0.28f, rotationAngle = 0f) }
+    fun alignBottom() = history.pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0.28f, rotationAngle = 0f) }
+    fun resetCanvasTransform() = history.pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0f, scaleFactor = 1.0f, rotationAngle = 0f) }
+
+    fun snapToPosition(normX: Float, normY: Float, textAlign: TextAlignOption? = null) =
+        history.pushActiveLayerHistory { it.copy(normOffsetX = normX, normOffsetY = normY, textAlign = textAlign ?: it.textAlign) }
+
+    fun nudgeOffset(deltaNormX: Float, deltaNormY: Float) = history.pushActiveLayerHistory {
+        it.copy(normOffsetX = (it.normOffsetX + deltaNormX).coerceIn(-0.45f, 0.45f), normOffsetY = (it.normOffsetY + deltaNormY).coerceIn(-0.45f, 0.45f))
     }
 
-    fun setShadowRadius(radius: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(shadowRadius = radius.coerceIn(0f, 60f)) }
+    fun copyActiveLayerStyle() {
+        copiedLayerStyle = history.current().activeLayer.copy()
+        _hasCopiedStyle.value = true
+        _exportMessage.value = "تم نسخ تنسيق الطبقة"
     }
 
-    fun setShadowDx(dx: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(shadowDx = dx.coerceIn(-30f, 30f)) }
-    }
-
-    fun setShadowDy(dy: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(shadowDy = dy.coerceIn(-30f, 40f)) }
-    }
-
-    fun setShadowColor(colorLong: Long) {
-        pushActiveLayerHistory { it.copy(shadowColorLong = colorLong) }
-    }
-
-    fun setLetterSpacing(spacing: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(letterSpacing = spacing.coerceIn(-0.05f, 0.35f)) }
-    }
-
-    fun setTextOpacity(opacity: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(textOpacity = opacity.coerceIn(0.1f, 1.0f)) }
-    }
-
-    fun toggleBold() {
-        pushActiveLayerHistory { it.copy(isBold = !it.isBold) }
-    }
-
-    fun toggleItalic() {
-        pushActiveLayerHistory { it.copy(isItalic = !it.isItalic) }
-    }
-
-    fun toggleUnderline() {
-        pushActiveLayerHistory { it.copy(isUnderline = !it.isUnderline) }
-    }
-
-    fun toggleLock() {
-        updateActiveLayer { it.copy(isLocked = !it.isLocked) }
-    }
-
-    fun toggleGridGuides() {
-        _canvasState.update { it.copy(showGridGuides = !it.showGridGuides) }
-    }
-
-    fun setRotationAngle(angle: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(rotationAngle = (angle % 360f + 360f) % 360f) }
-    }
-
-    fun setScale(scale: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(scaleFactor = scale.coerceIn(0.3f, 4.0f)) }
-    }
-
-    fun setTextAlign(alignment: TextAlignOption) {
-        pushActiveLayerHistory { it.copy(textAlign = alignment) }
-    }
-
-    fun setLineSpacing(multiplier: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)) }
-    }
-
-    fun setBoxWidthRatio(ratio: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(boxWidthRatio = ratio.coerceIn(0.30f, 1.0f)) }
-    }
-
-    fun setStylisticSet(set: Int) {
-        pushActiveLayerHistory { it.copy(stylisticSet = set.coerceIn(0, 20)) }
-    }
-
-    fun toggleSwash(enabled: Boolean) {
-        pushActiveLayerHistory { it.copy(enableSwash = enabled) }
-    }
-
-    fun toggleDiscretionaryLigatures(enabled: Boolean) {
-        pushActiveLayerHistory { it.copy(enableDiscretionaryLigatures = enabled) }
-    }
-
-    fun setWordSpacing(spacing: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(wordSpacing = spacing.coerceIn(-20f, 60f)) }
-    }
-
-    fun toggleGlassBackdrop(enabled: Boolean) {
-        pushActiveLayerHistory { it.copy(enableGlassBackdrop = enabled) }
-    }
-
-    fun setGlassBackdropOpacity(opacity: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(glassBackdropOpacity = opacity.coerceIn(0.1f, 0.98f)) }
-    }
-
-    fun setGlassBackdropCornerRadius(radius: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(glassBackdropCornerRadius = radius.coerceIn(4f, 48f)) }
-    }
-
-    fun setGlassBackdropPadding(padding: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(glassBackdropPadding = padding.coerceIn(8f, 56f)) }
-    }
-
-    fun setGlassBackdropPreset(preset: GlassBackdropPreset) {
-        pushActiveLayerHistory {
-            it.copy(
-                enableGlassBackdrop = true,
-                glassBackdropColorLong = preset.bgArgb,
-                glassBackdropBorderColorLong = preset.strokeArgb,
-                glassBackdropOpacity = preset.opacity
-            )
-        }
-    }
-
-    fun setFontSize(size: Float) {
-        updateActiveLayer { it.copy(fontSize = size.coerceIn(6f, 100f)) }
-    }
-
-    fun updateTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
-        updateActiveLayer {
-            it.copy(
-                normOffsetX = normX,
-                normOffsetY = normY,
-                scaleFactor = scale,
-                rotationAngle = rotation
-            )
-        }
-    }
-
-    fun commitTransform(normX: Float, normY: Float, scale: Float, rotation: Float) {
-        pushActiveLayerHistory {
-            it.copy(
-                normOffsetX = normX,
-                normOffsetY = normY,
-                scaleFactor = scale,
-                rotationAngle = rotation
-            )
-        }
-    }
-
-    fun alignCenter() {
-        pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f) }
-    }
-
-    fun alignTop() {
-        pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = -0.28f, rotationAngle = 0f) }
-    }
-
-    fun alignBottom() {
-        pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0.28f, rotationAngle = 0f) }
-    }
-
-    fun snapToPosition(normX: Float, normY: Float, textAlign: TextAlignOption? = null) {
-        pushActiveLayerHistory {
-            it.copy(
-                normOffsetX = normX,
-                normOffsetY = normY,
-                textAlign = textAlign ?: it.textAlign
-            )
-        }
-    }
-
-    fun nudgeOffset(deltaNormX: Float, deltaNormY: Float) {
-        pushActiveLayerHistory {
-            it.copy(
-                normOffsetX = (it.normOffsetX + deltaNormX).coerceIn(-0.45f, 0.45f),
-                normOffsetY = (it.normOffsetY + deltaNormY).coerceIn(-0.45f, 0.45f)
-            )
-        }
-    }
-
-    fun resetCanvasTransform() {
-        pushActiveLayerHistory {
-            it.copy(
-                normOffsetX = 0f,
-                normOffsetY = 0f,
-                scaleFactor = 1.0f,
-                rotationAngle = 0f
-            )
-        }
+    fun pasteStyleToActiveLayer() {
+        val style = copiedLayerStyle ?: return
+        history.pushActiveLayerHistory { StudioLayerTypographyOps.applyStyle(it, style) }
+        _exportMessage.value = "تم تطبيق التنسيق على الطبقة"
     }
 
     // ==========================================
-    // Global Canvas & Photo Background Operations
+    // Canvas, Photo, Grading, Effects, Masks, Collage
     // ==========================================
 
     fun setAspectRatio(ratio: CanvasAspectRatio, autoRefit: Boolean = true) {
-        val oldRatio = _canvasState.value.aspectRatio
-        if (ratio == oldRatio) return
-
-        if (!autoRefit || oldRatio.ratio == null || ratio.ratio == null) {
-            pushHistory(_canvasState.value.copy(aspectRatio = ratio))
-            return
-        }
-
-        val oldH = 1080f / oldRatio.ratio
-        val newH = 1080f / ratio.ratio
-        val heightFactor = newH / oldH
-
-        val refittedLayers = _canvasState.value.layers.map { layer ->
-            val newNormY = (layer.normOffsetY * heightFactor).coerceIn(-0.42f, 0.42f)
-            val newScale = if (heightFactor < 1.0f) {
-                (layer.scaleFactor * heightFactor.coerceAtLeast(0.70f)).coerceIn(0.2f, 3.0f)
-            } else {
-                layer.scaleFactor
-            }
-            layer.copy(normOffsetY = newNormY, scaleFactor = newScale)
-        }
-
-        pushHistory(_canvasState.value.copy(aspectRatio = ratio, layers = refittedLayers))
-    }
-
-    fun setSolidBgColor(colorLong: Long?) {
-        pushHistory(_canvasState.value.copy(solidBgColorLong = colorLong, isTransparentBg = false))
-    }
-
-    fun setBackgroundImageUri(uri: Uri?) {
-        pushHistory(_canvasState.value.copy(backgroundImageUri = uri, bgPhotoOffsetX = 0f, bgPhotoOffsetY = 0f, bgPhotoScale = 1.0f))
-    }
-
-    fun setBackgroundDim(dim: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(backgroundDim = dim.coerceIn(0f, 0.95f)) }
-    }
-
-    fun setBackgroundBlur(blur: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(backgroundBlur = blur.coerceIn(0f, 35f)) }
-    }
-
-    fun setBackgroundBrightness(brightness: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(backgroundBrightness = brightness.coerceIn(-0.5f, 0.5f)) }
-    }
-
-    fun setBackgroundContrast(contrast: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(backgroundContrast = contrast.coerceIn(0.5f, 1.8f)) }
-    }
-
-    fun setBackgroundSaturation(saturation: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(backgroundSaturation = saturation.coerceIn(0f, 2.0f)) }
-    }
-
-    fun setBackgroundVignette(vignette: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(backgroundVignette = vignette.coerceIn(0f, 1.0f)) }
-    }
-
-    fun setBackgroundGrayscale(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(backgroundGrayscale = enabled))
-    }
-
-    fun setTransparentBg(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(isTransparentBg = enabled))
-    }
-
-    // ==========================================
-    // Directional Gradient Scrim Operations
-    // ==========================================
-
-    fun setGradientScrimEnabled(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(
-            gradientScrim = _canvasState.value.gradientScrim.copy(isEnabled = enabled)
-        ))
-    }
-
-    fun setGradientScrimDirection(direction: CanvasGradientDirection) {
-        pushHistory(_canvasState.value.copy(
-            gradientScrim = _canvasState.value.gradientScrim.copy(direction = direction)
-        ))
-    }
-
-    fun setGradientScrimColor(colorLong: Long) {
-        pushHistory(_canvasState.value.copy(
-            gradientScrim = _canvasState.value.gradientScrim.copy(colorLong = colorLong)
-        ))
-    }
-
-    fun setGradientScrimOpacity(opacity: Float) {
-        markSliderChange()
-        _canvasState.update {
-            it.copy(gradientScrim = it.gradientScrim.copy(opacity = opacity.coerceIn(0f, 1f)))
+        val cur = history.current()
+        if (ratio != cur.aspectRatio) {
+            history.pushHistory(StudioLayerTypographyOps.refitForAspectRatio(cur, ratio, autoRefit))
         }
     }
 
-    fun setGradientScrimMidpoint(midpoint: Float) {
-        markSliderChange()
-        _canvasState.update {
-            it.copy(gradientScrim = it.gradientScrim.copy(midpoint = midpoint.coerceIn(0.1f, 0.9f)))
-        }
-    }
+    fun setSolidBgColor(colorLong: Long?) = history.pushHistory(history.current().copy(solidBgColorLong = colorLong, isTransparentBg = false))
+    fun setBackgroundImageUri(uri: Uri?) = history.pushHistory(history.current().copy(backgroundImageUri = uri, bgPhotoOffsetX = 0f, bgPhotoOffsetY = 0f, bgPhotoScale = 1.0f))
+    fun setBackgroundDim(dim: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundDim = dim.coerceIn(0f, 0.95f)) } }
+    fun setBackgroundBlur(blur: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundBlur = blur.coerceIn(0f, 35f)) } }
+    fun setBackgroundBrightness(brightness: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundBrightness = brightness.coerceIn(-0.5f, 0.5f)) } }
+    fun setBackgroundContrast(contrast: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundContrast = contrast.coerceIn(0.5f, 1.8f)) } }
+    fun setBackgroundSaturation(saturation: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundSaturation = saturation.coerceIn(0f, 2.0f)) } }
+    fun setBackgroundVignette(vignette: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundVignette = vignette.coerceIn(0f, 1.0f)) } }
+    fun setBackgroundGrayscale(enabled: Boolean) = history.pushHistory(history.current().copy(backgroundGrayscale = enabled))
+    fun setTransparentBg(enabled: Boolean) = history.pushHistory(history.current().copy(isTransparentBg = enabled))
 
-    // ==========================================
-    // Photo Framing Pan & Zoom Operations
-    // ==========================================
+    fun setGradientScrimEnabled(enabled: Boolean) = history.pushHistory(history.current().let { it.copy(gradientScrim = it.gradientScrim.copy(isEnabled = enabled)) })
+    fun setGradientScrimDirection(direction: CanvasGradientDirection) = history.pushHistory(history.current().let { it.copy(gradientScrim = it.gradientScrim.copy(direction = direction)) })
+    fun setGradientScrimColor(colorLong: Long) = history.pushHistory(history.current().let { it.copy(gradientScrim = it.gradientScrim.copy(colorLong = colorLong)) })
+    fun setGradientScrimOpacity(opacity: Float) { history.markSliderChange(); history.updateState { it.copy(gradientScrim = it.gradientScrim.copy(opacity = opacity.coerceIn(0f, 1f))) } }
+    fun setGradientScrimMidpoint(midpoint: Float) { history.markSliderChange(); history.updateState { it.copy(gradientScrim = it.gradientScrim.copy(midpoint = midpoint.coerceIn(0.1f, 0.9f))) } }
 
-    fun toggleFramingMode(enabled: Boolean) {
-        _canvasState.update { it.copy(isFramingMode = enabled) }
-    }
+    fun toggleFramingMode(enabled: Boolean) = history.updateState(markDirty = false) { it.copy(isFramingMode = enabled) }
+    fun commitPhotoFraming(normX: Float, normY: Float, scale: Float) =
+        history.pushHistory(history.current().copy(bgPhotoOffsetX = normX.coerceIn(-1f, 1f), bgPhotoOffsetY = normY.coerceIn(-1f, 1f), bgPhotoScale = scale.coerceIn(1.0f, 4.0f)))
+    fun setBgPhotoOffset(normX: Float, normY: Float) { history.markSliderChange(); history.updateState { it.copy(bgPhotoOffsetX = normX.coerceIn(-1f, 1f), bgPhotoOffsetY = normY.coerceIn(-1f, 1f)) } }
+    fun setBgPhotoScale(scale: Float) { history.markSliderChange(); history.updateState { it.copy(bgPhotoScale = scale.coerceIn(1.0f, 4.0f)) } }
 
-    fun commitPhotoFraming(normX: Float, normY: Float, scale: Float) {
-        pushHistory(_canvasState.value.copy(
-            bgPhotoOffsetX = normX.coerceIn(-1f, 1f),
-            bgPhotoOffsetY = normY.coerceIn(-1f, 1f),
-            bgPhotoScale = scale.coerceIn(1.0f, 4.0f)
-        ))
-    }
-
-    fun setBgPhotoOffset(normX: Float, normY: Float) {
-        markSliderChange()
-        _canvasState.update {
-            it.copy(
-                bgPhotoOffsetX = normX.coerceIn(-1f, 1f),
-                bgPhotoOffsetY = normY.coerceIn(-1f, 1f)
-            )
-        }
-    }
-
-    fun setBgPhotoScale(scale: Float) {
-        markSliderChange()
-        _canvasState.update {
-            it.copy(bgPhotoScale = scale.coerceIn(1.0f, 4.0f))
-        }
-    }
-
-    // ==========================================
-    // Film Camera Presets & Optical Lens Operations
-    // ==========================================
-
-    fun setFilmPreset(preset: FilmPreset) {
-        pushHistory(_canvasState.value.copy(filmPreset = preset))
-    }
-
-    fun setFilmPresetIntensity(intensity: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(filmPresetIntensity = intensity.coerceIn(0f, 1f)) }
-    }
-
+    fun setFilmPreset(preset: FilmPreset) = history.pushHistory(history.current().copy(filmPreset = preset))
+    fun setFilmPresetIntensity(intensity: Float) { history.markSliderChange(); history.updateState { it.copy(filmPresetIntensity = intensity.coerceIn(0f, 1f)) } }
     fun setOpticalLensState(lensState: OpticalLensState) {
-        markSliderChange()
+        history.markSliderChange()
         val sanitized = lensState.copy(
             intensity = lensState.intensity.coerceIn(0f, 1f),
             spread = lensState.spread.coerceIn(0.1f, 1f),
             angleDegrees = ((lensState.angleDegrees % 360f) + 360f) % 360f
         )
-        _canvasState.update { it.copy(opticalLensState = sanitized) }
+        history.updateState { it.copy(opticalLensState = sanitized) }
     }
+    fun resetOpticalLens() = history.pushHistory(history.current().copy(opticalLensState = OpticalLensState()))
 
-    fun resetOpticalLens() {
-        pushHistory(_canvasState.value.copy(opticalLensState = OpticalLensState()))
+    fun setColorGradingEnabled(enabled: Boolean) = history.pushHistory(history.current().copy(colorGradingEnabled = enabled))
+    fun setColorGradingLift(r: Float, g: Float, b: Float) { history.markSliderChange(); history.updateState { it.copy(liftRed = r.coerceIn(-0.5f, 0.5f), liftGreen = g.coerceIn(-0.5f, 0.5f), liftBlue = b.coerceIn(-0.5f, 0.5f)) } }
+    fun setColorGradingGamma(r: Float, g: Float, b: Float) { history.markSliderChange(); history.updateState { it.copy(gammaRed = r.coerceIn(-0.5f, 0.5f), gammaGreen = g.coerceIn(-0.5f, 0.5f), gammaBlue = b.coerceIn(-0.5f, 0.5f)) } }
+    fun setColorGradingGain(r: Float, g: Float, b: Float) { history.markSliderChange(); history.updateState { it.copy(gainRed = r.coerceIn(-0.5f, 0.5f), gainGreen = g.coerceIn(-0.5f, 0.5f), gainBlue = b.coerceIn(-0.5f, 0.5f)) } }
+    fun resetColorGrading() = history.pushHistory(history.current().copy(liftRed = 0f, liftGreen = 0f, liftBlue = 0f, gammaRed = 0f, gammaGreen = 0f, gammaBlue = 0f, gainRed = 0f, gainGreen = 0f, gainBlue = 0f))
+
+    fun setColorMixEnabled(enabled: Boolean) = history.pushHistory(history.current().let { it.copy(colorMixState = it.colorMixState.copy(isEnabled = enabled)) })
+    fun setColorMixChannel(channel: ColorMixChannel, hue: Float, sat: Float, lum: Float) {
+        history.markSliderChange()
+        history.updateState { StudioEffectsCollageOps.setColorMixChannel(it, channel, hue, sat, lum) }
     }
+    fun setIsolatedColorChannel(channel: ColorMixChannel?) = history.pushHistory(history.current().let { it.copy(colorMixState = it.colorMixState.copy(isEnabled = true, isolatedChannel = channel, monochromeChannel = null)) })
+    fun setMonochromeColorChannel(channel: ColorMixChannel?) = history.pushHistory(history.current().let { it.copy(colorMixState = it.colorMixState.copy(isEnabled = true, monochromeChannel = channel, isolatedChannel = null)) })
+    fun resetColorMixChannel(channel: ColorMixChannel) = history.pushHistory(StudioEffectsCollageOps.resetColorMixChannel(history.current(), channel))
+    fun resetAllColorMix() = history.pushHistory(history.current().copy(colorMixState = ColorMixState()))
+
+    fun setPatternType(type: PatternType) = history.pushHistory(history.current().let { it.copy(patternState = it.patternState.copy(type = type)) })
+    fun setPatternOpacity(opacity: Float) { history.markSliderChange(); history.updateState { it.copy(patternState = it.patternState.copy(opacity = opacity.coerceIn(0f, 1f))) } }
+    fun setPatternScale(scale: Float) { history.markSliderChange(); history.updateState { it.copy(patternState = it.patternState.copy(scale = scale.coerceIn(0.5f, 3.0f))) } }
+    fun setPatternBlendMode(blend: PatternBlend) = history.pushHistory(history.current().let { it.copy(patternState = it.patternState.copy(blendMode = blend)) })
+    fun setPatternLightTint(isLight: Boolean) = history.pushHistory(history.current().let { it.copy(patternState = it.patternState.copy(isLightTint = isLight)) })
+    fun resetPattern() = history.pushHistory(history.current().copy(patternState = PatternState()))
+
+    fun selectMask(maskId: String?) = history.pushHistory(StudioEffectsCollageOps.selectMask(history.current(), maskId))
+    fun setCustomMaskUri(uri: Uri?) = history.pushHistory(StudioEffectsCollageOps.setCustomMaskUri(history.current(), uri))
+    fun setMaskOpacity(opacity: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(opacity = opacity.coerceIn(0f, 1f))) } }
+    fun setMaskBlendMode(mode: MaskBlendMode) = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(blendMode = mode)) })
+    fun setMaskHueShift(hue: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(hueShift = hue.coerceIn(-180f, 180f))) } }
+    fun setMaskOffsetX(x: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(offsetX = x.coerceIn(-1f, 1f))) } }
+    fun setMaskOffsetY(y: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(offsetY = y.coerceIn(-1f, 1f))) } }
+    fun setMaskScale(scale: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(scale = scale.coerceIn(0.5f, 3.0f))) } }
+    fun toggleMaskFlipH() = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(isFlippedH = !it.maskState.isFlippedH)) })
+    fun toggleMaskFlipV() = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(isFlippedV = !it.maskState.isFlippedV)) })
+    fun rotateMask90() = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(rotationDegrees = (it.maskState.rotationDegrees + 90) % 360)) })
+    fun setMaskRotationDegrees(degrees: Int) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(rotationDegrees = ((degrees % 360) + 360) % 360)) } }
+    fun setMaskContrast(contrast: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(contrast = contrast.coerceIn(0.5f, 2.5f))) } }
+    fun setMaskSoftness(softness: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(softness = softness.coerceIn(0f, 1f))) } }
+    fun setMaskWarmth(warmth: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(warmth = warmth.coerceIn(0f, 1f))) } }
+    fun toggleMaskInvert() = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(isInverted = !it.maskState.isInverted)) })
+    fun setMaskTintColor(colorLong: Long?) = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(tintColorLong = colorLong)) })
+    fun toggleMaskLuminanceMode() = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(isLuminanceMode = !it.maskState.isLuminanceMode)) })
+    fun setBlackGradientEnabled(enabled: Boolean) = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(blackGradient = it.maskState.blackGradient.copy(isEnabled = enabled))) })
+    fun setBlackGradientOpacity(opacity: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(blackGradient = it.maskState.blackGradient.copy(opacity = opacity.coerceIn(0f, 1f)))) } }
+    fun setBlackGradientPlacement(placement: BlackGradientPlacement) = history.pushHistory(history.current().let { it.copy(maskState = it.maskState.copy(blackGradient = it.maskState.blackGradient.copy(placement = placement))) })
+    fun setBlackGradientCoverage(coverage: Float) { history.markSliderChange(); history.updateState { it.copy(maskState = it.maskState.copy(blackGradient = it.maskState.blackGradient.copy(coverage = coverage.coerceIn(0.15f, 1.0f)))) } }
+    fun resetMask() = history.pushHistory(history.current().copy(maskState = AtharMaskState()))
+
+    fun setCinematicGlow(glow: Float) { history.markSliderChange(); history.updateState { it.copy(cinematicGlowState = it.cinematicGlowState.copy(glow = glow.coerceIn(0f, 100f))) } }
+    fun setCinematicRange(range: Float) { history.markSliderChange(); history.updateState { it.copy(cinematicGlowState = it.cinematicGlowState.copy(range = range.coerceIn(0f, 100f))) } }
+    fun setCinematicSpread(spread: Float) { history.markSliderChange(); history.updateState { it.copy(cinematicGlowState = it.cinematicGlowState.copy(spread = spread.coerceIn(0f, 100f))) } }
+    fun setCinematicWarmth(warmth: Float) { history.markSliderChange(); history.updateState { it.copy(cinematicGlowState = it.cinematicGlowState.copy(warmth = warmth.coerceIn(0f, 100f))) } }
+    fun setCinematicStyle(style: GlowStyle) = history.pushHistory(history.current().let { it.copy(cinematicGlowState = it.cinematicGlowState.copy(style = style)) })
+    fun resetCinematicGlow() = history.pushHistory(history.current().copy(cinematicGlowState = CinematicGlowState()))
+
+    fun setFilmGrain(grain: Float) { history.markSliderChange(); history.updateState { it.copy(filmGrainState = it.filmGrainState.copy(grain = grain.coerceIn(0f, 100f))) } }
+    fun setFilmGrainSize(size: Float) { history.markSliderChange(); history.updateState { it.copy(filmGrainState = it.filmGrainState.copy(size = size.coerceIn(0f, 100f))) } }
+    fun setFilmGrainRoughness(roughness: Float) { history.markSliderChange(); history.updateState { it.copy(filmGrainState = it.filmGrainState.copy(roughness = roughness.coerceIn(0f, 100f))) } }
+    fun resetFilmGrain() = history.pushHistory(history.current().copy(filmGrainState = FilmGrainState()))
+
+    fun setGlitchRgbSplit(split: Float) { history.markSliderChange(); history.updateState { it.copy(glitchEffectState = it.glitchEffectState.copy(rgbSplit = split.coerceIn(0f, 100f))) } }
+    fun setGlitchSliceJitter(jitter: Float) { history.markSliderChange(); history.updateState { it.copy(glitchEffectState = it.glitchEffectState.copy(sliceJitter = jitter.coerceIn(0f, 100f))) } }
+    fun setGlitchScanlines(scanlines: Float) { history.markSliderChange(); history.updateState { it.copy(glitchEffectState = it.glitchEffectState.copy(scanlines = scanlines.coerceIn(0f, 100f))) } }
+    fun setGlitchNoise(noise: Float) { history.markSliderChange(); history.updateState { it.copy(glitchEffectState = it.glitchEffectState.copy(noise = noise.coerceIn(0f, 100f))) } }
+    fun setGlitchPixelate(pixelate: Float) { history.markSliderChange(); history.updateState { it.copy(glitchEffectState = it.glitchEffectState.copy(pixelate = pixelate.coerceIn(0f, 100f))) } }
+    fun randomizeGlitchSeed() = history.pushHistory(history.current().let { it.copy(glitchEffectState = it.glitchEffectState.copy(seed = System.currentTimeMillis())) })
+    fun resetGlitchEffect() = history.pushHistory(history.current().copy(glitchEffectState = GlitchEffectState()))
+
+    fun setCollageLayout(layout: CollageLayoutType) = history.pushHistory(StudioEffectsCollageOps.setCollageLayout(history.current(), layout))
+    fun setCollageCellPhoto(cellId: String, uri: Uri?) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { StudioEffectsCollageOps.resetCellFraming(it).copy(imageUri = uri) })
+    fun selectCollageCell(cellId: String) = history.updateState(markDirty = false) { it.copy(collageState = it.collageState.copy(activeCellId = cellId)) }
+    fun setCollageSpacing(spacing: Float) { history.markSliderChange(); history.updateState { it.copy(collageState = it.collageState.copy(spacingDp = spacing.coerceIn(0f, 24f))) } }
+    fun setCollageCornerRadius(radius: Float) { history.markSliderChange(); history.updateState { it.copy(collageState = it.collageState.copy(cornerRadiusDp = radius.coerceIn(0f, 32f))) } }
+    fun setCollageFrameColor(colorLong: Long) = history.pushHistory(history.current().let { it.copy(collageState = it.collageState.copy(frameColorLong = colorLong)) })
+    fun resetCollage() = history.pushHistory(history.current().copy(collageState = CollageState()))
+    fun setCollageCellPhotoOffset(cellId: String, offsetX: Float, offsetY: Float) {
+        history.markSliderChange()
+        history.updateState { StudioEffectsCollageOps.updateCollageCell(it, cellId) { cell -> cell.copy(photoOffsetX = offsetX.coerceIn(-1f, 1f), photoOffsetY = offsetY.coerceIn(-1f, 1f)) } }
+    }
+    fun setCollageCellPhotoScale(cellId: String, scale: Float) {
+        history.markSliderChange()
+        history.updateState { StudioEffectsCollageOps.updateCollageCell(it, cellId) { cell -> cell.copy(photoScale = scale.coerceIn(CollageState.MIN_CELL_SCALE, CollageState.MAX_CELL_SCALE)) } }
+    }
+    fun commitCollageCellFraming(cellId: String, offsetX: Float, offsetY: Float, scale: Float) =
+        history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) {
+            it.copy(photoOffsetX = offsetX.coerceIn(-1f, 1f), photoOffsetY = offsetY.coerceIn(-1f, 1f), photoScale = scale.coerceIn(CollageState.MIN_CELL_SCALE, CollageState.MAX_CELL_SCALE))
+        })
+    fun resetCollageCellFraming(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { StudioEffectsCollageOps.resetCellFraming(it) })
+    fun rotateCollageCell90(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { it.copy(photoRotationDeg = (it.photoRotationDeg + 90) % 360) })
+    fun toggleCollageCellFlipH(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { it.copy(isFlippedH = !it.isFlippedH) })
+    fun removeCollageCellPhoto(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { StudioEffectsCollageOps.resetCellFraming(it, clearPhoto = true) })
+
+    fun resetPhotoAdjustments() = history.pushHistory(
+        history.current().copy(backgroundBlur = 0f, backgroundBrightness = 0f, backgroundContrast = 1.0f, backgroundSaturation = 1.0f, backgroundVignette = 0f, backgroundDim = 0.25f)
+    )
 
     // ==========================================
-    // Blend Modes & Curved Path Operations
-    // ==========================================
-
-    fun setBlendMode(mode: LayerBlendMode) {
-        pushActiveLayerHistory { it.copy(blendMode = mode) }
-    }
-
-    fun toggleCurvedText(enabled: Boolean) {
-        pushActiveLayerHistory { it.copy(isCurved = enabled) }
-    }
-
-    fun setCurveAngle(angle: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(curveAngle = angle.coerceIn(-180f, 180f)) }
-    }
-
-    // ==========================================
-    // Color Palette Extraction Operations
+    // Project Lifecycle, Fonts, Palette & Export
     // ==========================================
 
     fun loadExtractedPalette(context: Context) {
-        val uri = _canvasState.value.backgroundImageUri ?: return
+        val uri = history.current().backgroundImageUri ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            try {
+            runCatching {
                 val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
-                val bmp = context.contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it, null, opts)
-                } ?: return@launch
+                val bmp = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return@launch
                 val palette = AtharPaletteExtractor.extractPalette(bmp)
                 bmp.recycle()
-                withContext(Dispatchers.Main) {
-                    _extractedPalette.value = palette
-                }
-            } catch (e: Exception) {
-                // Ignore gracefully
+                withContext(Dispatchers.Main) { _extractedPalette.value = palette }
             }
         }
     }
 
-    fun autoBalanceTypographicBlock(context: Context? = null) {
-        val active = _canvasState.value.activeLayer
-        if (!active.displayText.contains("\n")) return
-
-        val paint = context?.let { ctx ->
-            val effectiveWeight = if (active.isBold && active.fontWeight < 700) 700 else active.fontWeight
-            Paint().apply {
-                isAntiAlias = true
-                typeface = AtharFontManager.getTypeface(ctx, active.selectedFont, active.customFontPath, effectiveWeight)
-                isFakeBoldText = active.isBold && !AtharFontManager.hasRealWeight(ctx, active.selectedFont, effectiveWeight, active.customFontPath)
-                textSize = active.fontSize * 3f
-                letterSpacing = active.letterSpacing
-            }
-        }
-        val balanced = ArabicParagraphJustifier.balanceArabicBlock(active.displayText, paint)
-        pushActiveLayerHistory { it.copy(displayText = balanced) }
+    fun createNewProject(aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16, initialText: String = "") {
+        currentProjectId = null
+        val newLayer = TextLayer(id = "layer_primary", name = "نص 1", rawText = initialText).withKashida()
+        history.resetSession(CanvasState(layers = listOf(newLayer), activeLayerId = "layer_primary", aspectRatio = aspectRatio))
     }
 
-    // ==========================================
-    // Project & Export Management
-    // ==========================================
-
-    fun createNewProject(
-        aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
-        initialText: String = ""
-    ) {
-        val newLayer = TextLayer(
-            id = "layer_primary",
-            name = "نص 1",
-            rawText = initialText
-        ).withKashida()
-        val newState = CanvasState(
-            layers = listOf(newLayer),
-            activeLayerId = "layer_primary",
-            aspectRatio = aspectRatio,
-            solidBgColorLong = null,
-            backgroundImageUri = null,
-            backgroundDim = 0.25f,
-            backgroundBlur = 0f
-        )
-        _canvasState.value = newState
-        sliderDragInitialState = null
-        undoStack.clear()
-        redoStack.clear()
-        _canUndo.value = false
-        _canRedo.value = false
-    }
-
-    fun createNewProjectWithImage(
-        context: Context,
-        imageUri: Uri,
-        aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16
-    ) {
-        createNewProject(aspectRatio, initialText = "")
-        setBackgroundImageUri(imageUri)
+    fun createNewProjectWithImage(context: Context, imageUri: Uri, aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16) {
+        currentProjectId = null
+        val newLayer = TextLayer(id = "layer_primary", name = "نص 1", rawText = "").withKashida()
+        history.resetSession(CanvasState(layers = listOf(newLayer), activeLayerId = "layer_primary", aspectRatio = aspectRatio, backgroundImageUri = imageUri))
         loadExtractedPalette(context)
     }
 
-    fun clearExportMessage() {
-        _exportMessage.value = null
-    }
+    fun clearExportMessage() { _exportMessage.value = null }
 
     fun loadProjectsList(context: Context) {
-        viewModelScope.launch {
-            _projectsList.value = AtharProjectManager.listProjects(context)
-        }
+        viewModelScope.launch { _projectsList.value = AtharProjectManager.listProjects(context) }
     }
 
     fun saveCurrentProject(context: Context, title: String? = null, onSaved: ((AtharProjectMeta) -> Unit)? = null) {
         viewModelScope.launch {
             try {
-                val meta = AtharProjectManager.saveProject(context, _canvasState.value, title)
+                val meta = AtharProjectManager.saveProject(context, history.current(), title, existingProjectId = currentProjectId)
+                currentProjectId = meta.id
+                history.markSaved()
                 loadProjectsList(context)
                 onSaved?.invoke(meta)
                 _exportMessage.value = "تم حفظ المشروع في مسوداتي بنجاح"
@@ -831,15 +446,11 @@ class AtharStudioViewModel : ViewModel() {
     fun exportProjectAsAthar(context: Context, title: String? = null) {
         viewModelScope.launch {
             try {
-                val meta = AtharProjectManager.saveProject(context, _canvasState.value, title)
+                val meta = AtharProjectManager.saveProject(context, history.current(), title, existingProjectId = currentProjectId)
+                currentProjectId = meta.id
+                history.markSaved()
                 val file = AtharProjectManager.getExportableProjectFile(context, meta.id, meta.title)
-                val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", file)
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/octet-stream"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                }
-                context.startActivity(Intent.createChooser(shareIntent, "مشاركة مشروع أَثَــر (.athar)"))
+                _uiEvents.emit(StudioUiEvent.ShareFile(file, "application/octet-stream", "مشاركة مشروع أَثَــر (.athar)"))
                 _exportMessage.value = "تم تجهيز ملف المشروع (.athar) للمشاركة"
             } catch (e: Exception) {
                 _exportMessage.value = "فشل تصدير المشروع: ${e.message}"
@@ -851,7 +462,8 @@ class AtharStudioViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val state = AtharProjectManager.loadProjectById(context, projectId)
-                pushHistory(state)
+                currentProjectId = projectId
+                history.resetSession(state)
                 _exportMessage.value = "تم فتح المشروع بنجاح"
             } catch (e: Exception) {
                 _exportMessage.value = "فشل فتح المشروع: ${e.message}"
@@ -864,21 +476,13 @@ class AtharStudioViewModel : ViewModel() {
             try {
                 val proj = _projectsList.value.find { it.id == projectId }
                 val file = AtharProjectManager.getExportableProjectFile(context, projectId, proj?.title ?: "مشروع_أثر")
-                val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", file)
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/octet-stream"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                }
-                context.startActivity(Intent.createChooser(shareIntent, "مشاركة مشروع أَثَــر (.athar)"))
+                _uiEvents.emit(StudioUiEvent.ShareFile(file, "application/octet-stream", "مشاركة مشروع أَثَــر (.athar)"))
                 _exportMessage.value = "تم تجهيز ملف المشروع للمشاركة"
             } catch (e: Exception) {
                 _exportMessage.value = "فشل مشاركة المشروع: ${e.message}"
             }
         }
     }
-
-    private var initialProjectOpened = false
 
     fun openInitialProject(context: Context, uri: Uri) {
         if (initialProjectOpened) return
@@ -891,7 +495,8 @@ class AtharStudioViewModel : ViewModel() {
             try {
                 val stream = context.contentResolver.openInputStream(uri) ?: throw IllegalArgumentException("تعذر قراءة الملف")
                 val state = stream.use { AtharProjectManager.loadProjectFromStream(context, it) }
-                pushHistory(state)
+                currentProjectId = null
+                history.resetSession(state)
                 _exportMessage.value = "تم استيراد المشروع بنجاح"
             } catch (e: Exception) {
                 _exportMessage.value = "فشل استيراد المشروع: ${e.message}"
@@ -901,6 +506,7 @@ class AtharStudioViewModel : ViewModel() {
 
     fun deleteProject(context: Context, projectId: String) {
         viewModelScope.launch {
+            if (currentProjectId == projectId) currentProjectId = null
             AtharProjectManager.deleteProject(context, projectId)
             loadProjectsList(context)
         }
@@ -918,24 +524,17 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
-    // ==========================================
-    // Custom Font Import & Management
-    // ==========================================
-
     fun loadCustomFonts(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val list = AtharFontManager.listCustomFonts(context)
-            _customFonts.value = list
-        }
+        viewModelScope.launch(Dispatchers.IO) { _customFonts.value = AtharFontManager.listCustomFonts(context) }
     }
 
     fun importCustomFont(context: Context, uri: Uri) {
-        val layer = _canvasState.value.activeLayer
+        val layer = history.current().activeLayer
         viewModelScope.launch {
             val font = withContext(Dispatchers.IO) { AtharFontManager.importFontFromUri(context, uri) }
             if (font != null) {
-                loadCustomFonts(context)
-                if (_canvasState.value.activeLayer === layer) setCustomFont(font)
+                _customFonts.value = withContext(Dispatchers.IO) { AtharFontManager.listCustomFonts(context) }
+                if (history.current().activeLayer === layer) setCustomFont(font)
                 _exportMessage.value = "تم استيراد الخط: ${font.name}"
             } else {
                 _exportMessage.value = "تعذر استيراد الخط، تأكد من صحة الملف (.ttf / .otf)"
@@ -947,12 +546,12 @@ class AtharStudioViewModel : ViewModel() {
         viewModelScope.launch {
             val success = withContext(Dispatchers.IO) { AtharFontManager.deleteCustomFont(context, fontId) }
             if (success) {
-                loadCustomFonts(context)
-                _canvasState.update { state ->
+                _customFonts.value = withContext(Dispatchers.IO) { AtharFontManager.listCustomFonts(context) }
+                history.updateState { state ->
                     state.copy(layers = state.layers.map { layer ->
-                        if (layer.customFontPath?.substringAfterLast('/') == fontId)
+                        if (layer.customFontPath?.substringAfterLast('/') == fontId) {
                             layer.copy(customFontPath = null, customFontName = null)
-                        else layer
+                        } else layer
                     })
                 }
                 _exportMessage.value = "تم حذف الخط المخصص"
@@ -962,654 +561,9 @@ class AtharStudioViewModel : ViewModel() {
 
     fun setCustomFont(customFont: CustomFont?) {
         val weight = (customFont?.weightClass ?: 400).coerceIn(100, 900)
-        pushActiveLayerHistory {
-            it.copy(
-                customFontPath = customFont?.filePath,
-                customFontName = customFont?.name,
-                fontWeight = weight,
-                isBold = weight >= 700
-            )
+        history.pushActiveLayerHistory {
+            it.copy(customFontPath = customFont?.filePath, customFontName = customFont?.name, fontWeight = weight, isBold = weight >= 700)
         }
-    }
-
-    // ==========================================
-    // Copy / Paste Layer Styling
-    // ==========================================
-
-    fun copyActiveLayerStyle() {
-        val active = _canvasState.value.activeLayer
-        copiedLayerStyle = active.copy()
-        _hasCopiedStyle.value = true
-        _exportMessage.value = "تم نسخ تنسيق الطبقة"
-    }
-
-    fun pasteStyleToActiveLayer() {
-        val style = copiedLayerStyle ?: return
-        pushActiveLayerHistory { target ->
-            target.copy(
-                selectedFont = style.selectedFont,
-                fontWeight = style.fontWeight,
-                customFontPath = style.customFontPath,
-                customFontName = style.customFontName,
-                selectedEffect = style.selectedEffect,
-                fontSize = style.fontSize,
-                customTextColorLong = style.customTextColorLong,
-                strokeWidth = style.strokeWidth,
-                strokeColorLong = style.strokeColorLong,
-                shadowRadius = style.shadowRadius,
-                shadowDx = style.shadowDx,
-                shadowDy = style.shadowDy,
-                shadowColorLong = style.shadowColorLong,
-                textAlign = style.textAlign,
-                lineSpacingMultiplier = style.lineSpacingMultiplier,
-                letterSpacing = style.letterSpacing,
-                textOpacity = style.textOpacity,
-                isBold = style.isBold,
-                isItalic = style.isItalic,
-                isUnderline = style.isUnderline,
-                enableGlassBackdrop = style.enableGlassBackdrop,
-                glassBackdropOpacity = style.glassBackdropOpacity,
-                glassBackdropColorLong = style.glassBackdropColorLong,
-                glassBackdropBorderColorLong = style.glassBackdropBorderColorLong,
-                glassBackdropCornerRadius = style.glassBackdropCornerRadius,
-                glassBackdropPadding = style.glassBackdropPadding,
-                blendMode = style.blendMode,
-                gradientPreset = style.gradientPreset,
-                gradientAngle = style.gradientAngle,
-                isRadialGradient = style.isRadialGradient,
-                isHollowText = style.isHollowText,
-                stylisticSet = style.stylisticSet,
-                enableSwash = style.enableSwash,
-                enableDiscretionaryLigatures = style.enableDiscretionaryLigatures,
-                wordSpacing = style.wordSpacing,
-                boxWidthRatio = style.boxWidthRatio
-            )
-        }
-        _exportMessage.value = "تم تطبيق التنسيق على الطبقة"
-    }
-
-    // ==========================================
-    // Multi-Stop Gradients, Hollow Text, 3-Way Color Grading
-    // ==========================================
-
-    fun setLuxuryGradient(preset: app.xrtm8.athar.model.LuxuryGradientPreset) {
-        pushActiveLayerHistory { it.copy(gradientPreset = preset, customTextColorLong = null) }
-    }
-
-    fun setGradientAngle(angle: Float) {
-        markSliderChange()
-        updateActiveLayer { it.copy(gradientAngle = angle % 360f) }
-    }
-
-    fun setGradientRadial(isRadial: Boolean) {
-        pushActiveLayerHistory { it.copy(isRadialGradient = isRadial) }
-    }
-
-    fun setHollowText(isHollow: Boolean) {
-        pushActiveLayerHistory { it.copy(isHollowText = isHollow) }
-    }
-
-    fun setColorGradingEnabled(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(colorGradingEnabled = enabled))
-    }
-
-    fun setColorGradingLift(r: Float, g: Float, b: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(liftRed = r.coerceIn(-0.5f, 0.5f), liftGreen = g.coerceIn(-0.5f, 0.5f), liftBlue = b.coerceIn(-0.5f, 0.5f)) }
-    }
-
-    fun setColorGradingGamma(r: Float, g: Float, b: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(gammaRed = r.coerceIn(-0.5f, 0.5f), gammaGreen = g.coerceIn(-0.5f, 0.5f), gammaBlue = b.coerceIn(-0.5f, 0.5f)) }
-    }
-
-    fun setColorGradingGain(r: Float, g: Float, b: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(gainRed = r.coerceIn(-0.5f, 0.5f), gainGreen = g.coerceIn(-0.5f, 0.5f), gainBlue = b.coerceIn(-0.5f, 0.5f)) }
-    }
-
-    fun resetColorGrading() {
-        pushHistory(_canvasState.value.copy(
-            liftRed = 0f, liftGreen = 0f, liftBlue = 0f,
-            gammaRed = 0f, gammaGreen = 0f, gammaBlue = 0f,
-            gainRed = 0f, gainGreen = 0f, gainBlue = 0f
-        ))
-    }
-
-    // ==========================================
-    // 8-Channel Lightroom Color Mix
-    // ==========================================
-
-    fun setColorMixEnabled(enabled: Boolean) {
-        pushHistory(_canvasState.value.copy(
-            colorMixState = _canvasState.value.colorMixState.copy(isEnabled = enabled)
-        ))
-    }
-
-    fun setColorMixChannel(channel: app.xrtm8.athar.model.ColorMixChannel, hue: Float, sat: Float, lum: Float) {
-        markSliderChange()
-        val cur = _canvasState.value.colorMixState
-        val map = cur.channelAdjustments.toMutableMap()
-        map[channel] = app.xrtm8.athar.model.ChannelAdjustment(
-            hueShift = hue.coerceIn(-50f, 50f),
-            satShift = sat.coerceIn(-100f, 100f),
-            lumShift = lum.coerceIn(-100f, 100f)
-        )
-        _canvasState.update { it.copy(colorMixState = cur.copy(isEnabled = true, channelAdjustments = map)) }
-    }
-
-    fun setIsolatedColorChannel(channel: app.xrtm8.athar.model.ColorMixChannel?) {
-        pushHistory(_canvasState.value.copy(
-            colorMixState = _canvasState.value.colorMixState.copy(isEnabled = true, isolatedChannel = channel, monochromeChannel = null)
-        ))
-    }
-
-    fun setMonochromeColorChannel(channel: app.xrtm8.athar.model.ColorMixChannel?) {
-        pushHistory(_canvasState.value.copy(
-            colorMixState = _canvasState.value.colorMixState.copy(isEnabled = true, monochromeChannel = channel, isolatedChannel = null)
-        ))
-    }
-
-    fun resetColorMixChannel(channel: app.xrtm8.athar.model.ColorMixChannel) {
-        val cur = _canvasState.value.colorMixState
-        val map = cur.channelAdjustments.toMutableMap()
-        map.remove(channel)
-        pushHistory(_canvasState.value.copy(colorMixState = cur.copy(channelAdjustments = map)))
-    }
-
-    fun resetAllColorMix() {
-        pushHistory(_canvasState.value.copy(
-            colorMixState = app.xrtm8.athar.model.ColorMixState()
-        ))
-    }
-
-    // ==========================================
-    // Micro-Patterns & Procedural Textures
-    // ==========================================
-
-    fun setPatternType(type: app.xrtm8.athar.model.PatternType) {
-        pushHistory(_canvasState.value.copy(
-            patternState = _canvasState.value.patternState.copy(type = type)
-        ))
-    }
-
-    fun setPatternOpacity(opacity: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(patternState = it.patternState.copy(opacity = opacity.coerceIn(0f, 1f))) }
-    }
-
-    fun setPatternScale(scale: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(patternState = it.patternState.copy(scale = scale.coerceIn(0.5f, 3.0f))) }
-    }
-
-    fun setPatternBlendMode(blend: app.xrtm8.athar.model.PatternBlend) {
-        pushHistory(_canvasState.value.copy(
-            patternState = _canvasState.value.patternState.copy(blendMode = blend)
-        ))
-    }
-
-    fun setPatternLightTint(isLight: Boolean) {
-        pushHistory(_canvasState.value.copy(
-            patternState = _canvasState.value.patternState.copy(isLightTint = isLight)
-        ))
-    }
-
-    fun resetPattern() {
-        pushHistory(_canvasState.value.copy(
-            patternState = app.xrtm8.athar.model.PatternState()
-        ))
-    }
-
-    // ==========================================
-    // PicsArt-Style Athar Mask Studio & Atmospheric Black Gradient
-    // ==========================================
-
-    fun selectMask(maskId: String?) {
-        val current = _canvasState.value.maskState
-        if (maskId == null) {
-            pushHistory(_canvasState.value.copy(
-                maskState = current.copy(isEnabled = false, activeMaskId = null)
-            ))
-            return
-        }
-        val def = app.xrtm8.athar.model.AtharMaskCatalog.getById(maskId)
-        val newBlend = def?.defaultBlendMode ?: current.blendMode
-        val newOpacity = def?.defaultOpacity ?: current.opacity
-        val newSoftness = def?.defaultSoftness ?: current.softness
-        val newWarmth = def?.defaultWarmth ?: current.warmth
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(
-                isEnabled = true,
-                activeMaskId = maskId,
-                customMaskUri = null,
-                blendMode = newBlend,
-                opacity = newOpacity,
-                softness = newSoftness,
-                warmth = newWarmth
-            )
-        ))
-    }
-
-    fun setCustomMaskUri(uri: android.net.Uri?) {
-        val current = _canvasState.value.maskState
-        if (uri == null) {
-            pushHistory(_canvasState.value.copy(
-                maskState = current.copy(customMaskUri = null)
-            ))
-            return
-        }
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(
-                isEnabled = true,
-                customMaskUri = uri.toString(),
-                activeMaskId = null
-            )
-        ))
-    }
-
-    fun setMaskOpacity(opacity: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(opacity = opacity.coerceIn(0f, 1f))) }
-    }
-
-    fun setMaskBlendMode(mode: app.xrtm8.athar.model.MaskBlendMode) {
-        pushHistory(_canvasState.value.copy(
-            maskState = _canvasState.value.maskState.copy(blendMode = mode)
-        ))
-    }
-
-    fun setMaskHueShift(hue: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(hueShift = hue.coerceIn(-180f, 180f))) }
-    }
-
-    fun setMaskOffsetX(x: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(offsetX = x.coerceIn(-1f, 1f))) }
-    }
-
-    fun setMaskOffsetY(y: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(offsetY = y.coerceIn(-1f, 1f))) }
-    }
-
-    fun setMaskScale(scale: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(scale = scale.coerceIn(0.5f, 3.0f))) }
-    }
-
-    fun toggleMaskFlipH() {
-        val current = _canvasState.value.maskState
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(isFlippedH = !current.isFlippedH)
-        ))
-    }
-
-    fun toggleMaskFlipV() {
-        val current = _canvasState.value.maskState
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(isFlippedV = !current.isFlippedV)
-        ))
-    }
-
-    fun rotateMask90() {
-        val current = _canvasState.value.maskState
-        val nextDeg = (current.rotationDegrees + 90) % 360
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(rotationDegrees = nextDeg)
-        ))
-    }
-
-    fun setMaskRotationDegrees(degrees: Int) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(rotationDegrees = ((degrees % 360) + 360) % 360)) }
-    }
-
-    fun setMaskContrast(contrast: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(contrast = contrast.coerceIn(0.5f, 2.5f))) }
-    }
-
-    fun setMaskSoftness(softness: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(softness = softness.coerceIn(0f, 1f))) }
-    }
-
-    fun setMaskWarmth(warmth: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(maskState = it.maskState.copy(warmth = warmth.coerceIn(0f, 1f))) }
-    }
-
-    fun toggleMaskInvert() {
-        val current = _canvasState.value.maskState
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(isInverted = !current.isInverted)
-        ))
-    }
-
-    fun setMaskTintColor(colorLong: Long?) {
-        val current = _canvasState.value.maskState
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(tintColorLong = colorLong)
-        ))
-    }
-
-    fun toggleMaskLuminanceMode() {
-        val current = _canvasState.value.maskState
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(isLuminanceMode = !current.isLuminanceMode)
-        ))
-    }
-
-    fun setBlackGradientEnabled(enabled: Boolean) {
-        val current = _canvasState.value.maskState
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(
-                blackGradient = current.blackGradient.copy(isEnabled = enabled)
-            )
-        ))
-    }
-
-    fun setBlackGradientOpacity(opacity: Float) {
-        markSliderChange()
-        _canvasState.update {
-            it.copy(
-                maskState = it.maskState.copy(
-                    blackGradient = it.maskState.blackGradient.copy(opacity = opacity.coerceIn(0f, 1f))
-                )
-            )
-        }
-    }
-
-    fun setBlackGradientPlacement(placement: app.xrtm8.athar.model.BlackGradientPlacement) {
-        val current = _canvasState.value.maskState
-        pushHistory(_canvasState.value.copy(
-            maskState = current.copy(
-                blackGradient = current.blackGradient.copy(placement = placement)
-            )
-        ))
-    }
-
-    fun setBlackGradientCoverage(coverage: Float) {
-        markSliderChange()
-        _canvasState.update {
-            it.copy(
-                maskState = it.maskState.copy(
-                    blackGradient = it.maskState.blackGradient.copy(coverage = coverage.coerceIn(0.15f, 1.0f))
-                )
-            )
-        }
-    }
-
-    fun resetMask() {
-        pushHistory(_canvasState.value.copy(
-            maskState = app.xrtm8.athar.model.AtharMaskState()
-        ))
-    }
-
-    // ==========================================
-    // Lightroom-Grade Cinematic Effects (Glow, Motion Streaks, Grain)
-    // ==========================================
-
-    fun setCinematicGlow(glow: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(glow = glow.coerceIn(0f, 100f))) }
-    }
-
-    fun setCinematicRange(range: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(range = range.coerceIn(0f, 100f))) }
-    }
-
-    fun setCinematicSpread(spread: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(spread = spread.coerceIn(0f, 100f))) }
-    }
-
-    fun setCinematicWarmth(warmth: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(cinematicGlowState = it.cinematicGlowState.copy(warmth = warmth.coerceIn(0f, 100f))) }
-    }
-
-    fun setCinematicStyle(style: app.xrtm8.athar.model.GlowStyle) {
-        pushHistory(_canvasState.value.copy(
-            cinematicGlowState = _canvasState.value.cinematicGlowState.copy(style = style)
-        ))
-    }
-
-    fun resetCinematicGlow() {
-        pushHistory(_canvasState.value.copy(
-            cinematicGlowState = app.xrtm8.athar.model.CinematicGlowState()
-        ))
-    }
-
-    fun setFilmGrain(grain: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(filmGrainState = it.filmGrainState.copy(grain = grain.coerceIn(0f, 100f))) }
-    }
-
-    fun setFilmGrainSize(size: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(filmGrainState = it.filmGrainState.copy(size = size.coerceIn(0f, 100f))) }
-    }
-
-    fun setFilmGrainRoughness(roughness: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(filmGrainState = it.filmGrainState.copy(roughness = roughness.coerceIn(0f, 100f))) }
-    }
-
-    fun resetFilmGrain() {
-        pushHistory(_canvasState.value.copy(
-            filmGrainState = app.xrtm8.athar.model.FilmGrainState()
-        ))
-    }
-
-    // ==========================================
-    // Analog Glitch, RGB Split & CRT
-    // ==========================================
-
-    fun setGlitchRgbSplit(split: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(rgbSplit = split.coerceIn(0f, 100f))) }
-    }
-
-    fun setGlitchSliceJitter(jitter: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(sliceJitter = jitter.coerceIn(0f, 100f))) }
-    }
-
-    fun setGlitchScanlines(scanlines: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(scanlines = scanlines.coerceIn(0f, 100f))) }
-    }
-
-    fun setGlitchNoise(noise: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(noise = noise.coerceIn(0f, 100f))) }
-    }
-
-    fun setGlitchPixelate(pixelate: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(glitchEffectState = it.glitchEffectState.copy(pixelate = pixelate.coerceIn(0f, 100f))) }
-    }
-
-    fun randomizeGlitchSeed() {
-        val newSeed = System.currentTimeMillis()
-        pushHistory(_canvasState.value.copy(
-            glitchEffectState = _canvasState.value.glitchEffectState.copy(seed = newSeed)
-        ))
-    }
-
-    fun resetGlitchEffect() {
-        pushHistory(_canvasState.value.copy(
-            glitchEffectState = app.xrtm8.athar.model.GlitchEffectState()
-        ))
-    }
-
-    // ==========================================
-    // Editorial Photo Collage
-    // ==========================================
-
-    fun setCollageLayout(layout: app.xrtm8.athar.model.CollageLayoutType) {
-        val cur = _canvasState.value.collageState
-        val newCells = app.xrtm8.athar.core.CollageLayoutCalculator.generateCellsForLayout(layout, cur.cells)
-        pushHistory(_canvasState.value.copy(
-            collageState = cur.copy(layout = layout, cells = newCells, activeCellId = newCells.firstOrNull()?.id)
-        ))
-    }
-
-    fun setCollageCellPhoto(cellId: String, uri: Uri?) {
-        val cur = _canvasState.value.collageState
-        val updated = cur.cells.map {
-            if (it.id == cellId) {
-                it.copy(
-                    imageUri = uri,
-                    photoOffsetX = 0f,
-                    photoOffsetY = 0f,
-                    photoScale = 1.0f,
-                    photoRotationDeg = 0,
-                    isFlippedH = false,
-                    isFlippedV = false
-                )
-            } else it
-        }
-        pushHistory(_canvasState.value.copy(
-            collageState = cur.copy(cells = updated)
-        ))
-    }
-
-    fun selectCollageCell(cellId: String) {
-        _canvasState.update { it.copy(collageState = it.collageState.copy(activeCellId = cellId)) }
-    }
-
-    fun setCollageSpacing(spacing: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(collageState = it.collageState.copy(spacingDp = spacing.coerceIn(0f, 24f))) }
-    }
-
-    fun setCollageCornerRadius(radius: Float) {
-        markSliderChange()
-        _canvasState.update { it.copy(collageState = it.collageState.copy(cornerRadiusDp = radius.coerceIn(0f, 32f))) }
-    }
-
-    fun setCollageFrameColor(colorLong: Long) {
-        pushHistory(_canvasState.value.copy(
-            collageState = _canvasState.value.collageState.copy(frameColorLong = colorLong)
-        ))
-    }
-
-    fun resetCollage() {
-        pushHistory(_canvasState.value.copy(
-            collageState = app.xrtm8.athar.model.CollageState()
-        ))
-    }
-
-    fun setCollageCellPhotoOffset(cellId: String, offsetX: Float, offsetY: Float) {
-        markSliderChange()
-        _canvasState.update { state ->
-            val cur = state.collageState
-            val updated = cur.cells.map {
-                if (it.id == cellId) it.copy(
-                    photoOffsetX = offsetX.coerceIn(-1f, 1f),
-                    photoOffsetY = offsetY.coerceIn(-1f, 1f)
-                ) else it
-            }
-            state.copy(collageState = cur.copy(cells = updated))
-        }
-    }
-
-    fun setCollageCellPhotoScale(cellId: String, scale: Float) {
-        markSliderChange()
-        _canvasState.update { state ->
-            val cur = state.collageState
-            val updated = cur.cells.map {
-                if (it.id == cellId) it.copy(
-                    photoScale = scale.coerceIn(
-                        app.xrtm8.athar.model.CollageState.MIN_CELL_SCALE,
-                        app.xrtm8.athar.model.CollageState.MAX_CELL_SCALE
-                    )
-                ) else it
-            }
-            state.copy(collageState = cur.copy(cells = updated))
-        }
-    }
-
-    fun commitCollageCellFraming(cellId: String, offsetX: Float, offsetY: Float, scale: Float) {
-        val cur = _canvasState.value.collageState
-        val updated = cur.cells.map {
-            if (it.id == cellId) it.copy(
-                photoOffsetX = offsetX.coerceIn(-1f, 1f),
-                photoOffsetY = offsetY.coerceIn(-1f, 1f),
-                photoScale = scale.coerceIn(
-                    app.xrtm8.athar.model.CollageState.MIN_CELL_SCALE,
-                    app.xrtm8.athar.model.CollageState.MAX_CELL_SCALE
-                )
-            ) else it
-        }
-        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
-    }
-
-    fun resetCollageCellFraming(cellId: String) {
-        val cur = _canvasState.value.collageState
-        val updated = cur.cells.map {
-            if (it.id == cellId) {
-                it.copy(
-                    photoOffsetX = 0f,
-                    photoOffsetY = 0f,
-                    photoScale = 1.0f,
-                    photoRotationDeg = 0,
-                    isFlippedH = false,
-                    isFlippedV = false
-                )
-            } else it
-        }
-        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
-    }
-
-    fun rotateCollageCell90(cellId: String) {
-        val cur = _canvasState.value.collageState
-        val updated = cur.cells.map {
-            if (it.id == cellId) it.copy(photoRotationDeg = (it.photoRotationDeg + 90) % 360) else it
-        }
-        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
-    }
-
-    fun toggleCollageCellFlipH(cellId: String) {
-        val cur = _canvasState.value.collageState
-        val updated = cur.cells.map {
-            if (it.id == cellId) it.copy(isFlippedH = !it.isFlippedH) else it
-        }
-        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
-    }
-
-    fun removeCollageCellPhoto(cellId: String) {
-        val cur = _canvasState.value.collageState
-        val updated = cur.cells.map {
-            if (it.id == cellId) {
-                it.copy(
-                    imageUri = null,
-                    photoOffsetX = 0f,
-                    photoOffsetY = 0f,
-                    photoScale = 1.0f,
-                    photoRotationDeg = 0,
-                    isFlippedH = false,
-                    isFlippedV = false
-                )
-            } else it
-        }
-        pushHistory(_canvasState.value.copy(collageState = cur.copy(cells = updated)))
-    }
-
-    fun resetPhotoAdjustments() {
-        pushHistory(_canvasState.value.copy(
-            backgroundBlur = 0f,
-            backgroundBrightness = 0f,
-            backgroundContrast = 1.0f,
-            backgroundSaturation = 1.0f,
-            backgroundVignette = 0f,
-            backgroundDim = 0.25f
-        ))
     }
 
     fun exportDesign(
@@ -1620,23 +574,11 @@ class AtharStudioViewModel : ViewModel() {
         onShareRequested: Boolean = false
     ) {
         if (_isExporting.value) return
-
         viewModelScope.launch {
             _isExporting.value = true
-            val result = AtharExportManager.exportDesign(
-                context = context,
-                state = _canvasState.value,
-                resolution = resolution,
-                isTransparent = isTransparent,
-                isStickerTrimmed = isStickerTrimmed,
-                onShareRequested = onShareRequested
-            )
+            val result = AtharExportManager.exportDesign(context, history.current(), resolution, isTransparent, isStickerTrimmed, onShareRequested)
             _isExporting.value = false
-            if (result.isSuccess) {
-                _exportMessage.value = result.getOrNull()
-            } else {
-                _exportMessage.value = "فشل التصدير: ${result.exceptionOrNull()?.message}"
-            }
+            _exportMessage.value = if (result.isSuccess) result.getOrNull() else "فشل التصدير: ${result.exceptionOrNull()?.message}"
         }
     }
 
@@ -1644,17 +586,9 @@ class AtharStudioViewModel : ViewModel() {
         if (_isExporting.value) return
         viewModelScope.launch {
             _isExporting.value = true
-            val result = AtharExportManager.exportPdf(
-                context = context,
-                state = _canvasState.value,
-                onShareRequested = onShareRequested
-            )
+            val result = AtharExportManager.exportPdf(context, history.current(), onShareRequested)
             _isExporting.value = false
-            if (result.isSuccess) {
-                _exportMessage.value = result.getOrNull()
-            } else {
-                _exportMessage.value = "فشل تصدير PDF: ${result.exceptionOrNull()?.message}"
-            }
+            _exportMessage.value = if (result.isSuccess) result.getOrNull() else "فشل تصدير PDF: ${result.exceptionOrNull()?.message}"
         }
     }
 
@@ -1662,17 +596,9 @@ class AtharStudioViewModel : ViewModel() {
         if (_isExporting.value) return
         viewModelScope.launch {
             _isExporting.value = true
-            val result = AtharExportManager.exportSvg(
-                context = context,
-                state = _canvasState.value,
-                onShareRequested = onShareRequested
-            )
+            val result = AtharExportManager.exportSvg(context, history.current(), onShareRequested)
             _isExporting.value = false
-            if (result.isSuccess) {
-                _exportMessage.value = result.getOrNull()
-            } else {
-                _exportMessage.value = "فشل تصدير SVG: ${result.exceptionOrNull()?.message}"
-            }
+            _exportMessage.value = if (result.isSuccess) result.getOrNull() else "فشل تصدير SVG: ${result.exceptionOrNull()?.message}"
         }
     }
 }
