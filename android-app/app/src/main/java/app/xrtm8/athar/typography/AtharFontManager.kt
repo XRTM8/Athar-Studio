@@ -272,7 +272,11 @@ object AtharFontManager {
         val dir = getCustomFontsDir(context)
         val bytes = sourceFile.readBytes()
         val parsed = SfntFontParser.parse(bytes) ?: return null
-        val tf = Typeface.Builder(sourceFile).build() ?: return null
+        val tf = try {
+            Typeface.Builder(sourceFile).build() ?: Typeface.createFromFile(sourceFile)
+        } catch (_: Exception) {
+            try { Typeface.createFromFile(sourceFile) } catch (_: Exception) { null }
+        } ?: return null
 
         val existing = ensureCustomMetaLoaded(context)
         existing.find { it.sha256Short == parsed.sha256Short && File(it.filePath).exists() }?.let { match ->

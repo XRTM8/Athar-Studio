@@ -69,9 +69,46 @@ object AtharSvgExporter {
             sb.appendLine("""  <rect width="100%" height="100%" fill="$bgHex" />""")
         }
 
-        // Text Layers
+        // Text & Shape Layers
         for (layer in state.layers) {
             if (!layer.isVisible) continue
+            if (layer.shapeConfig.isShape) {
+                val cx = (width * 0.5f) + (layer.normOffsetX * width)
+                val cy = (height * 0.5f) + (layer.normOffsetY * height)
+                val sc = layer.shapeConfig
+                val shapeW = width * sc.widthRatio
+                val shapeH = when (sc.type) {
+                    app.xrtm8.athar.model.ShapeType.CIRCLE -> shapeW
+                    app.xrtm8.athar.model.ShapeType.DIVIDER_H -> (sc.strokeWidth * density).coerceAtLeast(2f)
+                    else -> height * sc.heightRatio
+                }
+                val fillAttr = if (sc.isFilled && sc.type != app.xrtm8.athar.model.ShapeType.FRAME &&
+                    sc.type != app.xrtm8.athar.model.ShapeType.DIVIDER_H &&
+                    sc.type != app.xrtm8.athar.model.ShapeType.DIVIDER_V
+                ) colorToHex(sc.fillColorLong) else "none"
+                val strokeAttrShape = if (sc.isStroked || sc.type == app.xrtm8.athar.model.ShapeType.FRAME ||
+                    sc.type == app.xrtm8.athar.model.ShapeType.DIVIDER_H ||
+                    sc.type == app.xrtm8.athar.model.ShapeType.DIVIDER_V
+                ) {
+                    val col = if (sc.isStroked || sc.type == app.xrtm8.athar.model.ShapeType.FRAME) sc.strokeColorLong else sc.fillColorLong
+                    """stroke="${colorToHex(col)}" stroke-width="${fmt(sc.strokeWidth * density)}""""
+                } else ""
+                sb.appendLine("""  <g transform="translate(${fmt(cx)}, ${fmt(cy)}) rotate(${fmt(layer.rotationAngle)}) scale(${fmt(layer.scaleFactor)})" opacity="${fmt(layer.textOpacity)}">""")
+                when (sc.type) {
+                    app.xrtm8.athar.model.ShapeType.CIRCLE ->
+                        sb.appendLine("""    <circle cx="0" cy="0" r="${fmt(shapeW / 2f)}" fill="$fillAttr" $strokeAttrShape />""")
+                    app.xrtm8.athar.model.ShapeType.DIVIDER_H ->
+                        sb.appendLine("""    <line x1="${fmt(-shapeW / 2f)}" y1="0" x2="${fmt(shapeW / 2f)}" y2="0" $strokeAttrShape stroke-linecap="round" />""")
+                    app.xrtm8.athar.model.ShapeType.DIVIDER_V ->
+                        sb.appendLine("""    <line x1="0" y1="${fmt(-shapeH / 2f)}" x2="0" y2="${fmt(shapeH / 2f)}" $strokeAttrShape stroke-linecap="round" />""")
+                    else -> {
+                        val rx = fmt(sc.cornerRadius * density)
+                        sb.appendLine("""    <rect x="${fmt(-shapeW / 2f)}" y="${fmt(-shapeH / 2f)}" width="${fmt(shapeW)}" height="${fmt(shapeH)}" rx="$rx" ry="$rx" fill="$fillAttr" $strokeAttrShape />""")
+                    }
+                }
+                sb.appendLine("  </g>")
+                continue
+            }
             val textToRender = if (layer.displayText.isNotEmpty()) layer.displayText else layer.rawText
             if (textToRender.isEmpty()) continue
 
@@ -99,7 +136,9 @@ object AtharSvgExporter {
             if (context != null && layer.textSpans.any { it.hasHighlight }) {
                 val rPaint = AtharRichTextEngine.buildTextPaintFromLayer(context, layer, width.toFloat(), buildFontFeatureString(layer))
                 val (rLayout, rMapped) = AtharRichTextEngine.buildRichStaticLayout(context, layer, rPaint, width.toFloat(), includeColorSpans = false)
-                val ox = -rLayout.width / 2f
+                val minL = (0 until rLayout.lineCount).minOfOrNull { rLayout.getLineLeft(it) } ?: 0f
+                val maxR = (0 until rLayout.lineCount).maxOfOrNull { rLayout.getLineRight(it) } ?: rLayout.width.toFloat()
+                val ox = -(minL + maxR) / 2f
                 val oy = -rLayout.height / 2f
                 val highlights = AtharRichTextEngine.computeHighlightRects(rLayout, layer.displayText, rMapped, width.toFloat())
                 highlights.forEach { hl ->

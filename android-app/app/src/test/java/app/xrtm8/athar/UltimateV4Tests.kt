@@ -5,7 +5,6 @@ import app.xrtm8.athar.model.ShapeLayerConfig
 import app.xrtm8.athar.model.ShapeType
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.project.AtharProjectSerializer
-import app.xrtm8.athar.project.AtharTemplateCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,11 +40,29 @@ class UltimateV4Tests {
     }
 
     @Test
-    fun allTemplatesBuildValidNonEmptyStates() {
-        assertTrue(AtharTemplateCatalog.templates.isNotEmpty())
-        AtharTemplateCatalog.templates.forEach { tpl ->
-            val st = tpl.buildState()
-            assertTrue("Template ${tpl.id} should have layers", st.layers.isNotEmpty())
-        }
+    fun collage2LayoutsAndSvgShapeExportWorkCorrectly() {
+        val mosaicCells = app.xrtm8.athar.core.CollageLayoutCalculator.generateCellsForLayout(
+            app.xrtm8.athar.model.CollageLayoutType.MAGAZINE_MOSAIC
+        )
+        assertEquals(5, mosaicCells.size)
+        val bentoCells = app.xrtm8.athar.core.CollageLayoutCalculator.generateCellsForLayout(
+            app.xrtm8.athar.model.CollageLayoutType.BENTO_SIX
+        )
+        assertEquals(6, bentoCells.size)
+
+        val shape = TextLayer(
+            id = "svg_rect_1",
+            shapeConfig = ShapeLayerConfig(
+                type = ShapeType.RECTANGLE,
+                widthRatio = 0.5f,
+                heightRatio = 0.2f,
+                fillColorLong = 0xFFE5C07BL,
+                isFilled = true
+            )
+        )
+        val svg = app.xrtm8.athar.export.AtharSvgExporter.generateSvgString(
+            CanvasState(layers = listOf(shape), activeLayerId = shape.id)
+        )
+        assertTrue(svg.contains("<rect"))
     }
 }

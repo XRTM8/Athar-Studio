@@ -7,16 +7,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -189,43 +182,19 @@ fun AtharHomeScreen(
                 )
             }
 
-            // 4.5 Curated Editable Templates Strip
+            // 4.5 Collage 2.0 Quick Studio Card
             item {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "قوالب جاهزة للتعديل",
-                        color = primaryTextColor,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        app.xrtm8.athar.project.AtharTemplateCatalog.templates.forEach { tpl ->
-                            Column(
-                                modifier = Modifier
-                                    .width(142.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(cardBackground)
-                                    .border(0.75.dp, cardBorder, RoundedCornerShape(14.dp))
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.loadTemplate(tpl)
-                                        onNavigateToStudio()
-                                    }
-                                    .padding(12.dp)
-                            ) {
-                                Text(tpl.title, color = CherryAccent, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(tpl.subtitle, color = subtleTextColor, fontSize = 10.sp, maxLines = 2)
-                            }
-                        }
+                HomeCollageCard(
+                    cardBackground = cardBackground,
+                    cardBorder = cardBorder,
+                    primaryTextColor = primaryTextColor,
+                    subtleTextColor = subtleTextColor,
+                    onStartCollage = { layout ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.createNewCollageProject(selectedAspectRatio, layout)
+                        onNavigateToStudio()
                     }
-                }
+                )
             }
 
             // 5. Recent Projects Section

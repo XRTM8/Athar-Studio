@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
@@ -67,7 +68,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.ArabicFontFamily
+import app.xrtm8.athar.model.CustomFont
 import app.xrtm8.athar.model.TextSpanStyle
+import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.typography.RichTextSpanMapper
 import app.xrtm8.athar.ui.components.StudioSlider
 import app.xrtm8.athar.ui.theme.*
@@ -84,6 +87,7 @@ fun stripArabicDiacritics(text: String): String {
 fun ArabicTextEditorDialog(
     initialText: String,
     initialSpans: List<TextSpanStyle> = emptyList(),
+    customFonts: List<CustomFont> = emptyList(),
     onDismiss: () -> Unit,
     onApplyText: (String) -> Unit,
     onApplyTextWithSpans: ((String, List<TextSpanStyle>) -> Unit)? = null
@@ -94,6 +98,7 @@ fun ArabicTextEditorDialog(
     var spans by remember { mutableStateOf(initialSpans) }
     var activeSpanTab by remember { mutableStateOf(0) } // 0 = Font, 1 = Highlight, 2 = Text Color
     var colorPickerTarget by remember { mutableStateOf<String?>(null) } // "highlight" | "border" | "text"
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
     val isAmoledWhite = LocalAmoledWhite.current
@@ -147,6 +152,7 @@ fun ArabicTextEditorDialog(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             val stripped = stripArabicDiacritics(textFieldValue.text)
+                            spans = RichTextSpanMapper.adjustSpansOnTextEdit(textFieldValue.text, stripped, spans)
                             textFieldValue = TextFieldValue(text = stripped, selection = TextRange(stripped.length))
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = subtleTextColor)
@@ -160,6 +166,7 @@ fun ArabicTextEditorDialog(
                     TextButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            spans = emptyList()
                             textFieldValue = TextFieldValue(text = "", selection = TextRange.Zero)
                         },
                         colors = ButtonDefaults.textButtonColors(contentColor = subtleTextColor)
@@ -173,7 +180,11 @@ fun ArabicTextEditorDialog(
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onApplyText(textFieldValue.text)
+                            if (onApplyTextWithSpans != null) {
+                                onApplyTextWithSpans(textFieldValue.text, spans)
+                            } else {
+                                onApplyText(textFieldValue.text)
+                            }
                             onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),
@@ -262,6 +273,13 @@ fun ArabicTextEditorDialog(
                                         SpanStyle(
                                             color = sp.textColorLong?.let { Color(it) } ?: primaryTextColor,
                                             background = sp.highlightColorLong?.let { Color(it).copy(alpha = sp.highlightAlpha) } ?: Color.Unspecified,
+                                            fontFamily = when {
+                                                !sp.customFontPath.isNullOrBlank() -> customFonts.find { it.filePath == sp.customFontPath }?.let {
+                                                    AtharFontManager.getComposeFontFamily(context, it, it.weightClass)
+                                                }
+                                                sp.fontFamily != null -> AtharFontManager.getComposeFontFamily(context, sp.fontFamily)
+                                                else -> null
+                                            },
                                             fontWeight = if (sp.isBold == true) FontWeight.Bold else null,
                                             fontStyle = if (sp.isItalic == true) FontStyle.Italic else null
                                         ),
@@ -443,11 +461,12 @@ fun ArabicTextEditorDialog(
                                         .horizontalScroll(rememberScrollState()),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
+                                    val isDefaultFont = activeSpan.fontFamily == null && activeSpan.customFontPath.isNullOrBlank()
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(if (activeSpan.fontFamily == null) CherryAccent.copy(alpha = 0.2f) else Color.Transparent)
-                                            .border(0.5.dp, if (activeSpan.fontFamily == null) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
+                                            .background(if (isDefaultFont) CherryAccent.copy(alpha = 0.2f) else Color.Transparent)
+                                            .border(0.5.dp, if (isDefaultFont) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
                                             .clickable {
                                                 spans = RichTextSpanMapper.upsertSpan(
                                                     spans,
@@ -458,8 +477,32 @@ fun ArabicTextEditorDialog(
                                     ) {
                                         Text("افتراضي", color = primaryTextColor, fontSize = 11.sp)
                                     }
+                                    customFonts.forEach { cf ->
+                                        val isSel = activeSpan.customFontPath == cf.filePath
+                                        val cfFamily = remember(cf.filePath) {
+                                            AtharFontManager.getComposeFontFamily(context, cf, cf.weightClass)
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (isSel) CherryAccent.copy(alpha = 0.25f) else Color.Transparent)
+                                                .border(0.5.dp, if (isSel) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    spans = RichTextSpanMapper.upsertSpan(
+                                                        spans,
+                                                        activeSpan.copy(fontFamily = null, customFontPath = cf.filePath, customFontName = cf.name)
+                                                    )
+                                                }
+                                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                        ) {
+                                            Text(cf.name, fontFamily = cfFamily, color = primaryTextColor, fontSize = 11.sp)
+                                        }
+                                    }
                                     ArabicFontFamily.values().forEach { font ->
-                                        val isSel = activeSpan.fontFamily == font
+                                        val isSel = activeSpan.fontFamily == font && activeSpan.customFontPath.isNullOrBlank()
+                                        val composeFont = remember(font) {
+                                            AtharFontManager.getComposeFontFamily(context, font, font.defaultWeight)
+                                        }
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(8.dp))
@@ -473,7 +516,7 @@ fun ArabicTextEditorDialog(
                                                 }
                                                 .padding(horizontal = 10.dp, vertical = 5.dp)
                                         ) {
-                                            Text(font.fontName, color = primaryTextColor, fontSize = 11.sp)
+                                            Text(font.fontName, fontFamily = composeFont, color = primaryTextColor, fontSize = 11.sp)
                                         }
                                     }
                                 }
@@ -770,6 +813,7 @@ fun ArabicTextEditorDialog(
                     val start = sel.min.coerceIn(0, currentText.length)
                     val end = sel.max.coerceIn(0, currentText.length)
                     val newText = currentText.replaceRange(start, end, insertChar)
+                    spans = RichTextSpanMapper.adjustSpansOnTextEdit(currentText, newText, spans)
                     val newCursor = start + insertChar.length
                     textFieldValue = TextFieldValue(
                         text = newText,
@@ -814,6 +858,7 @@ fun ArabicTextEditorDialog(
                             .border(0.5.dp, cardBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                spans = emptyList()
                                 textFieldValue = TextFieldValue(text = suggestion, selection = TextRange(suggestion.length))
                             }
                             .padding(horizontal = 12.dp, vertical = 7.dp)

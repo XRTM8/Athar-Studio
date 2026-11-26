@@ -169,6 +169,9 @@ fun CanvasBackgroundPanel(
                     onResetCellFraming = { viewModel.resetCollageCellFraming(it) }, onRemoveCellPhoto = { viewModel.removeCollageCellPhoto(it) },
                     isFramingMode = state.isFramingMode, onToggleFramingMode = { viewModel.toggleFramingMode(it) },
                     onRotateCell90 = { viewModel.rotateCollageCell90(it) }, onToggleCellFlipH = { viewModel.toggleCollageCellFlipH(it) },
+                    onToggleCellFlipV = { viewModel.toggleCollageCellFlipV(it) },
+                    onSwapCellWithNext = { viewModel.swapCollageCellWithNext(it) },
+                    onBatchPickPhotos = { uris -> viewModel.fillCollageWithPhotos(uris) },
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
                 4 -> CinematicEffectsPanel(

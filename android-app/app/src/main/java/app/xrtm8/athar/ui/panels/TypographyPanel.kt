@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.xrtm8.athar.model.ArabicFontFamily
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.CustomFont
 import app.xrtm8.athar.model.KashidaMode
 import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.typography.AtharFontManager
@@ -31,6 +32,8 @@ fun TypographyPanel(
     onOpenTextEditor: () -> Unit,
     onOpenFontBrowser: () -> Unit,
     onSelectFont: (ArabicFontFamily) -> Unit,
+    customFonts: List<CustomFont> = emptyList(),
+    onSelectCustomFont: (CustomFont) -> Unit = {},
     onFontWeightChange: (Int) -> Unit = {},
     onFontSizeChange: (Float) -> Unit,
     onJustifyLines: () -> Unit,
@@ -78,6 +81,8 @@ fun TypographyPanel(
             isBold = state.isBold,
             customFontPath = state.customFontPath,
             customFontName = state.activeLayer.customFontName,
+            customFonts = customFonts,
+            onSelectCustomFont = onSelectCustomFont,
             onFontWeightChange = onFontWeightChange
         )
 

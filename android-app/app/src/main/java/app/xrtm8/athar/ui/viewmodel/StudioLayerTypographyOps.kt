@@ -55,7 +55,9 @@ internal object StudioLayerTypographyOps {
     fun removeActiveLayer(state: CanvasState): CanvasState {
         if (state.layers.size <= 1) {
             val activeId = state.activeLayer.id
-            val cleared = state.layers.map { if (it.id == activeId) it.copy(rawText = "", displayText = "") else it }
+            val cleared = state.layers.map {
+                if (it.id == activeId) it.copy(rawText = "", displayText = "", textSpans = emptyList(), shapeConfig = ShapeLayerConfig()) else it
+            }
             return state.copy(layers = cleared)
         }
         val activeId = state.activeLayer.id

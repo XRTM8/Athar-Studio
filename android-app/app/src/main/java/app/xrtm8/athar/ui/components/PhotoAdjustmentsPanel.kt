@@ -24,8 +24,8 @@ import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.Vignette
@@ -223,7 +223,7 @@ fun PhotoAdjustmentsPanel(
                     valueRange = -45f..90f,
                     step = 5f,
                     valueDisplay = "${fluted.angleDegrees.toInt()}°",
-                    icon = Icons.Default.RotateRight
+                    icon = Icons.AutoMirrored.Filled.RotateRight
                 )
                 StudioSlider(
                     title = "تشتت لوني (منشور)",

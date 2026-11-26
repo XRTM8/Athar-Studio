@@ -44,6 +44,7 @@ fun AtharStudioModals(
         ArabicTextEditorDialog(
             initialText = canvasState.rawText,
             initialSpans = canvasState.activeLayer.textSpans,
+            customFonts = customFonts,
             onDismiss = onDismissTextDialog,
             onApplyText = { viewModel.setText(it) },
             onApplyTextWithSpans = { text, spans -> viewModel.setTextWithSpans(text, spans) }

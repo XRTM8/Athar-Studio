@@ -67,6 +67,10 @@ fun rememberCanvasBackgroundBitmap(
             cellPhotos.mapNotNull { (id, uri) -> AtharImageProcessor.decodeSampledBitmap(context, uri, 1080, 1920)?.let { id to it } }.toMap()
         }
         cellBitmaps = newMap
+        val kept = newMap.values.toSet()
+        oldMap.values.forEach { bmp ->
+            if (bmp !in kept && !bmp.isRecycled) bmp.recycle()
+        }
     }
 
     var singleStageBlur by remember { mutableStateOf<Bitmap?>(null) }

@@ -10,7 +10,10 @@ enum class CollageLayoutType(val label: String, val cellCount: Int) {
     TRIPTYCH_HERO("ثلاثي بطل ومكملات", 3),
     TRIPTYCH_COLS("ثلاثي أعمدة متساوية", 3),
     QUAD_GRID("شبكة مربعة 2x2", 4),
-    QUAD_STRIP("شريط سينمائي 35mm", 4)
+    QUAD_STRIP("شريط سينمائي 35mm", 4),
+    MAGAZINE_MOSAIC("فسيفساء مجلة", 5),
+    POLAROID_DUO("إطاران تحريريان", 2),
+    BENTO_SIX("شبكة بنتو 3×2", 6)
 }
 
 data class CollageCell(

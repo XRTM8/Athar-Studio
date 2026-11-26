@@ -5,7 +5,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,6 +59,8 @@ fun CollageFramingSection(
     onToggleFramingMode: ((Boolean) -> Unit)? = null,
     onRotate90: (() -> Unit)? = null,
     onToggleFlipH: (() -> Unit)? = null,
+    onToggleFlipV: (() -> Unit)? = null,
+    onSwapWithNext: (() -> Unit)? = null,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
@@ -83,12 +87,21 @@ fun CollageFramingSection(
                     Text("تأطير صورة الخلية ${cellIndex + 1}", color = PureWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 if (hasPhoto) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        if (onSwapWithNext != null) {
+                            CollageActionChip("تبديل") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onSwapWithNext() }
+                        }
                         if (onRotate90 != null) {
                             CollageActionChip("تدوير") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onRotate90() }
                         }
                         if (onToggleFlipH != null) {
-                            CollageActionChip("عكس") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleFlipH() }
+                            CollageActionChip("عكس أفقي") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleFlipH() }
+                        }
+                        if (onToggleFlipV != null) {
+                            CollageActionChip("عكس رأسي") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleFlipV() }
                         }
                         CollageActionChip("استبدال") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPickPhoto() }
                         CollageActionChip("توسيط") { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onResetFraming() }

@@ -49,6 +49,25 @@ object CollageLayoutCalculator {
                 floatArrayOf(0.0f, 0.5f, 1.0f, 0.75f),
                 floatArrayOf(0.0f, 0.75f, 1.0f, 1.0f)
             )
+            CollageLayoutType.MAGAZINE_MOSAIC -> listOf(
+                floatArrayOf(0.0f, 0.0f, 0.6f, 0.55f),
+                floatArrayOf(0.6f, 0.0f, 1.0f, 0.35f),
+                floatArrayOf(0.6f, 0.35f, 1.0f, 0.55f),
+                floatArrayOf(0.0f, 0.55f, 0.5f, 1.0f),
+                floatArrayOf(0.5f, 0.55f, 1.0f, 1.0f)
+            )
+            CollageLayoutType.POLAROID_DUO -> listOf(
+                floatArrayOf(0.05f, 0.06f, 0.95f, 0.49f),
+                floatArrayOf(0.05f, 0.51f, 0.95f, 0.94f)
+            )
+            CollageLayoutType.BENTO_SIX -> listOf(
+                floatArrayOf(0.0f, 0.0f, 0.5f, 1f / 3f),
+                floatArrayOf(0.5f, 0.0f, 1.0f, 1f / 3f),
+                floatArrayOf(0.0f, 1f / 3f, 0.5f, 2f / 3f),
+                floatArrayOf(0.5f, 1f / 3f, 1.0f, 2f / 3f),
+                floatArrayOf(0.0f, 2f / 3f, 0.5f, 1.0f),
+                floatArrayOf(0.5f, 2f / 3f, 1.0f, 1.0f)
+            )
             CollageLayoutType.NONE -> emptyList()
         }
 

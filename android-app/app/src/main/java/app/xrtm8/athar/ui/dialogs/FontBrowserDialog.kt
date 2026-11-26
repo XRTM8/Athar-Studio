@@ -59,7 +59,10 @@ fun FontBrowserDialog(
     val groupedCustom = remember(customFonts, searchQuery) {
         customFonts.filter {
             it.name.contains(searchQuery, true) || it.familyName.contains(searchQuery, true)
-        }.groupBy { it.familyName.lowercase().replace(Regex("[\\s_-]+"), "") }.values.toList()
+        }.groupBy { cf ->
+            val key = cf.familyName.lowercase().replace(Regex("[\\s_-]+"), "")
+            if (key.isBlank() || key == "customfont") cf.id else key
+        }.values.toList()
     }
     val filteredFonts = remember(searchQuery, selectedCategory, favoriteFonts) {
         ArabicFontFamily.entries.filter { font ->
@@ -160,6 +163,22 @@ fun FontBrowserDialog(
                                 onDelete = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDeleteCustomFont(primary.id) },
                                 onDeleteVariant = { id -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDeleteCustomFont(id) }
                             )
+                        }
+                    }
+                    if (selectedCategory == "خطوط مخصصة" && groupedCustom.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 28.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "لا توجد خطوط مخصصة بعد — اضغط استيراد لإضافة خط .ttf أو .otf",
+                                    color = subtleText,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                     if (selectedCategory != "خطوط مخصصة") {

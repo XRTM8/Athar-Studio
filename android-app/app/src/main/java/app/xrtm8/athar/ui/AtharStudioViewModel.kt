@@ -188,11 +188,6 @@ class AtharStudioViewModel : ViewModel() {
         history.updateActiveLayer { it.copy(shapeConfig = config) }
     }
 
-    fun loadTemplate(template: app.xrtm8.athar.project.AtharTemplate) {
-        currentProjectId = null
-        history.resetSession(template.buildState())
-    }
-
     fun setStretchLevel(newLevel: Int) {
         val level = newLevel.coerceIn(0, 8)
         if (level == history.current().stretchLevel &&
@@ -508,6 +503,16 @@ class AtharStudioViewModel : ViewModel() {
     fun resetCollageCellFraming(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { StudioEffectsCollageOps.resetCellFraming(it) })
     fun rotateCollageCell90(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { it.copy(photoRotationDeg = (it.photoRotationDeg + 90) % 360) })
     fun toggleCollageCellFlipH(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { it.copy(isFlippedH = !it.isFlippedH) })
+    fun toggleCollageCellFlipV(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { it.copy(isFlippedV = !it.isFlippedV) })
+    fun swapCollageCellWithNext(cellId: String) {
+        val cells = history.current().collageState.cells
+        if (cells.size < 2) return
+        val idx = cells.indexOfFirst { it.id == cellId }
+        if (idx < 0) return
+        val nextId = cells[(idx + 1) % cells.size].id
+        history.pushHistory(StudioEffectsCollageOps.swapCollageCells(history.current(), cellId, nextId))
+    }
+    fun fillCollageWithPhotos(uris: List<Uri>) = history.pushHistory(StudioEffectsCollageOps.fillCollageCellsWithUris(history.current(), uris))
     fun removeCollageCellPhoto(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { StudioEffectsCollageOps.resetCellFraming(it, clearPhoto = true) })
 
     fun resetPhotoAdjustments() = history.pushHistory(
@@ -542,6 +547,27 @@ class AtharStudioViewModel : ViewModel() {
         val newLayer = TextLayer(id = "layer_primary", name = "نص 1", rawText = "").withKashida()
         history.resetSession(CanvasState(layers = listOf(newLayer), activeLayerId = "layer_primary", aspectRatio = aspectRatio, backgroundImageUri = imageUri))
         loadExtractedPalette(context)
+    }
+
+    fun createNewCollageProject(
+        aspectRatio: CanvasAspectRatio = CanvasAspectRatio.STORY_9_16,
+        layout: CollageLayoutType = CollageLayoutType.QUAD_GRID
+    ) {
+        currentProjectId = null
+        val cells = app.xrtm8.athar.core.CollageLayoutCalculator.generateCellsForLayout(layout)
+        val newLayer = TextLayer(id = "layer_primary", name = "نص 1", rawText = "").withKashida()
+        history.resetSession(
+            CanvasState(
+                layers = listOf(newLayer),
+                activeLayerId = "layer_primary",
+                aspectRatio = aspectRatio,
+                collageState = CollageState(
+                    layout = layout,
+                    cells = cells,
+                    activeCellId = cells.firstOrNull()?.id
+                )
+            )
+        )
     }
 
     fun clearExportMessage() { _exportMessage.value = null }

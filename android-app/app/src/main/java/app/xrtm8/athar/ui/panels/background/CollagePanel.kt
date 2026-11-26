@@ -1,5 +1,9 @@
 package app.xrtm8.athar.ui.panels.background
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,12 +52,22 @@ fun CollagePanel(
     onToggleFramingMode: ((Boolean) -> Unit)? = null,
     onRotateCell90: ((String) -> Unit)? = null,
     onToggleCellFlipH: ((String) -> Unit)? = null,
+    onToggleCellFlipV: ((String) -> Unit)? = null,
+    onSwapCellWithNext: ((String) -> Unit)? = null,
+    onBatchPickPhotos: ((List<Uri>) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val activeCell = state.cells.find { it.id == state.activeCellId } ?: state.cells.firstOrNull()
     val activeIndex = state.cells.indexOfFirst { it.id == (activeCell?.id ?: "") }.coerceAtLeast(0)
+    val multiPhotoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 6)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            onBatchPickPhotos?.invoke(uris)
+        }
+    }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Layout Templates Row
@@ -117,7 +131,31 @@ fun CollagePanel(
         if (state.isEnabled) {
             // Cells management list
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(text = "الصور في الكولاج (اضغط لتأطير الصورة أو استبدالها)", color = SubtleGray, fontSize = 11.5.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "الصور في الكولاج (اضغط للتأطير أو الاستبدال)", color = SubtleGray, fontSize = 11.sp)
+                    if (onBatchPickPhotos != null) {
+                        Text(
+                            text = "تعبئة سريعة +",
+                            color = CherryAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CherryAccent.copy(alpha = 0.14f))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    multiPhotoLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -176,6 +214,8 @@ fun CollagePanel(
                     onToggleFramingMode = onToggleFramingMode,
                     onRotate90 = onRotateCell90?.let { fn -> { fn(activeCell.id) } },
                     onToggleFlipH = onToggleCellFlipH?.let { fn -> { fn(activeCell.id) } },
+                    onToggleFlipV = onToggleCellFlipV?.let { fn -> { fn(activeCell.id) } },
+                    onSwapWithNext = onSwapCellWithNext?.let { fn -> { fn(activeCell.id) } },
                     onSliderChangeFinished = onSliderChangeFinished
                 )
             }

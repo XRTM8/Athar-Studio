@@ -92,7 +92,7 @@ object TextGlassBackdropRenderer {
         glassBackdropColorLong: Long,
         glassBackdropBorderColorLong: Long,
         glassBackdropOpacity: Float,
-        textAlign: TextAlignOption,
+        @Suppress("UNUSED_PARAMETER") textAlign: TextAlignOption,
         layout: TypographyLayoutResult,
         textSizePx: Float,
         density: Float,

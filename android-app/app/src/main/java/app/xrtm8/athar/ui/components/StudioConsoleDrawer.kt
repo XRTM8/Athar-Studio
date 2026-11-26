@@ -84,6 +84,7 @@ fun StudioConsoleDrawer(
     val titleColor = if (isAmoledWhite) DarkText else PureWhite
     val closeTint = if (isAmoledWhite) DarkTextSubtle else SubtleGray
     val extractedPalette by viewModel.extractedPalette.collectAsState()
+    val customFonts by viewModel.customFonts.collectAsState()
 
     AnimatedVisibility(
         visible = isPanelExpanded,
@@ -158,6 +159,8 @@ fun StudioConsoleDrawer(
                             onOpenTextEditor = onOpenTextEditor,
                             onOpenFontBrowser = onOpenFontBrowser,
                             onSelectFont = { viewModel.setFont(it) },
+                            customFonts = customFonts,
+                            onSelectCustomFont = { viewModel.setCustomFont(it) },
                             onFontWeightChange = { viewModel.setFontWeight(it) },
                             onFontSizeChange = { viewModel.setFontSize(it) },
                             onJustifyLines = { viewModel.justifyActiveLayerLines(context) },

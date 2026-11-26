@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.ArabicFontFamily
+import app.xrtm8.athar.model.CustomFont
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.theme.*
 
@@ -31,6 +32,9 @@ fun FontPickerCarousel(
     selectedFont: ArabicFontFamily,
     onSelectFont: (ArabicFontFamily) -> Unit,
     hasCustomFont: Boolean = false,
+    customFonts: List<CustomFont> = emptyList(),
+    selectedCustomFontPath: String? = null,
+    onSelectCustomFont: (CustomFont) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -50,6 +54,49 @@ fun FontPickerCarousel(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            customFonts.forEach { cf ->
+                val isSelected = hasCustomFont && selectedCustomFontPath == cf.filePath
+                val composeFont = remember(cf.filePath, cf.weightClass) {
+                    AtharFontManager.getComposeFontFamily(context, cf, cf.weightClass)
+                }
+                Box(
+                    modifier = Modifier
+                        .width(126.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (isSelected) CherryAccent else cardBg)
+                        .border(
+                            width = if (isSelected) 1.5.dp else 0.5.dp,
+                            color = if (isSelected) CherryAccent else cardBorder,
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelectCustomFont(cf)
+                        }
+                        .padding(horizontal = 8.dp, vertical = 7.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "أَثَــرٌ جَمِيل",
+                            fontFamily = composeFont,
+                            color = if (isSelected) PureWhite else CherryAccent,
+                            fontSize = 14.sp,
+                            maxLines = 1
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = cf.name,
+                            color = if (isSelected) PureWhite else subtleText,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
             ArabicFontFamily.entries.forEach { font ->
                 val isSelected = selectedFont == font && !hasCustomFont
                 val composeFont = remember(font) {

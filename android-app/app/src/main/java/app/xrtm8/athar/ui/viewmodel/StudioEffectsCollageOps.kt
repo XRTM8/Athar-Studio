@@ -35,6 +35,59 @@ internal object StudioEffectsCollageOps {
         isFlippedV = false
     )
 
+    fun swapCollageCells(state: CanvasState, cellIdA: String, cellIdB: String): CanvasState {
+        if (cellIdA == cellIdB) return state
+        val cells = state.collageState.cells
+        val idxA = cells.indexOfFirst { it.id == cellIdA }
+        val idxB = cells.indexOfFirst { it.id == cellIdB }
+        if (idxA < 0 || idxB < 0) return state
+        val a = cells[idxA]
+        val b = cells[idxB]
+        val updated = cells.toMutableList()
+        updated[idxA] = a.copy(
+            imageUri = b.imageUri,
+            photoOffsetX = b.photoOffsetX,
+            photoOffsetY = b.photoOffsetY,
+            photoScale = b.photoScale,
+            photoRotationDeg = b.photoRotationDeg,
+            isFlippedH = b.isFlippedH,
+            isFlippedV = b.isFlippedV
+        )
+        updated[idxB] = b.copy(
+            imageUri = a.imageUri,
+            photoOffsetX = a.photoOffsetX,
+            photoOffsetY = a.photoOffsetY,
+            photoScale = a.photoScale,
+            photoRotationDeg = a.photoRotationDeg,
+            isFlippedH = a.isFlippedH,
+            isFlippedV = a.isFlippedV
+        )
+        return state.copy(collageState = state.collageState.copy(cells = updated, activeCellId = cellIdB))
+    }
+
+    fun fillCollageCellsWithUris(state: CanvasState, uris: List<Uri>): CanvasState {
+        if (uris.isEmpty()) return state
+        val cur = state.collageState
+        if (cur.cells.isEmpty()) return state
+        var uriIdx = 0
+        val updated = cur.cells.map { cell ->
+            if (cell.imageUri == null && uriIdx < uris.size) {
+                resetCellFraming(cell).copy(imageUri = uris[uriIdx++])
+            } else {
+                cell
+            }
+        }.let { afterEmpty ->
+            if (uriIdx < uris.size) {
+                afterEmpty.mapIndexed { idx, cell ->
+                    if (idx < uris.size) resetCellFraming(cell).copy(imageUri = uris[idx]) else cell
+                }
+            } else {
+                afterEmpty
+            }
+        }
+        return state.copy(collageState = cur.copy(cells = updated))
+    }
+
     fun selectMask(state: CanvasState, maskId: String?): CanvasState {
         val current = state.maskState
         if (maskId == null) {

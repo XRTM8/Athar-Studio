@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.ArabicFontFamily
+import app.xrtm8.athar.model.CustomFont
 import app.xrtm8.athar.typography.AtharFontManager
 import app.xrtm8.athar.ui.components.FontPickerCarousel
 import app.xrtm8.athar.ui.theme.*
@@ -38,6 +39,8 @@ fun TypographyFontSection(
     isBold: Boolean = false,
     customFontPath: String? = null,
     customFontName: String? = null,
+    customFonts: List<CustomFont> = emptyList(),
+    onSelectCustomFont: (CustomFont) -> Unit = {},
     onFontWeightChange: (Int) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -122,7 +125,10 @@ fun TypographyFontSection(
         FontPickerCarousel(
             selectedFont = selectedFont,
             onSelectFont = onSelectFont,
-            hasCustomFont = hasCustom
+            hasCustomFont = hasCustom,
+            customFonts = customFonts,
+            selectedCustomFontPath = customFontPath,
+            onSelectCustomFont = onSelectCustomFont
         )
 
         if (supportedWeights.size > 1) {

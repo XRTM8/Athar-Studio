@@ -13,8 +13,9 @@ import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
 import android.text.TextPaint
-import android.text.style.ForegroundColorSpan
+import android.text.style.CharacterStyle
 import android.text.style.MetricAffectingSpan
 import app.xrtm8.athar.model.LuxuryGradientPreset
 import app.xrtm8.athar.model.TextAlignOption
@@ -66,6 +67,13 @@ object AtharRichTextEngine {
             if (kotlin.math.abs(baselineShiftPx) > 0.01f) {
                 tp.baselineShift += baselineShiftPx.toInt()
             }
+        }
+    }
+
+    private class SolidSpanColor(private val colorInt: Int) : CharacterStyle() {
+        override fun updateDrawState(tp: TextPaint) {
+            tp.shader = null
+            tp.color = colorInt
         }
     }
 
@@ -138,7 +146,7 @@ object AtharRichTextEngine {
 
             if (includeColorSpans && span.textColorLong != null) {
                 ssb.setSpan(
-                    ForegroundColorSpan(span.textColorLong.toInt()),
+                    SolidSpanColor(span.textColorLong.toInt()),
                     s, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
@@ -153,6 +161,7 @@ object AtharRichTextEngine {
 
         val layout = StaticLayout.Builder.obtain(ssb, 0, ssb.length, basePaint, maxWidthPx)
             .setAlignment(alignment)
+            .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_RTL)
             .setLineSpacing(0f, layer.lineSpacingMultiplier.coerceIn(0.8f, 3.0f))
             .setIncludePad(false)
             .build()
