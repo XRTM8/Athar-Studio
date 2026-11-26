@@ -14,8 +14,8 @@ android {
         applicationId = "app.xrtm8.athar"
         minSdk = 26
         targetSdk = 34
-        versionCode = 48
-        versionName = "2.12.1"
+        versionCode = 49
+        versionName = "2.13.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

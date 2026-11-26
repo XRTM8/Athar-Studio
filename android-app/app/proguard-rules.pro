@@ -12,14 +12,6 @@
     @androidx.compose.runtime.Composable *;
 }
 
-# Preserve ML Kit Selfie Segmentation
--keep class com.google.mlkit.** { *; }
--dontwarn com.google.mlkit.**
-
-# Preserve ZXing QR Code
--keep class com.google.zxing.** { *; }
--dontwarn com.google.zxing.**
-
 # Coroutines & Lifecycle warnings suppression
 -dontwarn kotlinx.coroutines.**
 

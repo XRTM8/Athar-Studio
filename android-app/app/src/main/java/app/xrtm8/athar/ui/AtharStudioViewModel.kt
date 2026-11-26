@@ -116,6 +116,19 @@ class AtharStudioViewModel : ViewModel() {
         }
     }
 
+    fun toggleLayerVisibility(layerId: String = history.current().activeLayer.id) {
+        val cur = history.current()
+        val updated = cur.layers.map { if (it.id == layerId) it.copy(isVisible = !it.isVisible) else it }
+        if (updated != cur.layers) history.pushHistory(cur.copy(layers = updated))
+    }
+
+    fun renameLayer(layerId: String, newName: String) {
+        val clean = newName.trim().take(24).ifBlank { return }
+        val cur = history.current()
+        val updated = cur.layers.map { if (it.id == layerId) it.copy(name = clean) else it }
+        if (updated != cur.layers) history.pushHistory(cur.copy(layers = updated))
+    }
+
     fun setText(newText: String) {
         if (newText == history.current().rawText) return
         history.pushActiveLayerHistory { it.copy(rawText = newText).withKashida() }

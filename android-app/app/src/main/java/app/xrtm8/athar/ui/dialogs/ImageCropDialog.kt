@@ -31,6 +31,7 @@ import androidx.compose.ui.window.DialogProperties
 import app.xrtm8.athar.core.AtharImageProcessor
 import app.xrtm8.athar.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -53,10 +54,12 @@ fun ImageCropDialog(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val isAmoledWhite = LocalAmoledWhite.current
+    val coroutineScope = rememberCoroutineScope()
 
     var loadedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var rotationAngle by remember { mutableIntStateOf(0) }
     var selectedAspect by remember { mutableStateOf(CropAspect.FREE) }
+    var isCropping by remember { mutableStateOf(false) }
 
     var cropLeft by remember { mutableFloatStateOf(0.05f) }
     var cropTop by remember { mutableFloatStateOf(0.05f) }
@@ -182,31 +185,42 @@ fun ImageCropDialog(
                     Button(
                         onClick = {
                             val bm = loadedBitmap
-                            if (bm != null) {
+                            if (bm != null && !isCropping) {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                try {
-                                    val bx = (cropLeft * bm.width).toInt().coerceIn(0, bm.width - 2)
-                                    val by = (cropTop * bm.height).toInt().coerceIn(0, bm.height - 2)
-                                    val bw = ((cropRight - cropLeft) * bm.width).toInt().coerceIn(2, bm.width - bx)
-                                    val bh = ((cropBottom - cropTop) * bm.height).toInt().coerceIn(2, bm.height - by)
-                                    val cropped = Bitmap.createBitmap(bm, bx, by, bw, bh)
-                                    val cropFile = File(context.cacheDir, "crop_${System.currentTimeMillis()}.png")
-                                    FileOutputStream(cropFile).use { out -> cropped.compress(Bitmap.CompressFormat.PNG, 95, out) }
-                                    onCropSuccess(Uri.fromFile(cropFile))
-                                } catch (_: Exception) {
-                                    onSkipCrop()
+                                isCropping = true
+                                coroutineScope.launch {
+                                    val resultUri = withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            val bx = (cropLeft * bm.width).toInt().coerceIn(0, bm.width - 2)
+                                            val by = (cropTop * bm.height).toInt().coerceIn(0, bm.height - 2)
+                                            val bw = ((cropRight - cropLeft) * bm.width).toInt().coerceIn(2, bm.width - bx)
+                                            val bh = ((cropBottom - cropTop) * bm.height).toInt().coerceIn(2, bm.height - by)
+                                            val cropped = Bitmap.createBitmap(bm, bx, by, bw, bh)
+                                            val cropFile = File(context.cacheDir, "crop_${System.currentTimeMillis()}.png")
+                                            FileOutputStream(cropFile).use { out -> cropped.compress(Bitmap.CompressFormat.PNG, 95, out) }
+                                            if (cropped !== bm && !cropped.isRecycled) cropped.recycle()
+                                            Uri.fromFile(cropFile)
+                                        }.getOrNull()
+                                    }
+                                    isCropping = false
+                                    if (resultUri != null) onCropSuccess(resultUri) else onSkipCrop()
                                 }
-                            } else {
+                            } else if (bm == null) {
                                 onSkipCrop()
                             }
                         },
+                        enabled = !isCropping,
                         colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),
                         modifier = Modifier.weight(1f).height(46.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("تأكيد القص", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        if (isCropping) {
+                            CircularProgressIndicator(color = PureWhite, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                        } else {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("تأكيد القص", color = PureWhite, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
                     }
                 }
             }

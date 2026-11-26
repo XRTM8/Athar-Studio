@@ -15,7 +15,10 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +50,7 @@ fun TextLayerStrip(
     onSelectLayer: (String) -> Unit,
     onMoveLayerUp: (() -> Unit)? = null,
     onMoveLayerDown: (() -> Unit)? = null,
+    onToggleVisibility: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -126,15 +130,23 @@ fun TextLayerStrip(
                         .padding(horizontal = 9.dp, vertical = 6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.TextFields,
+                        imageVector = when {
+                            !layer.isVisible -> Icons.Default.VisibilityOff
+                            layer.isLocked -> Icons.Default.Lock
+                            else -> Icons.Default.TextFields
+                        },
                         contentDescription = null,
-                        tint = if (isActive) CherryAccent else secondaryText,
+                        tint = when {
+                            !layer.isVisible -> secondaryText.copy(alpha = 0.55f)
+                            isActive -> CherryAccent
+                            else -> secondaryText
+                        },
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        text = layer.rawText.take(10).ifBlank { "نص ${index + 1}" },
-                        color = if (isActive) primaryText else secondaryText,
+                        text = layer.rawText.take(10).ifBlank { layer.name.ifBlank { "نص ${index + 1}" } },
+                        color = (if (isActive) primaryText else secondaryText).copy(alpha = if (layer.isVisible) 1f else 0.55f),
                         fontSize = 11.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1
@@ -144,6 +156,31 @@ fun TextLayerStrip(
         }
 
         Spacer(modifier = Modifier.width(6.dp))
+
+        // Toggle Active Layer Visibility
+        if (onToggleVisibility != null) {
+            val activeVisible = state.activeLayer.isVisible
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(surfaceBg)
+                    .border(0.5.dp, stripBorder, RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onToggleVisibility(state.activeLayer.id)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (activeVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    contentDescription = if (activeVisible) "إخفاء الطبقة" else "إظهار الطبقة",
+                    tint = if (activeVisible) CherryAccent else secondaryText,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(5.dp))
+        }
 
         // Duplicate Active Layer Action
         Box(

@@ -82,7 +82,10 @@ object AtharProjectManager {
         val resolvedExistingTitle = if (projectTitle == null && safeExistingId != null) {
             readExistingManifestTitle(projectFile)
         } else null
-        val title = (projectTitle ?: resolvedExistingTitle ?: state.rawText.trim().replace("\n", " ").take(25))
+        val fallbackLayerText = state.rawText.ifBlank {
+            state.layers.firstOrNull { it.rawText.isNotBlank() }?.rawText ?: ""
+        }
+        val title = (projectTitle ?: resolvedExistingTitle ?: fallbackLayerText.trim().replace("\n", " ").take(25))
             .ifBlank { "مشروع بدون عنوان" }
 
         val thumbBitmap = AtharProjectThumbnailRenderer.renderThumbnail(context, state)
@@ -104,11 +107,13 @@ object AtharProjectManager {
             }
         }
 
+        val nowMs = System.currentTimeMillis()
         val json = JSONObject().apply {
             put("athar_schema_version", CURRENT_SCHEMA_VERSION)
             put("project_id", projId)
             put("title", title)
-            put("created_at", System.currentTimeMillis())
+            put("created_at", nowMs)
+            put("updated_at", nowMs)
             put("canvas", AtharProjectSerializer.serializeCanvasState(state, hasBg))
         }
 

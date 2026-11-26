@@ -28,14 +28,15 @@ fun ExportBottomSheet(
     state: CanvasState,
     isExporting: Boolean,
     onDismiss: () -> Unit,
-    onExportFullCanvas: (ExportResolution) -> Unit,
-    onExportSticker: (ExportResolution) -> Unit,
-    onExportPdf: () -> Unit,
-    onExportSvg: () -> Unit,
+    onExportFullCanvas: (ExportResolution, Boolean) -> Unit,
+    onExportSticker: (ExportResolution, Boolean) -> Unit,
+    onExportPdf: (Boolean) -> Unit,
+    onExportSvg: (Boolean) -> Unit,
     onSaveProject: () -> Unit,
     onShareAtharProject: () -> Unit
 ) {
     var selectedResolution by remember { mutableStateOf(ExportResolution.HD_1080P) }
+    var shareAfterExport by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val isAmoledWhite = LocalAmoledWhite.current
     val primaryTextColor = if (isAmoledWhite) DarkText else PureWhite
@@ -108,13 +109,42 @@ fun ExportBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Direct Share Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(cardBg)
+                    .border(0.5.dp, if (shareAfterExport) CherryAccent else cardBorder, RoundedCornerShape(12.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        shareAfterExport = !shareAfterExport
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Share, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("مشاركة مباشرة بعد الحفظ", color = primaryTextColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+                Switch(
+                    checked = shareAfterExport,
+                    onCheckedChange = { shareAfterExport = it },
+                    colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = CherryAccent)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // 1. Export Full Canvas Frame
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onExportFullCanvas(selectedResolution)
+                    onExportFullCanvas(selectedResolution, shareAfterExport)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
                 shape = RoundedCornerShape(14.dp),
@@ -152,7 +182,7 @@ fun ExportBottomSheet(
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onExportSticker(selectedResolution)
+                    onExportSticker(selectedResolution, shareAfterExport)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                 shape = RoundedCornerShape(14.dp),
@@ -182,7 +212,7 @@ fun ExportBottomSheet(
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onExportPdf()
+                    onExportPdf(shareAfterExport)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                 shape = RoundedCornerShape(14.dp),
@@ -212,7 +242,7 @@ fun ExportBottomSheet(
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onExportSvg()
+                    onExportSvg(shareAfterExport)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = cardBg),
                 shape = RoundedCornerShape(14.dp),

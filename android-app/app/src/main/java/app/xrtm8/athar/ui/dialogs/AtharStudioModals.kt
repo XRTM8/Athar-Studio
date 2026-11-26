@@ -65,15 +65,16 @@ fun AtharStudioModals(
     var pendingExportType by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingResolution by rememberSaveable { mutableStateOf<ExportResolution?>(null) }
     var pendingSticker by rememberSaveable { mutableStateOf(false) }
+    var pendingShare by rememberSaveable { mutableStateOf(false) }
 
-    fun executePendingExport(type: String, resolution: ExportResolution?, sticker: Boolean) {
+    fun executePendingExport(type: String, resolution: ExportResolution?, sticker: Boolean, share: Boolean) {
         when (type) {
             "RASTER" -> {
                 val res = resolution ?: ExportResolution.HD_1080P
-                viewModel.exportDesign(context, res, sticker || canvasState.isTransparentBg, sticker)
+                viewModel.exportDesign(context, res, sticker || canvasState.isTransparentBg, sticker, share)
             }
-            "PDF" -> viewModel.exportPdf(context)
-            "SVG" -> viewModel.exportSvg(context)
+            "PDF" -> viewModel.exportPdf(context, share)
+            "SVG" -> viewModel.exportSvg(context, share)
         }
         onDismissExportSheet()
     }
@@ -81,22 +82,25 @@ fun AtharStudioModals(
     val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val type = pendingExportType
         val resolution = pendingResolution
+        val share = pendingShare
         pendingExportType = null
         pendingResolution = null
-        if (granted && type != null) executePendingExport(type, resolution, pendingSticker)
+        pendingShare = false
+        if (granted && type != null) executePendingExport(type, resolution, pendingSticker, share)
         else if (!granted) Toast.makeText(context, "يلزم إذن التخزين لحفظ الملف", Toast.LENGTH_SHORT).show()
     }
 
-    fun requestStorageExport(type: String, resolution: ExportResolution? = null, sticker: Boolean = false) {
+    fun requestStorageExport(type: String, resolution: ExportResolution? = null, sticker: Boolean = false, share: Boolean = false) {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) {
             pendingExportType = type
             pendingResolution = resolution
             pendingSticker = sticker
+            pendingShare = share
             storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         } else {
-            executePendingExport(type, resolution, sticker)
+            executePendingExport(type, resolution, sticker, share)
         }
     }
 
@@ -105,10 +109,10 @@ fun AtharStudioModals(
             state = canvasState,
             isExporting = isExporting,
             onDismiss = onDismissExportSheet,
-            onExportFullCanvas = { requestStorageExport("RASTER", it, false) },
-            onExportSticker = { requestStorageExport("RASTER", it, true) },
-            onExportPdf = { requestStorageExport("PDF") },
-            onExportSvg = { requestStorageExport("SVG") },
+            onExportFullCanvas = { res, share -> requestStorageExport("RASTER", res, false, share) },
+            onExportSticker = { res, share -> requestStorageExport("RASTER", res, true, share) },
+            onExportPdf = { share -> requestStorageExport("PDF", share = share) },
+            onExportSvg = { share -> requestStorageExport("SVG", share = share) },
             onSaveProject = { viewModel.saveCurrentProject(context); onDismissExportSheet() },
             onShareAtharProject = { viewModel.exportProjectAsAthar(context); onDismissExportSheet() }
         )
@@ -120,7 +124,16 @@ fun AtharStudioModals(
             onDismiss = onDismissProjectsSheet,
             onImportProject = onImportProjectRequest,
             onSaveCurrent = { viewModel.saveCurrentProject(context) },
-            onNewProject = { viewModel.createNewProject(); onDismissProjectsSheet() },
+            onNewProject = {
+                val hasContent = canvasState.layers.any { it.displayText.isNotBlank() } ||
+                    canvasState.backgroundImageUri != null ||
+                    canvasState.collageState.cells.any { it.imageUri != null }
+                if (hasContent && viewModel.hasUnsavedChanges()) {
+                    viewModel.saveCurrentProject(context)
+                }
+                viewModel.createNewProject()
+                onDismissProjectsSheet()
+            },
             onOpenProject = { id -> viewModel.openProjectById(context, id); onDismissProjectsSheet() },
             onShareProject = { id -> viewModel.shareProjectById(context, id) },
             onDeleteProject = { id -> viewModel.deleteProject(context, id) }

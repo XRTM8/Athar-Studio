@@ -65,13 +65,17 @@ class MainActivity : ComponentActivity() {
         }
 
         // Silent non-blocking update check in background upon launch
+        val fromUpdateNotification = intent?.getBooleanExtra("SHOW_UPDATE_DIALOG", false) == true
         lifecycleScope.launch {
             val currentVersion = try {
                 packageManager.getPackageInfo(packageName, 0).versionName ?: BuildConfig.VERSION_NAME
             } catch (e: Exception) {
                 BuildConfig.VERSION_NAME
             }
-            updateManager.checkForUpdates(currentVersionName = currentVersion, showNotificationOnFound = true)
+            updateManager.checkForUpdates(
+                currentVersionName = currentVersion,
+                showNotificationOnFound = !fromUpdateNotification
+            )
         }
 
         // Preload authentic Arabic typefaces into memory

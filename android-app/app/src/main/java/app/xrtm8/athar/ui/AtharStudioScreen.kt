@@ -6,6 +6,7 @@ import androidx.activity.compose.*
 import androidx.activity.result.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -172,7 +173,8 @@ fun AtharStudioScreen(
                             onDeleteLayer = { viewModel.removeActiveLayer() },
                             onSelectLayer = { viewModel.selectLayer(it) },
                             onMoveLayerUp = { viewModel.moveActiveLayerUp() },
-                            onMoveLayerDown = { viewModel.moveActiveLayerDown() }
+                            onMoveLayerDown = { viewModel.moveActiveLayerDown() },
+                            onToggleVisibility = { viewModel.toggleLayerVisibility(it) }
                         )
                     }
                 }
@@ -235,6 +237,41 @@ fun AtharStudioScreen(
                 visible = isPreviewMode,
                 onClick = { isPreviewMode = false }
             )
+
+            // Non-blocking Export Progress Overlay
+            AnimatedVisibility(
+                visible = isExporting,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background((if (isAmoledWhite) AmoledWhite else AmoledBlack).copy(alpha = 0.72f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = if (isAmoledWhite) WhiteSurface else StudioSurface,
+                        tonalElevation = 6.dp
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 28.dp, vertical = 20.dp)
+                        ) {
+                            CircularProgressIndicator(color = CherryAccent, modifier = Modifier.size(34.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "جارٍ تصدير التصميم...",
+                                color = if (isAmoledWhite) DarkText else PureWhite,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Modals & BottomSheets Helper
