@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -163,29 +164,39 @@ fun AtharSettingsDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Section 2: Font Licenses
+                // Section 2: Collapsible Font Licenses
+                var showLicenses by remember { mutableStateOf(false) }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(cardBg)
                         .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                        .clickable { showLicenses = !showLicenses }
                         .padding(14.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.TextSnippet, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "تراخيص الخطوط العربية", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.TextSnippet, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "تراخيص الخطوط العربية (OFL 1.1)", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text(text = if (showLicenses) "إخفاء ▴" else "عرض ▾", color = CherryAccent, fontSize = 11.sp)
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "كافة الخطوط العربية المضمنة في أثر (أميري، أميري قرآني، عارف رقعة، شهرزاد، المسيري، ريم كوفي، قاهري، كوفام، لاليزار، رقاص، كايرو، الإسكندرية، ريدكس برو، المراعي، تجوال، مرحي، ليمونادا، وجلزار) مرخصة برخصة الخطوط المفتوحة SIL Open Font License 1.1 ومتاحة للاستخدام الشخصي والتجاري. أما الخطوط المستوردة يدوياً فتخضع لترخيص ملفاتها من قِبل المستخدم.",
-                        color = subtleText,
-                        fontSize = 11.5.sp,
-                        lineHeight = 17.sp
-                    )
+                    if (showLicenses) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "كافة الخطوط المضمنة في أثر (أميري، أميري قرآني، عارف رقعة، شهرزاد، المسيري، ريم كوفي، قاهري، كوفام، لاليزار، رقاص، كايرو، الإسكندرية، ريدكس برو، المراعي، تجوال، مرحي، ليمونادا، وجلزار) مرخصة برخصة الخطوط المفتوحة SIL Open Font License 1.1 ومتاحة للاستخدام الشخصي والتجاري. أما الخطوط المستوردة يدوياً فتخضع لترخيص ملفاتها من قِبل المستخدم.",
+                            color = subtleText,
+                            fontSize = 11.5.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))

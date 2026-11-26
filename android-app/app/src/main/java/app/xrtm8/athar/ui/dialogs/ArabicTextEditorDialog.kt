@@ -249,6 +249,47 @@ fun ArabicTextEditorDialog(
             val hasSelection = selMax > selMin
 
             if (curText.isNotBlank()) {
+                // Live multi-word Rich Text Preview
+                if (spans.any { it.hasAnyStyle }) {
+                    val previewAnnotated = remember(curText, spans) {
+                        buildAnnotatedString {
+                            append(curText)
+                            spans.forEach { sp ->
+                                val s = sp.start.coerceIn(0, curText.length)
+                                val e = sp.end.coerceIn(s, curText.length)
+                                if (e > s) {
+                                    addStyle(
+                                        SpanStyle(
+                                            color = sp.textColorLong?.let { Color(it) } ?: primaryTextColor,
+                                            background = sp.highlightColorLong?.let { Color(it).copy(alpha = sp.highlightAlpha) } ?: Color.Unspecified,
+                                            fontWeight = if (sp.isBold == true) FontWeight.Bold else null,
+                                            fontStyle = if (sp.isItalic == true) FontStyle.Italic else null
+                                        ),
+                                        s, e
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(cardBg)
+                            .border(0.5.dp, cardBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = previewAnnotated,
+                            color = primaryTextColor,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -260,21 +301,41 @@ fun ArabicTextEditorDialog(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    if (spans.isNotEmpty()) {
-                        Text(
-                            text = "مسح التنسيقات",
-                            color = subtleTextColor,
-                            fontSize = 10.sp,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { spans = emptyList() }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (hasSelection && selMax < curText.length) {
+                            Text(
+                                text = "+ التالية",
+                                color = CherryAccent,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(CherryAccent.copy(alpha = 0.14f))
+                                    .clickable {
+                                        var nextEnd = selMax
+                                        while (nextEnd < curText.length && curText[nextEnd].isWhitespace()) nextEnd++
+                                        while (nextEnd < curText.length && !curText[nextEnd].isWhitespace()) nextEnd++
+                                        textFieldValue = textFieldValue.copy(selection = TextRange(selMin, nextEnd))
+                                    }
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        if (spans.isNotEmpty()) {
+                            Text(
+                                text = "مسح التنسيقات",
+                                color = subtleTextColor,
+                                fontSize = 10.sp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { spans = emptyList() }
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Quick word selector chips
+                // Quick word selector chips with visual highlight indicator dot
                 val wordRanges = remember(curText) {
                     Regex("\\S+").findAll(curText).map { it.range.first..(it.range.last + 1) }.toList()
                 }
@@ -286,10 +347,13 @@ fun ArabicTextEditorDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         wordRanges.forEach { range ->
-                            val isSelected = selMin == range.first && selMax == range.last
+                            val isSelected = selMin <= range.first && selMax >= range.last
                             val wordText = curText.substring(range.first, range.last)
-                            val hasSpan = spans.any { it.start < range.last && it.end > range.first }
-                            Box(
+                            val matchingSpan = spans.find { it.start < range.last && it.end > range.first }
+                            val hasSpan = matchingSpan != null
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSelected) CherryAccent.copy(alpha = 0.25f) else cardBg)
@@ -308,6 +372,14 @@ fun ArabicTextEditorDialog(
                                     }
                                     .padding(horizontal = 10.dp, vertical = 5.dp)
                             ) {
+                                if (matchingSpan?.highlightColorLong != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(matchingSpan.highlightColorLong))
+                                    )
+                                }
                                 Text(
                                     text = wordText,
                                     color = primaryTextColor,

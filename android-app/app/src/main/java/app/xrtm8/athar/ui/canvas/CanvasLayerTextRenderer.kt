@@ -336,8 +336,10 @@ object CanvasLayerTextRenderer {
         pool.emptyPromptBgPaint.color = if (isAmoledWhite) 0x14000000.toInt() else 0x33000000.toInt()
         val textPromptPaint = pool.getEmptyPromptTextPaint(
             AtharFontManager.getTypeface(context, app.xrtm8.athar.model.ArabicFontFamily.AREF_RUQAA)
-        )
-        pool.emptyPromptSubPaint.color = if (isAmoledWhite) 0x99000000.toInt() else 0x88FFFFFF.toInt()
+        ).apply {
+            color = if (isAmoledWhite) 0xFF9E1B32.toInt() else 0xFFE5C07B.toInt()
+        }
+        pool.emptyPromptSubPaint.color = if (isAmoledWhite) 0xBB000000.toInt() else 0xCCFFFFFF.toInt()
 
         pool.emptyPromptRect.set(left, top, left + promptW, top + promptH)
         nativeCanvas.drawRoundRect(pool.emptyPromptRect, 14f * density, 14f * density, pool.emptyPromptBgPaint)

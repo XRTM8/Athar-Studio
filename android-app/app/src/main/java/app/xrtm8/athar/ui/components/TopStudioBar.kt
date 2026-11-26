@@ -161,7 +161,7 @@ fun TopStudioBar(
                     onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onTogglePreview() },
                     modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(Icons.Default.Visibility, contentDescription = "معاينة التصميم", tint = BurgundyAccent, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Fullscreen, contentDescription = "معاينة التصميم", tint = BurgundyAccent, modifier = Modifier.size(17.dp))
                 }
 
                 IconButton(

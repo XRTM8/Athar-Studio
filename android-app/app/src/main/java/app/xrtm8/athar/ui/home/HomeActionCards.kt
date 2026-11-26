@@ -93,7 +93,7 @@ fun HomeActionCards(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "فتح ملف .athar بكافة طبقاته السابقة",
+                    text = "فتح ملف \u2066.athar\u2069 بكافة طبقاته السابقة",
                     color = subtleTextColor,
                     fontSize = 10.5.sp,
                     maxLines = 2

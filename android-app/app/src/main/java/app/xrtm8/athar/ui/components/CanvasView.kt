@@ -97,12 +97,12 @@ fun CanvasView(
         else -> state
     }
 
-    Box(contentAlignment = Alignment.Center, modifier = modifier.fillMaxSize().clipToBounds().background(if (isAmoledWhite) WhiteSurface else AmoledBlack)) {
+    Box(contentAlignment = Alignment.Center, modifier = modifier.fillMaxSize().clipToBounds().background(if (isAmoledWhite) WhiteSurface else Color(0xFF0C0E13))) {
         Canvas(
             modifier = Modifier
                 .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.fillMaxSize())
                 .clipToBounds()
-                .border(0.5.dp, if (isAmoledWhite) WhiteBorder else GlassBorder)
+                .border(1.dp, if (isAmoledWhite) WhiteBorder else Color(0xFF2B2F3A))
                 .background(if (state.isTransparentBg) Color.Transparent else if (isAmoledWhite) Color.White else AmoledBlack)
                 .pointerInput(state.isLocked && !effectiveFramingMode, effectiveFramingMode) {
                     detectCanvasGestures(

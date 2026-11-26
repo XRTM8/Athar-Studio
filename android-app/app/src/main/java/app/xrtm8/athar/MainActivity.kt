@@ -56,6 +56,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         updateManager = AtharUpdateManager(this)
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { app.xrtm8.athar.project.AtharProjectManager.pruneOldCache(applicationContext) }
+        }
 
         // Request notification permission smoothly on Android 13+ (API 33)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

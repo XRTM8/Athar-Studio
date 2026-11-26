@@ -195,6 +195,22 @@ object AtharRichTextEngine {
                 layout.getSelectionPath(segStart, segEnd, selPath)
                 val bounds = RectF()
                 selPath.computeBounds(bounds, true)
+
+                if (bounds.width() <= 0.5f || bounds.height() <= 0.5f) {
+                    val x1 = layout.getPrimaryHorizontal(segStart)
+                    val x2 = layout.getPrimaryHorizontal(segEnd)
+                    val leftX = min(x1, x2)
+                    val rightX = max(x1, x2)
+                    if (rightX - leftX > 0.5f) {
+                        bounds.set(
+                            leftX,
+                            layout.getLineTop(line).toFloat(),
+                            rightX,
+                            layout.getLineBottom(line).toFloat()
+                        )
+                    }
+                }
+
                 if (bounds.width() > 0.5f && bounds.height() > 0.5f) {
                     bounds.inset(-padH, -padV)
                     results.add(

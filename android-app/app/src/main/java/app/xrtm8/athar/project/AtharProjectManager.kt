@@ -403,6 +403,22 @@ object AtharProjectManager {
         (before - after).coerceAtLeast(0L)
     }
 
+    suspend fun pruneOldCache(context: Context, maxAgeMs: Long = 24L * 60L * 60L * 1000L) = withContext(Dispatchers.IO) {
+        val cutoff = System.currentTimeMillis() - maxAgeMs
+        fun pruneDir(dir: File?) {
+            if (dir == null || !dir.exists()) return
+            dir.listFiles()?.forEach { file ->
+                if (file.isDirectory) {
+                    pruneDir(file)
+                } else if (file.lastModified() < cutoff) {
+                    file.delete()
+                }
+            }
+        }
+        pruneDir(context.cacheDir)
+        pruneStaleExtractedAssets(context, maxAgeMs = maxAgeMs)
+    }
+
     suspend fun getExportableProjectFile(context: Context, projectId: String, title: String): File = withContext(Dispatchers.IO) {
         val safeId = sanitizeProjectId(projectId) ?: throw IllegalArgumentException("معرف المشروع غير صالح")
         val projectsDir = getProjectsDir(context)
