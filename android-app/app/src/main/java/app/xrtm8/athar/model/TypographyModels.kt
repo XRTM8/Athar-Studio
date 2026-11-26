@@ -255,3 +255,9 @@ enum class KashidaMode(val label: String, val description: String = "") {
     ALL("شامل (الكل)", "مد متساوٍ لكافة مواضع الوصل القابلة للمد"),
     CUSTOM("موضع مخصص", "اختيار يدوي دقيق للحرف المطلوب مده")
 }
+
+enum class ParagraphBalanceMode {
+    NONE,
+    JUSTIFY,
+    BALANCE
+}

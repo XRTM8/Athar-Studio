@@ -185,8 +185,13 @@ fun CanvasView(
                                     onResetCollageCellFraming?.invoke(cellId) ?: onCollageCellFramingFinished?.invoke(cellId, 0f, 0f, 1.0f)
                                 }
                             } else if (!effectiveFramingMode) {
-                                CanvasHitTester.findHitLayer(context, offset.x, offset.y, canvasW, canvasH, st, density)?.let { onSelectLayer?.invoke(it.id) }
-                                onDoubleTap?.invoke()
+                                val hit = CanvasHitTester.findHitLayer(context, offset.x, offset.y, canvasW, canvasH, st, density)
+                                if (hit != null) {
+                                    onSelectLayer?.invoke(hit.id)
+                                    if (!hit.isLocked) onDoubleTap?.invoke()
+                                } else if (!st.isLocked) {
+                                    onDoubleTap?.invoke()
+                                }
                             }
                         },
                         onHoldBeforeAfter = { holding ->
@@ -203,13 +208,15 @@ fun CanvasView(
                 val native = composeCanvas.nativeCanvas
                 if (isComparingBefore) {
                     CanvasBackgroundRenderer.drawBackground(
-                        native, AtharBackgroundPipeline.createBeforeCompareState(stateForBg), canvasW, canvasH, density, bitmaps.rawBitmap, paints.bgPaint, bitmaps.cellBitmaps
+                        native, AtharBackgroundPipeline.createBeforeCompareState(stateForBg), canvasW, canvasH, density, bitmaps.rawBitmap, paints.bgPaint, bitmaps.cellBitmaps,
+                        isAmoledWhite = isAmoledWhite
                     )
                 } else {
                     CanvasBackgroundRenderer.drawBackground(
                         native, stateForBg, canvasW, canvasH, density, bitmaps.processedBitmap, paints.bgPaint,
                         bitmaps.cellBitmaps, bitmaps.maskBitmap, bitmaps.processedCollagePhotoLayer,
-                        bitmaps.processedCollageBitmap, bitmaps.blurredCellBitmaps, isInteracting && effectiveFramingMode
+                        bitmaps.processedCollageBitmap, bitmaps.blurredCellBitmaps, isInteracting && effectiveFramingMode,
+                        isAmoledWhite = isAmoledWhite
                     )
                     if (state.collageState.isEnabled && (effectiveFramingMode || tappedCellId != null)) {
                         CollageCanvasRenderer.drawActiveCellHighlight(

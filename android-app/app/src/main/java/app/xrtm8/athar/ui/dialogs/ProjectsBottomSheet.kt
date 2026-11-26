@@ -131,9 +131,9 @@ fun ProjectsBottomSheet(
                     border = androidx.compose.foundation.BorderStroke(0.5.dp, cardBorder),
                     modifier = Modifier.weight(1f).height(42.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Add, contentDescription = null, tint = primaryTextColor, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("مشروع جديد", color = PureWhite, fontWeight = FontWeight.Medium, fontSize = 12.5.sp)
+                    Text("مشروع جديد", color = primaryTextColor, fontWeight = FontWeight.Medium, fontSize = 12.5.sp)
                 }
             }
 

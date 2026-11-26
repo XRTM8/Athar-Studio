@@ -91,7 +91,7 @@ fun ColorsMaterialsSection(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = grad.labelAr,
-                                color = if (isSelected) AmoledBlack else PureWhite,
+                                color = PureWhite,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 11.sp,
                                 maxLines = 1

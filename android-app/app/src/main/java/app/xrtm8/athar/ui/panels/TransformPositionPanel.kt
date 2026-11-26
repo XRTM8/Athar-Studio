@@ -50,6 +50,11 @@ fun TransformPositionPanel(
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val surfaceBg = if (isAmoledWhite) WhiteSurfaceElevated else GlassSurface
+    val borderCol = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val primaryText = if (isAmoledWhite) DarkText else PureWhite
+    val mutedText = if (isAmoledWhite) DarkTextMuted else MutedWhite
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Quick Reset to Center Hero CTA
@@ -58,7 +63,7 @@ fun TransformPositionPanel(
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onResetTransform()
             },
-            colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+            colors = ButtonDefaults.buttonColors(containerColor = surfaceBg),
             shape = RoundedCornerShape(12.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorderActive),
             modifier = Modifier.fillMaxWidth().height(38.dp)
@@ -77,7 +82,7 @@ fun TransformPositionPanel(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "إعادة ضبط الموضع والتكبير",
-                    color = PureWhite,
+                    color = primaryText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -112,7 +117,7 @@ fun TransformPositionPanel(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "تدوير النص:",
-                    color = PureWhite,
+                    color = primaryText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -133,8 +138,8 @@ fun TransformPositionPanel(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) CherryAccent else GlassSurface)
-                            .border(0.5.dp, if (isSelected) CherryAccent else GlassBorder, RoundedCornerShape(6.dp))
+                            .background(if (isSelected) CherryAccent else surfaceBg)
+                            .border(0.5.dp, if (isSelected) CherryAccent else borderCol, RoundedCornerShape(6.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onRotationChange(angle)
@@ -145,7 +150,7 @@ fun TransformPositionPanel(
                     ) {
                         Text(
                             text = label,
-                            color = if (isSelected) PureWhite else MutedWhite,
+                            color = if (isSelected) PureWhite else mutedText,
                             fontSize = 10.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )
@@ -158,7 +163,7 @@ fun TransformPositionPanel(
 
         StudioSlider(
             title = "زاوية الدوران",
-            value = state.rotationAngle,
+            value = state.rotationAngle.coerceIn(-180f, 180f),
             onValueChange = onRotationChange,
             onValueChangeFinished = onSliderChangeFinished,
             valueRange = -180f..180f,
@@ -184,7 +189,7 @@ fun TransformPositionPanel(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "مقياس الحجم والتكبير:",
-                    color = PureWhite,
+                    color = primaryText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -193,8 +198,8 @@ fun TransformPositionPanel(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(GlassSurface)
-                    .border(0.5.dp, GlassBorder, RoundedCornerShape(6.dp))
+                    .background(surfaceBg)
+                    .border(0.5.dp, borderCol, RoundedCornerShape(6.dp))
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onScaleChange(1.0f)
@@ -216,10 +221,10 @@ fun TransformPositionPanel(
 
         StudioSlider(
             title = "نسبة التكبير (Scale)",
-            value = state.scaleFactor,
+            value = state.scaleFactor.coerceIn(0.25f, 4.0f),
             onValueChange = onScaleChange,
             onValueChangeFinished = onSliderChangeFinished,
-            valueRange = 0.4f..3.0f,
+            valueRange = 0.25f..4.0f,
             step = 0.05f,
             valueDisplay = String.format(Locale.ENGLISH, "%.2fx", state.scaleFactor)
         )

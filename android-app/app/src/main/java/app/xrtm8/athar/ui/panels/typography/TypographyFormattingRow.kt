@@ -39,6 +39,12 @@ fun TypographyFormattingRow(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val chipBg = if (isAmoledWhite) WhiteSurfaceElevated else GlassSurface
+    val chipBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val primaryText = if (isAmoledWhite) DarkText else PureWhite
+    val mutedIcon = if (isAmoledWhite) DarkTextMuted else MutedWhite
+    val subtleIcon = if (isAmoledWhite) DarkTextSubtle else SubtleGray
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Equal-Width Arabic Paragraph Justification Button (if multiline)
@@ -48,7 +54,7 @@ fun TypographyFormattingRow(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onJustifyLines()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GlassSurface),
+                colors = ButtonDefaults.buttonColors(containerColor = chipBg),
                 shape = RoundedCornerShape(10.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CherryAccent.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth().height(38.dp)
@@ -62,7 +68,7 @@ fun TypographyFormattingRow(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "موازنة أطوال الأسطر بالتساوي (كشيدة متزنة)",
-                    color = PureWhite,
+                    color = primaryText,
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -82,8 +88,8 @@ fun TypographyFormattingRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isBold) CherryAccent else GlassSurface)
-                        .border(0.5.dp, if (isBold) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isBold) CherryAccent else chipBg)
+                        .border(0.5.dp, if (isBold) CherryAccent else chipBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleBold()
@@ -94,7 +100,7 @@ fun TypographyFormattingRow(
                     Icon(
                         Icons.Default.FormatBold,
                         contentDescription = "عريض",
-                        tint = if (isBold) PureWhite else MutedWhite,
+                        tint = if (isBold) PureWhite else mutedIcon,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -102,8 +108,8 @@ fun TypographyFormattingRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isItalic) CherryAccent else GlassSurface)
-                        .border(0.5.dp, if (isItalic) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isItalic) CherryAccent else chipBg)
+                        .border(0.5.dp, if (isItalic) CherryAccent else chipBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleItalic()
@@ -114,7 +120,7 @@ fun TypographyFormattingRow(
                     Icon(
                         Icons.Default.FormatItalic,
                         contentDescription = "مائل",
-                        tint = if (isItalic) PureWhite else MutedWhite,
+                        tint = if (isItalic) PureWhite else mutedIcon,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -122,8 +128,8 @@ fun TypographyFormattingRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isUnderline) CherryAccent else GlassSurface)
-                        .border(0.5.dp, if (isUnderline) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
+                        .background(if (isUnderline) CherryAccent else chipBg)
+                        .border(0.5.dp, if (isUnderline) CherryAccent else chipBorder, RoundedCornerShape(8.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onToggleUnderline()
@@ -134,7 +140,7 @@ fun TypographyFormattingRow(
                     Icon(
                         Icons.Default.FormatUnderlined,
                         contentDescription = "تسطير",
-                        tint = if (isUnderline) PureWhite else MutedWhite,
+                        tint = if (isUnderline) PureWhite else mutedIcon,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -144,8 +150,8 @@ fun TypographyFormattingRow(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .background(GlassSurface)
-                    .border(0.5.dp, GlassBorder, RoundedCornerShape(10.dp))
+                    .background(chipBg)
+                    .border(0.5.dp, chipBorder, RoundedCornerShape(10.dp))
                     .padding(2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
@@ -169,7 +175,7 @@ fun TypographyFormattingRow(
                         Icon(
                             icon,
                             contentDescription = align.label,
-                            tint = if (isSelected) PureWhite else SubtleGray,
+                            tint = if (isSelected) PureWhite else subtleIcon,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -183,7 +189,7 @@ fun TypographyFormattingRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(GlassCard)
+                    .background(chipBg)
                     .border(0.5.dp, CherryAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)

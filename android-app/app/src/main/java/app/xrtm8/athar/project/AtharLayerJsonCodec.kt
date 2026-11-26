@@ -90,6 +90,7 @@ internal object AtharLayerJsonCodec {
             put("enable_swash", layer.enableSwash)
             put("enable_dlig", layer.enableDiscretionaryLigatures)
             put("word_spacing", layer.wordSpacing.toDouble())
+            put("paragraph_balance_mode", layer.paragraphBalanceMode.name)
         }
     }
 
@@ -156,7 +157,11 @@ internal object AtharLayerJsonCodec {
             stylisticSet = obj.optInt("stylistic_set", 0),
             enableSwash = obj.optBoolean("enable_swash", false),
             enableDiscretionaryLigatures = obj.optBoolean("enable_dlig", false),
-            wordSpacing = obj.optDouble("word_spacing", 0.0).toFloat()
+            wordSpacing = obj.optDouble("word_spacing", 0.0).toFloat(),
+            paragraphBalanceMode = enumOrDefault(
+                obj.optString("paragraph_balance_mode", ParagraphBalanceMode.NONE.name),
+                ParagraphBalanceMode.NONE
+            )
         )
     }
 

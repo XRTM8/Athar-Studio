@@ -14,8 +14,20 @@ import java.util.UUID
  */
 internal object StudioLayerTypographyOps {
 
-    fun TextLayer.withKashida(): TextLayer =
-        copy(displayText = PureArabicKashidaEngine.stretchText(rawText, stretchLevel, kashidaMode, kashidaTargetIndex))
+    fun TextLayer.withKashida(context: Context? = null): TextLayer {
+        val stretched = PureArabicKashidaEngine.stretchText(rawText, stretchLevel, kashidaMode, kashidaTargetIndex)
+        val finalDisplay = if (stretched.contains('\n')) {
+            val paint = context?.let { buildTextMeasurePaint(it, this) }
+            when (paragraphBalanceMode) {
+                ParagraphBalanceMode.JUSTIFY -> ArabicParagraphJustifier.justifyLines(stretched, paint)
+                ParagraphBalanceMode.BALANCE -> ArabicParagraphJustifier.balanceArabicBlock(stretched, paint)
+                ParagraphBalanceMode.NONE -> stretched
+            }
+        } else {
+            stretched
+        }
+        return copy(displayText = finalDisplay)
+    }
 
     fun addLayer(state: CanvasState, initialText: String): CanvasState {
         val newLayer = TextLayer(

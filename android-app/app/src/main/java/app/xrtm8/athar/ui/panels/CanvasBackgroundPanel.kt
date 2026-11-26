@@ -58,6 +58,10 @@ fun CanvasBackgroundPanel(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val tabBarBg = if (isAmoledWhite) WhiteSurfaceElevated else GlassSurface
+    val tabBarBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val unselectedText = if (isAmoledWhite) DarkTextMuted else MutedWhite
     var subSection by remember { mutableIntStateOf(0) }
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -66,8 +70,8 @@ fun CanvasBackgroundPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(GlassSurface)
-                .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp))
+                .background(tabBarBg)
+                .border(0.5.dp, tabBarBorder, RoundedCornerShape(12.dp))
                 .padding(3.dp)
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -97,9 +101,9 @@ fun CanvasBackgroundPanel(
                     contentAlignment = Alignment.Center
                 ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, tint = if (isSelected) PureWhite else MutedWhite, modifier = Modifier.size(13.dp))
+                    Icon(icon, null, tint = if (isSelected) PureWhite else unselectedText, modifier = Modifier.size(13.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(title, color = if (isSelected) PureWhite else MutedWhite, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                    Text(title, color = if (isSelected) PureWhite else unselectedText, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
                 }
             }
         }

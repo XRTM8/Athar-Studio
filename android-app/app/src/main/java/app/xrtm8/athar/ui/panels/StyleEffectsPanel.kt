@@ -65,6 +65,10 @@ fun StyleEffectsPanel(
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val tabBarBg = if (isAmoledWhite) WhiteSurfaceElevated else GlassSurface
+    val tabBarBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val unselectedText = if (isAmoledWhite) DarkTextMuted else MutedWhite
     var subTab by remember { mutableIntStateOf(0) }
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -73,8 +77,8 @@ fun StyleEffectsPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(GlassSurface)
-                .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp))
+                .background(tabBarBg)
+                .border(0.5.dp, tabBarBorder, RoundedCornerShape(12.dp))
                 .padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -101,13 +105,13 @@ fun StyleEffectsPanel(
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = if (isSelected) PureWhite else MutedWhite,
+                            tint = if (isSelected) PureWhite else unselectedText,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = title,
-                            color = if (isSelected) PureWhite else MutedWhite,
+                            color = if (isSelected) PureWhite else unselectedText,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )

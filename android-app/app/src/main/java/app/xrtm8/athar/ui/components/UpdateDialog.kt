@@ -164,7 +164,7 @@ fun GentleUpdateBanner(
                         ) {
                             Text(
                                 text = if (downloadProgress != null) "جاري التنزيل..." else "تحديث الآن",
-                                color = Color.Black,
+                                color = PureWhite,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )

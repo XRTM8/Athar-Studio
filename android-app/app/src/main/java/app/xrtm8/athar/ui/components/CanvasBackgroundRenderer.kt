@@ -18,20 +18,21 @@ import app.xrtm8.athar.model.CanvasState
 object CanvasBackgroundRenderer {
 
     private var cachedCheckerboardDensity = 0f
+    private var cachedCheckerboardLight = false
     private var cachedCheckerboardPaint: Paint? = null
     private val bgMatrix = Matrix()
     private val solidFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
-    private fun getCheckerboardPaint(density: Float): Paint {
+    private fun getCheckerboardPaint(density: Float, isAmoledWhite: Boolean): Paint {
         val existing = cachedCheckerboardPaint
-        if (existing != null && cachedCheckerboardDensity == density) {
+        if (existing != null && cachedCheckerboardDensity == density && cachedCheckerboardLight == isAmoledWhite) {
             return existing
         }
         val tileSize = (16f * density).toInt().coerceAtLeast(8)
         val tileBmp = Bitmap.createBitmap(tileSize * 2, tileSize * 2, Bitmap.Config.ARGB_8888)
         val c = Canvas(tileBmp)
-        val p1 = Paint().apply { color = 0xFF121418.toInt() }
-        val p2 = Paint().apply { color = 0xFF1A1D24.toInt() }
+        val p1 = Paint().apply { color = if (isAmoledWhite) 0xFFEAECEF.toInt() else 0xFF121418.toInt() }
+        val p2 = Paint().apply { color = if (isAmoledWhite) 0xFFFFFFFF.toInt() else 0xFF1A1D24.toInt() }
         val s = tileSize.toFloat()
 
         c.drawRect(0f, 0f, s, s, p1)
@@ -42,6 +43,7 @@ object CanvasBackgroundRenderer {
         val shader = BitmapShader(tileBmp, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG).apply { this.shader = shader }
         cachedCheckerboardDensity = density
+        cachedCheckerboardLight = isAmoledWhite
         cachedCheckerboardPaint = paint
         return paint
     }
@@ -59,10 +61,11 @@ object CanvasBackgroundRenderer {
         processedCollagePhotoLayer: Bitmap? = null,
         processedCollageBitmap: Bitmap? = null,
         blurredCellBitmaps: Map<String, Bitmap> = emptyMap(),
-        isLiveFramingDrag: Boolean = false
+        isLiveFramingDrag: Boolean = false,
+        isAmoledWhite: Boolean = false
     ) {
         if (state.isTransparentBg) {
-            nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, getCheckerboardPaint(density))
+            nativeCanvas.drawRect(0f, 0f, canvasWidth, canvasHeight, getCheckerboardPaint(density, isAmoledWhite))
             return
         }
 

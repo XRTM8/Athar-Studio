@@ -123,9 +123,14 @@ class AtharStudioViewModel : ViewModel() {
 
     fun setStretchLevel(newLevel: Int) {
         val level = newLevel.coerceIn(0, 8)
-        if (level == history.current().stretchLevel) return
+        if (level == history.current().stretchLevel &&
+            (level != 0 || history.current().activeLayer.paragraphBalanceMode == ParagraphBalanceMode.NONE)
+        ) return
         history.markSliderChange()
-        history.updateActiveLayer { it.copy(stretchLevel = level).withKashida() }
+        history.updateActiveLayer {
+            val nextBalance = if (level == 0) ParagraphBalanceMode.NONE else it.paragraphBalanceMode
+            it.copy(stretchLevel = level, paragraphBalanceMode = nextBalance).withKashida()
+        }
     }
 
     fun setKashidaMode(mode: KashidaMode) {
@@ -138,13 +143,19 @@ class AtharStudioViewModel : ViewModel() {
         history.pushActiveLayerHistory { it.copy(kashidaTargetIndex = targetIndex, kashidaMode = KashidaMode.CUSTOM).withKashida() }
 
     fun justifyActiveLayerLines(context: Context) {
-        val justified = StudioLayerTypographyOps.justifyLines(context, history.current().activeLayer) ?: return
-        history.pushActiveLayerHistory { it.copy(displayText = justified) }
+        val active = history.current().activeLayer
+        val updated = active.copy(paragraphBalanceMode = ParagraphBalanceMode.JUSTIFY).withKashida(context)
+        if (updated.displayText != active.displayText || active.paragraphBalanceMode != ParagraphBalanceMode.JUSTIFY) {
+            history.pushActiveLayerHistory { updated }
+        }
     }
 
     fun autoBalanceTypographicBlock(context: Context? = null) {
-        val balanced = StudioLayerTypographyOps.balanceBlock(context, history.current().activeLayer) ?: return
-        history.pushActiveLayerHistory { it.copy(displayText = balanced) }
+        val active = history.current().activeLayer
+        val updated = active.copy(paragraphBalanceMode = ParagraphBalanceMode.BALANCE).withKashida(context)
+        if (updated.displayText != active.displayText || active.paragraphBalanceMode != ParagraphBalanceMode.BALANCE) {
+            history.pushActiveLayerHistory { updated }
+        }
     }
 
     fun setEffect(effect: VisualEffect) {
@@ -194,8 +205,15 @@ class AtharStudioViewModel : ViewModel() {
     fun toggleUnderline() = history.pushActiveLayerHistory { it.copy(isUnderline = !it.isUnderline) }
     fun toggleLock() = history.updateActiveLayer { it.copy(isLocked = !it.isLocked) }
     fun toggleGridGuides() = history.updateState(markDirty = false) { it.copy(showGridGuides = !it.showGridGuides) }
-    fun setRotationAngle(angle: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(rotationAngle = (angle % 360f + 360f) % 360f) } }
-    fun setScale(scale: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(scaleFactor = scale.coerceIn(0.3f, 4.0f)) } }
+    private fun normalizeAngle180(angle: Float): Float {
+        var a = angle % 360f
+        if (a > 180f) a -= 360f
+        if (a < -180f) a += 360f
+        return if (a == -0f) 0f else a
+    }
+
+    fun setRotationAngle(angle: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(rotationAngle = normalizeAngle180(angle)) } }
+    fun setScale(scale: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(scaleFactor = scale.coerceIn(0.25f, 4.0f)) } }
     fun setTextAlign(alignment: TextAlignOption) = history.pushActiveLayerHistory { it.copy(textAlign = alignment) }
     fun setLineSpacing(multiplier: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(lineSpacingMultiplier = multiplier.coerceIn(1.0f, 2.5f)) } }
     fun setBoxWidthRatio(ratio: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(boxWidthRatio = ratio.coerceIn(0.30f, 1.0f)) } }
@@ -207,7 +225,7 @@ class AtharStudioViewModel : ViewModel() {
     fun setGlassBackdropOpacity(opacity: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(glassBackdropOpacity = opacity.coerceIn(0.1f, 0.98f)) } }
     fun setGlassBackdropCornerRadius(radius: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(glassBackdropCornerRadius = radius.coerceIn(4f, 48f)) } }
     fun setGlassBackdropPadding(padding: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(glassBackdropPadding = padding.coerceIn(8f, 56f)) } }
-    fun setFontSize(size: Float) = history.updateActiveLayer { it.copy(fontSize = size.coerceIn(6f, 100f)) }
+    fun setFontSize(size: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(fontSize = size.coerceIn(6f, 100f)) } }
     fun setBlendMode(mode: LayerBlendMode) = history.pushActiveLayerHistory { it.copy(blendMode = mode) }
     fun toggleCurvedText(enabled: Boolean) = history.pushActiveLayerHistory { it.copy(isCurved = enabled) }
     fun setCurveAngle(angle: Float) { history.markSliderChange(); history.updateActiveLayer { it.copy(curveAngle = angle.coerceIn(-180f, 180f)) } }
@@ -221,10 +239,10 @@ class AtharStudioViewModel : ViewModel() {
     }
 
     fun updateTransform(normX: Float, normY: Float, scale: Float, rotation: Float) =
-        history.updateActiveLayer { it.copy(normOffsetX = normX, normOffsetY = normY, scaleFactor = scale, rotationAngle = rotation) }
+        history.updateActiveLayer { it.copy(normOffsetX = normX, normOffsetY = normY, scaleFactor = scale.coerceIn(0.25f, 4.0f), rotationAngle = normalizeAngle180(rotation)) }
 
     fun commitTransform(normX: Float, normY: Float, scale: Float, rotation: Float) =
-        history.pushActiveLayerHistory { it.copy(normOffsetX = normX, normOffsetY = normY, scaleFactor = scale, rotationAngle = rotation) }
+        history.pushActiveLayerHistory { it.copy(normOffsetX = normX, normOffsetY = normY, scaleFactor = scale.coerceIn(0.25f, 4.0f), rotationAngle = normalizeAngle180(rotation)) }
 
     fun alignCenter() = history.pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = 0f, rotationAngle = 0f) }
     fun alignTop() = history.pushActiveLayerHistory { it.copy(normOffsetX = 0f, normOffsetY = -0.28f, rotationAngle = 0f) }

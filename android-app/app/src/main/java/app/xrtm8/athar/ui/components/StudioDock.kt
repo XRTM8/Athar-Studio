@@ -48,13 +48,18 @@ fun StudioDock(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val dockBg = if (isAmoledWhite) GlassBackgroundWhite else GlassBackground
+    val dockBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val unselectedIconTint = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val unselectedLabelColor = if (isAmoledWhite) DarkTextMuted else MutedWhite
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(GlassBackground)
-            .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(20.dp))
+            .background(dockBg)
+            .border(width = 0.5.dp, color = dockBorder, shape = RoundedCornerShape(20.dp))
             .padding(horizontal = 6.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
@@ -76,13 +81,13 @@ fun StudioDock(
                 Icon(
                     imageVector = tab.icon,
                     contentDescription = tab.title,
-                    tint = if (isSelected) CherryAccent else SubtleGray,
+                    tint = if (isSelected) CherryAccent else unselectedIconTint,
                     modifier = Modifier.size(19.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = tab.title,
-                    color = if (isSelected) CherryAccent else MutedWhite,
+                    color = if (isSelected) CherryAccent else unselectedLabelColor,
                     fontSize = 10.5.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )

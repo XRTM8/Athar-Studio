@@ -50,11 +50,16 @@ import app.xrtm8.athar.ui.panels.CanvasBackgroundPanel
 import app.xrtm8.athar.ui.panels.StyleEffectsPanel
 import app.xrtm8.athar.ui.panels.TransformPositionPanel
 import app.xrtm8.athar.ui.panels.TypographyPanel
-import app.xrtm8.athar.ui.theme.GlassBackground
-import app.xrtm8.athar.ui.theme.GlassBorder
 import app.xrtm8.athar.ui.theme.CherryAccent
+import app.xrtm8.athar.ui.theme.DarkText
+import app.xrtm8.athar.ui.theme.DarkTextSubtle
+import app.xrtm8.athar.ui.theme.GlassBackground
+import app.xrtm8.athar.ui.theme.GlassBackgroundWhite
+import app.xrtm8.athar.ui.theme.GlassBorder
+import app.xrtm8.athar.ui.theme.LocalAmoledWhite
 import app.xrtm8.athar.ui.theme.PureWhite
 import app.xrtm8.athar.ui.theme.SubtleGray
+import app.xrtm8.athar.ui.theme.WhiteBorder
 
 @Composable
 fun StudioConsoleDrawer(
@@ -73,6 +78,11 @@ fun StudioConsoleDrawer(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val drawerBg = if (isAmoledWhite) GlassBackgroundWhite else GlassBackground
+    val drawerBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val titleColor = if (isAmoledWhite) DarkText else PureWhite
+    val closeTint = if (isAmoledWhite) DarkTextSubtle else SubtleGray
     val extractedPalette by viewModel.extractedPalette.collectAsState()
 
     AnimatedVisibility(
@@ -85,8 +95,8 @@ fun StudioConsoleDrawer(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(22.dp))
-                .background(GlassBackground)
-                .border(width = 0.5.dp, color = GlassBorder, shape = RoundedCornerShape(22.dp))
+                .background(drawerBg)
+                .border(width = 0.5.dp, color = drawerBorder, shape = RoundedCornerShape(22.dp))
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Column(
@@ -113,7 +123,7 @@ fun StudioConsoleDrawer(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = currentTabItem.title,
-                                color = PureWhite,
+                                color = titleColor,
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -130,7 +140,7 @@ fun StudioConsoleDrawer(
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = "إغلاق",
-                            tint = SubtleGray
+                            tint = closeTint
                         )
                     }
                 }

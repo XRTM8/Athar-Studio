@@ -41,6 +41,14 @@ fun StudioSlider(
     onValueChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    val isAmoledWhite = LocalAmoledWhite.current
+    val titleColor = if (isAmoledWhite) DarkText else PureWhite
+    val badgeBg = if (isAmoledWhite) WhiteSurfaceElevated else GlassSurface
+    val badgeBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
+    val activeIconTint = if (isAmoledWhite) DarkTextMuted else MutedWhite
+    val inactiveIconTint = if (isAmoledWhite) DarkTextSubtle else SubtleGray
+    val inactiveTrack = if (isAmoledWhite) WhiteSurfaceActive else GlassSurface
+    val activeTick = if (isAmoledWhite) AmoledWhite else AmoledBlack
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -60,7 +68,7 @@ fun StudioSlider(
                 }
                 Text(
                     text = title,
-                    color = PureWhite,
+                    color = titleColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -72,8 +80,8 @@ fun StudioSlider(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(GlassSurface)
-                    .border(0.5.dp, GlassBorder, RoundedCornerShape(8.dp))
+                    .background(badgeBg)
+                    .border(0.5.dp, badgeBorder, RoundedCornerShape(8.dp))
                     .padding(horizontal = 4.dp, vertical = 2.dp)
             ) {
                 // Micro decrement button
@@ -92,7 +100,7 @@ fun StudioSlider(
                     Icon(
                         imageVector = Icons.Default.Remove,
                         contentDescription = "إنقاص",
-                        tint = if (value > valueRange.start) MutedWhite else SubtleGray,
+                        tint = if (value > valueRange.start) activeIconTint else inactiveIconTint,
                         modifier = Modifier.size(12.dp)
                     )
                 }
@@ -121,7 +129,7 @@ fun StudioSlider(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "زيادة",
-                        tint = if (value < valueRange.endInclusive) MutedWhite else SubtleGray,
+                        tint = if (value < valueRange.endInclusive) activeIconTint else inactiveIconTint,
                         modifier = Modifier.size(12.dp)
                     )
                 }
@@ -142,9 +150,9 @@ fun StudioSlider(
             colors = SliderDefaults.colors(
                 thumbColor = CherryAccent,
                 activeTrackColor = CherryAccent,
-                inactiveTrackColor = GlassSurface,
-                activeTickColor = AmoledBlack,
-                inactiveTickColor = GlassBorder
+                inactiveTrackColor = inactiveTrack,
+                activeTickColor = activeTick,
+                inactiveTickColor = badgeBorder
             ),
             modifier = Modifier.fillMaxWidth().height(32.dp)
         )
