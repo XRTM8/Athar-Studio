@@ -3,6 +3,7 @@ package app.xrtm8.athar.ui.components
 import android.graphics.LinearGradient
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import app.xrtm8.athar.model.CustomGradientState
 import app.xrtm8.athar.model.LuxuryGradientPreset
 import java.util.Collections
 import java.util.LinkedHashMap
@@ -83,5 +84,30 @@ object CanvasShaderFactory {
         }
         shaderCache[key] = shader
         return shader
+    }
+
+    fun createCustomGradientShader(
+        state: CustomGradientState,
+        centerX: Float,
+        centerY: Float,
+        radiusPx: Float
+    ): Shader? {
+        if (!state.isValid) return null
+        val sorted = state.stops.sortedBy { it.position }
+        val colors = IntArray(sorted.size) { sorted[it].colorLong.toInt() }
+        val positions = FloatArray(sorted.size) { sorted[it].position.coerceIn(0f, 1f) }
+        val clampedRadius = radiusPx.coerceAtLeast(10f)
+        return if (state.isRadial) {
+            RadialGradient(centerX, centerY, clampedRadius, colors, positions, Shader.TileMode.CLAMP)
+        } else {
+            val rad = Math.toRadians(state.angle.toDouble())
+            val dx = (cos(rad) * clampedRadius).toFloat()
+            val dy = (sin(rad) * clampedRadius).toFloat()
+            LinearGradient(
+                centerX - dx, centerY - dy,
+                centerX + dx, centerY + dy,
+                colors, positions, Shader.TileMode.CLAMP
+            )
+        }
     }
 }

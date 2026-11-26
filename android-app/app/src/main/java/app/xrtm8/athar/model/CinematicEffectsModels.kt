@@ -86,3 +86,25 @@ data class FlutedGlassState(
             chromaticDispersion == 0f &&
             edgeSoftness == 0f
 }
+
+/**
+ * 4-Point Luma Tone Curve & Split Toning Grading State.
+ */
+data class ToneCurveState(
+    val blacks: Float = 0f,
+    val shadows: Float = 0f,
+    val highlights: Float = 0f,
+    val whites: Float = 0f,
+    val splitShadowHue: Float = 220f,
+    val splitShadowSat: Float = 0f,
+    val splitHighlightHue: Float = 40f,
+    val splitHighlightSat: Float = 0f
+) {
+    val isEnabled: Boolean
+        get() = kotlin.math.abs(blacks) > 0.005f ||
+            kotlin.math.abs(shadows) > 0.005f ||
+            kotlin.math.abs(highlights) > 0.005f ||
+            kotlin.math.abs(whites) > 0.005f ||
+            splitShadowSat > 0.005f ||
+            splitHighlightSat > 0.005f
+}

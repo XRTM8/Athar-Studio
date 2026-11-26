@@ -108,7 +108,7 @@ fun rememberCanvasBackgroundBitmap(
         state.colorGradingEnabled, state.liftRed, state.liftGreen, state.liftBlue, state.gammaRed, state.gammaGreen, state.gammaBlue,
         state.gainRed, state.gainGreen, state.gainBlue, state.backgroundDim, state.backgroundBrightness, state.backgroundContrast,
         state.backgroundSaturation, state.backgroundGrayscale, state.cinematicGlowState, state.filmGrainState, state.glitchEffectState,
-        state.flutedGlassState, state.collageState.isEnabled
+        state.flutedGlassState, state.toneCurveState, state.collageState.isEnabled
     ) {
         val base = singleStageMix
         fun setProcessed(next: Bitmap?) {
@@ -178,7 +178,7 @@ fun rememberCanvasBackgroundBitmap(
         state.filmPreset, state.filmPresetIntensity, state.opticalLensState, state.colorGradingEnabled,
         state.liftRed, state.liftGreen, state.liftBlue, state.gammaRed, state.gammaGreen, state.gammaBlue, state.gainRed, state.gainGreen, state.gainBlue,
         state.backgroundDim, state.backgroundBrightness, state.backgroundContrast, state.backgroundSaturation, state.backgroundGrayscale,
-        state.cinematicGlowState, state.filmGrainState, state.glitchEffectState, state.flutedGlassState
+        state.cinematicGlowState, state.filmGrainState, state.glitchEffectState, state.flutedGlassState, state.toneCurveState
     ) {
         val mixed = collageStageMix
         fun setFinal(photoLayer: Bitmap?, composite: Bitmap?) {

@@ -33,3 +33,20 @@ data class TextSpanStyle(
     val hasHighlight: Boolean get() = highlightColorLong != null && highlightAlpha > 0.01f
     val hasAnyStyle: Boolean get() = hasFontOverride || hasHighlight || textColorLong != null
 }
+
+data class CustomGradientStop(
+    val colorLong: Long,
+    val position: Float
+)
+
+data class CustomGradientState(
+    val isEnabled: Boolean = false,
+    val stops: List<CustomGradientStop> = listOf(
+        CustomGradientStop(0xFFE5C07BL, 0f),
+        CustomGradientStop(0xFF9E1B32L, 1f)
+    ),
+    val angle: Float = 90f,
+    val isRadial: Boolean = false
+) {
+    val isValid: Boolean get() = isEnabled && stops.size >= 2
+}

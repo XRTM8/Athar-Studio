@@ -33,6 +33,8 @@ fun StrokeShadowSection(
     shadowDy: Float,
     shadowDx: Float,
     shadowColorLong: Long,
+    outerGlowRadius: Float = 0f,
+    outerGlowColorLong: Long = 0xFFE5C07BL,
     onStrokeWidthChange: (Float) -> Unit,
     onStrokeColorChange: (Long) -> Unit,
     onToggleHollowText: ((Boolean) -> Unit)? = null,
@@ -40,12 +42,15 @@ fun StrokeShadowSection(
     onShadowDyChange: (Float) -> Unit,
     onShadowDxChange: (Float) -> Unit,
     onShadowColorChange: (Long) -> Unit,
+    onOuterGlowRadiusChange: ((Float) -> Unit)? = null,
+    onOuterGlowColorChange: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     var showCustomStrokeColorDialog by remember { mutableStateOf(false) }
     var showCustomShadowColorDialog by remember { mutableStateOf(false) }
+    var showCustomGlowColorDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Hollow Outline Typography
@@ -266,6 +271,53 @@ fun StrokeShadowSection(
                 title = "منتقي لون الظل (Shadow)",
                 onColorSelected = { onShadowColorChange(it) },
                 onDismiss = { showCustomShadowColorDialog = false }
+            )
+        }
+
+        if (onOuterGlowRadiusChange != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            StudioSlider(
+                title = "توهج خارجي (Outer Glow)",
+                value = outerGlowRadius,
+                onValueChange = onOuterGlowRadiusChange,
+                onValueChangeFinished = onSliderChangeFinished,
+                valueRange = 0f..50f,
+                step = 1f,
+                valueDisplay = "${outerGlowRadius.toInt()}",
+                icon = Icons.Default.BlurOn
+            )
+            if (outerGlowRadius > 0.5f && onOuterGlowColorChange != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf(0xFFE5C07BL to "ذهبي", 0xFF9E1B32L to "عنابي", 0xFF38BDF8L to "سماوي", 0xFFFFFFFFL to "أبيض").forEach { (cLong, label) ->
+                        val isSel = outerGlowColorLong == cLong
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSel) CherryAccent else GlassSurface)
+                                .border(0.5.dp, if (isSel) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
+                                .clickable { onOuterGlowColorChange(cLong) }
+                                .padding(vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) { Text(label, color = PureWhite, fontSize = 10.sp) }
+                    }
+                    IconButton(onClick = { showCustomGlowColorDialog = true }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Add, contentDescription = "لون مخصص", tint = CherryAccent, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+
+        if (showCustomGlowColorDialog && onOuterGlowColorChange != null) {
+            CustomColorPickerDialog(
+                initialColorLong = outerGlowColorLong,
+                title = "منتقي لون التوهج الخارجي",
+                onColorSelected = { onOuterGlowColorChange(it); showCustomGlowColorDialog = false },
+                onDismiss = { showCustomGlowColorDialog = false }
             )
         }
     }

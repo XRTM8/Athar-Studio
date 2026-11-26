@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.core.AtharPaletteExtractor
 import app.xrtm8.athar.model.CanvasState
+import app.xrtm8.athar.model.CustomGradientState
+import app.xrtm8.athar.model.CustomGradientStop
 import app.xrtm8.athar.model.LUXURY_SWATCHES
 import app.xrtm8.athar.model.LayerBlendMode
 import app.xrtm8.athar.model.LuxuryGradientPreset
@@ -41,11 +43,13 @@ fun ColorsMaterialsSection(
     onSelectGradientPreset: ((LuxuryGradientPreset) -> Unit)? = null,
     onGradientAngleChange: ((Float) -> Unit)? = null,
     onToggleRadialGradient: ((Boolean) -> Unit)? = null,
+    onCustomGradientChange: ((CustomGradientState) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     var showCustomColorDialog by remember { mutableStateOf(false) }
+    var editingStopIndex by remember { mutableStateOf<Int?>(null) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Multi-Stop Luxury Gradients & Materials
@@ -136,6 +140,122 @@ fun ColorsMaterialsSection(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Custom Multi-Stop Gradient Builder (2-4 Stops)
+        if (onCustomGradientChange != null) {
+            val cg = state.activeLayer.customGradient
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("تدرج حر مخصص (2–4 ألوان)", color = if (cg.isEnabled) PureWhite else MutedWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                Switch(
+                    checked = cg.isEnabled,
+                    onCheckedChange = { enabled ->
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onCustomGradientChange(cg.copy(isEnabled = enabled))
+                        onSliderChangeFinished?.invoke()
+                    },
+                    colors = SwitchDefaults.colors(checkedThumbColor = AmoledWhite, checkedTrackColor = CherryAccent),
+                    modifier = Modifier.height(24.dp)
+                )
+            }
+            if (cg.isEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    cg.stops.forEachIndexed { idx, stop ->
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color(stop.colorLong))
+                                .border(1.5.dp, PureWhite, CircleShape)
+                                .clickable { editingStopIndex = idx }
+                        )
+                    }
+                    if (cg.stops.size < 4) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(GlassSurface)
+                                .border(0.75.dp, CherryAccent, CircleShape)
+                                .clickable {
+                                    val nextStops = cg.stops + CustomGradientStop(0xFFFFFFFFL, 0.5f)
+                                    onCustomGradientChange(cg.copy(stops = nextStops.sortedBy { it.position }))
+                                    onSliderChangeFinished?.invoke()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "إضافة لون", tint = CherryAccent, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    if (cg.stops.size > 2) {
+                        Text(
+                            text = "حذف الأخير",
+                            color = MutedWhite,
+                            fontSize = 10.sp,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable {
+                                    onCustomGradientChange(cg.copy(stops = cg.stops.dropLast(1)))
+                                    onSliderChangeFinished?.invoke()
+                                }
+                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                StudioSlider(
+                    title = "زاوية التدرج الحر",
+                    value = cg.angle,
+                    onValueChange = { onCustomGradientChange(cg.copy(angle = it)) },
+                    onValueChangeFinished = onSliderChangeFinished,
+                    valueRange = 0f..360f,
+                    step = 5f,
+                    valueDisplay = "${cg.angle.toInt()}°",
+                    icon = Icons.AutoMirrored.Filled.RotateRight
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("تدرج دائري (Radial)", color = MutedWhite, fontSize = 11.sp)
+                    Switch(
+                        checked = cg.isRadial,
+                        onCheckedChange = {
+                            onCustomGradientChange(cg.copy(isRadial = it))
+                            onSliderChangeFinished?.invoke()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = AmoledWhite, checkedTrackColor = CherryAccent),
+                        modifier = Modifier.height(24.dp)
+                    )
+                }
+            }
+            if (editingStopIndex != null) {
+                val idx = editingStopIndex!!
+                val curStop = cg.stops.getOrNull(idx)
+                if (curStop != null) {
+                    CustomColorPickerDialog(
+                        initialColorLong = curStop.colorLong,
+                        title = "لون نقطة التدرج ${idx + 1}",
+                        onColorSelected = { chosen ->
+                            val updated = cg.stops.toMutableList().apply { set(idx, curStop.copy(colorLong = chosen)) }
+                            onCustomGradientChange(cg.copy(stops = updated))
+                            onSliderChangeFinished?.invoke()
+                            editingStopIndex = null
+                        },
+                        onDismiss = { editingStopIndex = null }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
         }
 
         // Color Swatches Palette

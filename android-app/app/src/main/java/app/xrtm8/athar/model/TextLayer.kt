@@ -57,5 +57,9 @@ data class TextLayer(
     val enableDiscretionaryLigatures: Boolean = false,
     val wordSpacing: Float = 0f,
     val paragraphBalanceMode: ParagraphBalanceMode = ParagraphBalanceMode.NONE,
-    val textSpans: List<TextSpanStyle> = emptyList()
+    val textSpans: List<TextSpanStyle> = emptyList(),
+    val customGradient: CustomGradientState = CustomGradientState(),
+    val outerGlowRadius: Float = 0f,
+    val outerGlowColorLong: Long = 0xFFE5C07BL,
+    val glassBackdropPaddingV: Float? = null
 )

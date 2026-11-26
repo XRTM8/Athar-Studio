@@ -251,6 +251,17 @@ object AtharRichTextEngine {
             }
         }
 
+        // 1.5 Draw Outer Glow Pass
+        if (layer.outerGlowRadius > 0.5f) {
+            val glowRadiusPx = ((layer.outerGlowRadius / 380f) * canvasWidth).coerceAtLeast(1f)
+            val glowPaint = TextPaint(basePaint).apply {
+                color = layer.outerGlowColorLong.toInt()
+                maskFilter = BlurMaskFilter(glowRadiusPx, BlurMaskFilter.Blur.NORMAL)
+            }
+            val (glowLayout, _) = buildRichStaticLayout(context, layer, glowPaint, canvasWidth, includeColorSpans = false)
+            glowLayout.draw(canvas)
+        }
+
         // 2. Draw Shadow Pass
         if (layer.shadowRadius > 0f) {
             val shadowDxPx = (layer.shadowDx / 380f) * canvasWidth
@@ -296,7 +307,15 @@ object AtharRichTextEngine {
                 LuxuryGradientPreset.NONE
             }
 
-            if (activeGrad != LuxuryGradientPreset.NONE) {
+            if (layer.customGradient.isValid) {
+                basePaint.shader = CanvasShaderFactory.createCustomGradientShader(
+                    state = layer.customGradient,
+                    centerX = totalW / 2f,
+                    centerY = totalH / 2f,
+                    radiusPx = basePaint.textSize * 3f
+                )
+                basePaint.color = Color.WHITE
+            } else if (activeGrad != LuxuryGradientPreset.NONE) {
                 basePaint.shader = CanvasShaderFactory.createMultiStopGradientShader(
                     preset = activeGrad,
                     angle = layer.gradientAngle,

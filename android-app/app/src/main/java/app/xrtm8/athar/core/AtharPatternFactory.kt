@@ -25,12 +25,12 @@ object AtharPatternFactory {
     private var cachedPaint: Paint? = null
 
     private fun getCacheKey(state: PatternState, density: Float): String {
-        return "${state.type.name}_${state.scale}_${state.isLightTint}_$density"
+        return "${state.type.name}_${state.scale}_${state.isLightTint}_${state.customColorLong}_$density"
     }
 
     private fun createTile(state: PatternState, density: Float): Bitmap {
         val s = (state.scale * density).coerceIn(0.5f, 6.0f)
-        val tintColor = if (state.isLightTint) Color.WHITE else Color.BLACK
+        val tintColor = state.customColorLong?.toInt() ?: if (state.isLightTint) Color.WHITE else Color.BLACK
 
         return when (state.type) {
             PatternType.SCANLINES -> {
@@ -145,6 +145,16 @@ object AtharPatternFactory {
             paint.xfermode = PorterDuffXfermode(mode)
         }
 
-        canvas.drawRect(0f, 0f, width, height, paint)
+        if (kotlin.math.abs(state.rotationDegrees) > 0.5f) {
+            val diag = kotlin.math.hypot(width.toDouble(), height.toDouble()).toFloat()
+            val padX = (diag - width) * 0.5f + 4f
+            val padY = (diag - height) * 0.5f + 4f
+            canvas.save()
+            canvas.rotate(state.rotationDegrees, width * 0.5f, height * 0.5f)
+            canvas.drawRect(-padX, -padY, width + padX, height + padY, paint)
+            canvas.restore()
+        } else {
+            canvas.drawRect(0f, 0f, width, height, paint)
+        }
     }
 }

@@ -44,7 +44,8 @@ data class CanvasState(
     val maskState: AtharMaskState = AtharMaskState(),
     val glitchEffectState: GlitchEffectState = GlitchEffectState(),
     val opticalLensState: OpticalLensState = OpticalLensState(),
-    val flutedGlassState: FlutedGlassState = FlutedGlassState()
+    val flutedGlassState: FlutedGlassState = FlutedGlassState(),
+    val toneCurveState: ToneCurveState = ToneCurveState()
 ) {
     val activeLayer: TextLayer
         get() = layers.find { it.id == activeLayerId } ?: layers.firstOrNull() ?: TextLayer()

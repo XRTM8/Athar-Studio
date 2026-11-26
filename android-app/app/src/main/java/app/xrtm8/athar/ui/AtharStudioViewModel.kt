@@ -148,6 +148,24 @@ class AtharStudioViewModel : ViewModel() {
         history.pushActiveLayerHistory { it.copy(textSpans = spans) }
     }
 
+    fun setCustomGradient(gradient: CustomGradientState) {
+        history.markSliderChange()
+        history.updateActiveLayer {
+            it.copy(
+                customGradient = gradient,
+                customTextColorLong = if (gradient.isEnabled) null else it.customTextColorLong
+            )
+        }
+    }
+
+    fun setOuterGlowRadius(radius: Float) {
+        history.markSliderChange()
+        history.updateActiveLayer { it.copy(outerGlowRadius = radius.coerceIn(0f, 60f)) }
+    }
+
+    fun setOuterGlowColor(colorLong: Long) =
+        history.pushActiveLayerHistory { it.copy(outerGlowColorLong = colorLong) }
+
     fun setStretchLevel(newLevel: Int) {
         val level = newLevel.coerceIn(0, 8)
         if (level == history.current().stretchLevel &&
@@ -323,6 +341,23 @@ class AtharStudioViewModel : ViewModel() {
         )
         history.updateState { it.copy(flutedGlassState = sanitized) }
     }
+
+    fun setToneCurveState(tc: ToneCurveState) {
+        history.markSliderChange()
+        val sanitized = tc.copy(
+            blacks = tc.blacks.coerceIn(-0.5f, 0.5f),
+            shadows = tc.shadows.coerceIn(-0.5f, 0.5f),
+            highlights = tc.highlights.coerceIn(-0.5f, 0.5f),
+            whites = tc.whites.coerceIn(-0.5f, 0.5f),
+            splitShadowHue = ((tc.splitShadowHue % 360f) + 360f) % 360f,
+            splitShadowSat = tc.splitShadowSat.coerceIn(0f, 0.6f),
+            splitHighlightHue = ((tc.splitHighlightHue % 360f) + 360f) % 360f,
+            splitHighlightSat = tc.splitHighlightSat.coerceIn(0f, 0.6f)
+        )
+        history.updateState { it.copy(toneCurveState = sanitized) }
+    }
+
+    fun resetToneCurve() = history.pushHistory(history.current().copy(toneCurveState = ToneCurveState()))
     fun setBackgroundBrightness(brightness: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundBrightness = brightness.coerceIn(-0.5f, 0.5f)) } }
     fun setBackgroundContrast(contrast: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundContrast = contrast.coerceIn(0.5f, 1.8f)) } }
     fun setBackgroundSaturation(saturation: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundSaturation = saturation.coerceIn(0f, 2.0f)) } }
@@ -375,7 +410,9 @@ class AtharStudioViewModel : ViewModel() {
     fun setPatternOpacity(opacity: Float) { history.markSliderChange(); history.updateState { it.copy(patternState = it.patternState.copy(opacity = opacity.coerceIn(0f, 1f))) } }
     fun setPatternScale(scale: Float) { history.markSliderChange(); history.updateState { it.copy(patternState = it.patternState.copy(scale = scale.coerceIn(0.5f, 3.0f))) } }
     fun setPatternBlendMode(blend: PatternBlend) = history.pushHistory(history.current().let { it.copy(patternState = it.patternState.copy(blendMode = blend)) })
-    fun setPatternLightTint(isLight: Boolean) = history.pushHistory(history.current().let { it.copy(patternState = it.patternState.copy(isLightTint = isLight)) })
+    fun setPatternLightTint(isLight: Boolean) = history.pushHistory(history.current().let { it.copy(patternState = it.patternState.copy(isLightTint = isLight, customColorLong = null)) })
+    fun setPatternCustomColor(colorLong: Long?) = history.pushHistory(history.current().let { it.copy(patternState = it.patternState.copy(customColorLong = colorLong)) })
+    fun setPatternRotation(deg: Float) { history.markSliderChange(); history.updateState { it.copy(patternState = it.patternState.copy(rotationDegrees = deg.coerceIn(0f, 180f))) } }
     fun resetPattern() = history.pushHistory(history.current().copy(patternState = PatternState()))
 
     fun selectMask(maskId: String?) = history.pushHistory(StudioEffectsCollageOps.selectMask(history.current(), maskId))

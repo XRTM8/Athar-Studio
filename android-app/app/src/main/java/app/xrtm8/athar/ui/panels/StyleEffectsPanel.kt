@@ -60,6 +60,9 @@ fun StyleEffectsPanel(
     onSelectGradientPreset: ((LuxuryGradientPreset) -> Unit)? = null,
     onGradientAngleChange: ((Float) -> Unit)? = null,
     onToggleRadialGradient: ((Boolean) -> Unit)? = null,
+    onCustomGradientChange: ((CustomGradientState) -> Unit)? = null,
+    onOuterGlowRadiusChange: ((Float) -> Unit)? = null,
+    onOuterGlowColorChange: ((Long) -> Unit)? = null,
     onToggleHollowText: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
@@ -144,6 +147,7 @@ fun StyleEffectsPanel(
                     onSelectGradientPreset = onSelectGradientPreset,
                     onGradientAngleChange = onGradientAngleChange,
                     onToggleRadialGradient = onToggleRadialGradient,
+                    onCustomGradientChange = onCustomGradientChange,
                     onSliderChangeFinished = onSliderChangeFinished
                 )
 
@@ -155,6 +159,8 @@ fun StyleEffectsPanel(
                     shadowDy = state.shadowDy,
                     shadowDx = state.shadowDx,
                     shadowColorLong = state.shadowColorLong,
+                    outerGlowRadius = state.activeLayer.outerGlowRadius,
+                    outerGlowColorLong = state.activeLayer.outerGlowColorLong,
                     onStrokeWidthChange = onStrokeWidthChange,
                     onStrokeColorChange = onStrokeColorChange,
                     onToggleHollowText = onToggleHollowText,
@@ -162,6 +168,8 @@ fun StyleEffectsPanel(
                     onShadowDyChange = onShadowDyChange,
                     onShadowDxChange = onShadowDxChange,
                     onShadowColorChange = onShadowColorChange,
+                    onOuterGlowRadiusChange = onOuterGlowRadiusChange,
+                    onOuterGlowColorChange = onOuterGlowColorChange,
                     onSliderChangeFinished = onSliderChangeFinished
                 )
 

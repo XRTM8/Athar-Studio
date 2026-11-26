@@ -82,7 +82,9 @@ object AtharProjectSerializer {
                 opacity = c.optDouble("pattern_opacity", 0.30).toFloat(),
                 scale = c.optDouble("pattern_scale", 1.0).toFloat(),
                 blendMode = enumOrDefault(c.optString("pattern_blend", PatternBlend.OVERLAY.name), PatternBlend.OVERLAY),
-                isLightTint = c.optBoolean("pattern_light_tint", true)
+                isLightTint = c.optBoolean("pattern_light_tint", true),
+                customColorLong = if (c.has("pattern_custom_color")) c.optLong("pattern_custom_color") else null,
+                rotationDegrees = c.optDouble("pattern_rotation", 0.0).toFloat().coerceIn(0f, 180f)
             ),
             cinematicGlowState = CinematicGlowState(
                 style = enumOrDefault(c.optString("glow_style", GlowStyle.MOTION.name), GlowStyle.MOTION),
@@ -121,6 +123,16 @@ object AtharProjectSerializer {
                 angleDegrees = c.optDouble("fluted_glass_angle", 0.0).toFloat().coerceIn(-45f, 90f),
                 chromaticDispersion = c.optDouble("fluted_glass_dispersion", 0.0).toFloat().coerceIn(0f, 1f),
                 edgeSoftness = c.optDouble("fluted_glass_softness", 0.0).toFloat().coerceIn(0f, 1f)
+            ),
+            toneCurveState = ToneCurveState(
+                blacks = c.optDouble("tc_blacks", 0.0).toFloat().coerceIn(-0.5f, 0.5f),
+                shadows = c.optDouble("tc_shadows", 0.0).toFloat().coerceIn(-0.5f, 0.5f),
+                highlights = c.optDouble("tc_highlights", 0.0).toFloat().coerceIn(-0.5f, 0.5f),
+                whites = c.optDouble("tc_whites", 0.0).toFloat().coerceIn(-0.5f, 0.5f),
+                splitShadowHue = c.optDouble("tc_sh_hue", 220.0).toFloat().coerceIn(0f, 360f),
+                splitShadowSat = c.optDouble("tc_sh_sat", 0.0).toFloat().coerceIn(0f, 0.6f),
+                splitHighlightHue = c.optDouble("tc_hi_hue", 40.0).toFloat().coerceIn(0f, 360f),
+                splitHighlightSat = c.optDouble("tc_hi_sat", 0.0).toFloat().coerceIn(0f, 0.6f)
             )
         )
     }

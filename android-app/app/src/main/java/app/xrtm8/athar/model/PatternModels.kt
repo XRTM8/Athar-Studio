@@ -21,7 +21,9 @@ data class PatternState(
     val opacity: Float = 0.30f,
     val scale: Float = 1.0f,
     val blendMode: PatternBlend = PatternBlend.OVERLAY,
-    val isLightTint: Boolean = true
+    val isLightTint: Boolean = true,
+    val customColorLong: Long? = null,
+    val rotationDegrees: Float = 0f
 ) {
     val isEnabled: Boolean get() = type != PatternType.NONE && opacity > 0.01f
 }

@@ -119,6 +119,26 @@ internal object AtharLayerJsonCodec {
                 }
                 put("text_spans", spansArr)
             }
+            if (layer.customGradient.isEnabled) {
+                put("custom_grad_enabled", true)
+                put("custom_grad_angle", layer.customGradient.angle.toDouble())
+                put("custom_grad_radial", layer.customGradient.isRadial)
+                val stopsArr = JSONArray()
+                layer.customGradient.stops.forEach { st ->
+                    stopsArr.put(JSONObject().apply {
+                        put("c", st.colorLong)
+                        put("p", st.position.toDouble())
+                    })
+                }
+                put("custom_grad_stops", stopsArr)
+            }
+            if (layer.outerGlowRadius > 0f) {
+                put("outer_glow_radius", layer.outerGlowRadius.toDouble())
+                put("outer_glow_color", layer.outerGlowColorLong)
+            }
+            if (layer.glassBackdropPaddingV != null) {
+                put("glass_backdrop_padding_v", layer.glassBackdropPaddingV.toDouble())
+            }
         }
     }
 
@@ -190,7 +210,29 @@ internal object AtharLayerJsonCodec {
                 obj.optString("paragraph_balance_mode", ParagraphBalanceMode.NONE.name),
                 ParagraphBalanceMode.NONE
             ),
-            textSpans = readTextSpans(obj.optJSONArray("text_spans"))
+            textSpans = readTextSpans(obj.optJSONArray("text_spans")),
+            customGradient = readCustomGradient(obj),
+            outerGlowRadius = obj.optDouble("outer_glow_radius", 0.0).toFloat().coerceIn(0f, 60f),
+            outerGlowColorLong = obj.optLong("outer_glow_color", 0xFFE5C07BL),
+            glassBackdropPaddingV = if (obj.has("glass_backdrop_padding_v")) obj.optDouble("glass_backdrop_padding_v").toFloat() else null
+        )
+    }
+
+    private fun readCustomGradient(obj: JSONObject): CustomGradientState {
+        val enabled = obj.optBoolean("custom_grad_enabled", false)
+        val arr = obj.optJSONArray("custom_grad_stops")
+        val stops = mutableListOf<CustomGradientStop>()
+        if (arr != null) {
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                stops.add(CustomGradientStop(o.optLong("c", 0xFFFFFFFFL), o.optDouble("p", 0.0).toFloat().coerceIn(0f, 1f)))
+            }
+        }
+        return CustomGradientState(
+            isEnabled = enabled && stops.size >= 2,
+            stops = if (stops.size >= 2) stops.sortedBy { it.position } else CustomGradientState().stops,
+            angle = obj.optDouble("custom_grad_angle", 90.0).toFloat(),
+            isRadial = obj.optBoolean("custom_grad_radial", false)
         )
     }
 

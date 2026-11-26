@@ -62,6 +62,8 @@ internal object AtharEffectsJsonCodec {
             put("pattern_scale", pat.scale.toDouble())
             put("pattern_blend", pat.blendMode.name)
             put("pattern_light_tint", pat.isLightTint)
+            if (pat.customColorLong != null) put("pattern_custom_color", pat.customColorLong)
+            if (pat.rotationDegrees != 0f) put("pattern_rotation", pat.rotationDegrees.toDouble())
 
             val glow = state.cinematicGlowState
             put("glow_style", glow.style.name)
@@ -92,6 +94,18 @@ internal object AtharEffectsJsonCodec {
             put("fluted_glass_angle", fluted.angleDegrees.toDouble())
             put("fluted_glass_dispersion", fluted.chromaticDispersion.toDouble())
             put("fluted_glass_softness", fluted.edgeSoftness.toDouble())
+
+            val tc = state.toneCurveState
+            if (tc.isEnabled) {
+                put("tc_blacks", tc.blacks.toDouble())
+                put("tc_shadows", tc.shadows.toDouble())
+                put("tc_highlights", tc.highlights.toDouble())
+                put("tc_whites", tc.whites.toDouble())
+                put("tc_sh_hue", tc.splitShadowHue.toDouble())
+                put("tc_sh_sat", tc.splitShadowSat.toDouble())
+                put("tc_hi_hue", tc.splitHighlightHue.toDouble())
+                put("tc_hi_sat", tc.splitHighlightSat.toDouble())
+            }
 
             val col = state.collageState
             put("collage_layout", col.layout.name)

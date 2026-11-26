@@ -25,6 +25,7 @@ import app.xrtm8.athar.model.FlutedGlassState
 import app.xrtm8.athar.model.GlitchEffectState
 import app.xrtm8.athar.model.OpticalLensState
 import app.xrtm8.athar.model.PatternState
+import app.xrtm8.athar.model.ToneCurveState
 import app.xrtm8.athar.ui.components.CanvasGradientScrimRenderer
 import app.xrtm8.athar.ui.components.CollageCanvasRenderer
 import kotlin.math.max
@@ -56,6 +57,7 @@ object AtharBackgroundPipeline {
         glitchEffectState = GlitchEffectState(),
         opticalLensState = OpticalLensState(),
         flutedGlassState = FlutedGlassState(),
+        toneCurveState = ToneCurveState(),
         patternState = PatternState(),
         maskState = AtharMaskState(),
         gradientScrim = CanvasGradientScrim(isEnabled = false)
@@ -89,6 +91,7 @@ object AtharBackgroundPipeline {
     fun hasSinglePhotoRasterEffects(state: CanvasState): Boolean =
         hasFilmLut(state) ||
             state.flutedGlassState.isEnabled ||
+            state.toneCurveState.isEnabled ||
             state.opticalLensState.isEnabled ||
             state.cinematicGlowState.isEnabled ||
             state.filmGrainState.isEnabled ||
@@ -239,6 +242,12 @@ object AtharBackgroundPipeline {
             current = lutDone
         }
 
+        if (state.toneCurveState.isEnabled) {
+            val curved = AtharToneCurveEngine.processBitmap(current, state.toneCurveState, inPlace = true)
+            if (curved !== current && !current.isRecycled) current.recycle()
+            current = curved
+        }
+
         val colorFilter = buildCompositeColorFilter(state, includeFilmMatrix = false)
         if (colorFilter != null) {
             val filtered = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -313,6 +322,14 @@ object AtharBackgroundPipeline {
             if (lutDone !== current) {
                 if (current !== input && !current.isRecycled) current.recycle()
                 current = lutDone
+            }
+        }
+
+        if (state.toneCurveState.isEnabled) {
+            val curved = AtharToneCurveEngine.processBitmap(current, state.toneCurveState, inPlace = (current !== input))
+            if (curved !== current) {
+                if (current !== input && !current.isRecycled) current.recycle()
+                current = curved
             }
         }
 

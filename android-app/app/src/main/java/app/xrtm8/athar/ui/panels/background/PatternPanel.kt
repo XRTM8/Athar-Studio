@@ -9,6 +9,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +26,7 @@ import app.xrtm8.athar.model.PatternBlend
 import app.xrtm8.athar.model.PatternState
 import app.xrtm8.athar.model.PatternType
 import app.xrtm8.athar.ui.components.StudioSlider
+import app.xrtm8.athar.ui.dialogs.CustomColorPickerDialog
 import app.xrtm8.athar.ui.theme.*
 
 /**
@@ -35,11 +40,14 @@ fun PatternPanel(
     onScaleChange: (Float) -> Unit,
     onBlendModeChange: (PatternBlend) -> Unit,
     onToggleLightTint: (Boolean) -> Unit,
+    onCustomColorChange: ((Long?) -> Unit)? = null,
+    onRotationChange: ((Float) -> Unit)? = null,
     onResetPattern: () -> Unit,
     modifier: Modifier = Modifier,
     onSliderChangeFinished: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    var showColorPicker by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Pattern Type Horizontal Chips
@@ -120,6 +128,18 @@ fun PatternPanel(
                 onValueChangeFinished = onSliderChangeFinished
             )
 
+            if (onRotationChange != null) {
+                StudioSlider(
+                    title = "زاوية دوران الباترن",
+                    value = state.rotationDegrees,
+                    valueRange = 0f..180f,
+                    step = 5f,
+                    valueDisplay = "${state.rotationDegrees.toInt()}°",
+                    onValueChange = onRotationChange,
+                    onValueChangeFinished = onSliderChangeFinished
+                )
+            }
+
             // Tint Mode & Blend Mode
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -129,7 +149,7 @@ fun PatternPanel(
                 Text(text = "لون الباترن", color = SubtleGray, fontSize = 11.5.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(true to "فاتح / أبيض", false to "داكن / أسود").forEach { (isLight, label) ->
-                        val isSelected = state.isLightTint == isLight
+                        val isSelected = state.customColorLong == null && state.isLightTint == isLight
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
@@ -149,7 +169,28 @@ fun PatternPanel(
                             )
                         }
                     }
+                    if (onCustomColorChange != null) {
+                        val isCustom = state.customColorLong != null
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isCustom) CherryAccent.copy(alpha = 0.25f) else StudioSurface)
+                                .border(0.5.dp, if (isCustom) CherryAccent else GlassBorder, RoundedCornerShape(8.dp))
+                                .clickable { showColorPicker = true }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("مخصص", color = if (isCustom) PureWhite else CherryAccent, fontSize = 10.5.sp)
+                        }
+                    }
                 }
+            }
+            if (showColorPicker && onCustomColorChange != null) {
+                CustomColorPickerDialog(
+                    initialColorLong = state.customColorLong ?: 0xFFE5C07BL,
+                    title = "لون الباترن المخصص",
+                    onColorSelected = { onCustomColorChange(it); showColorPicker = false },
+                    onDismiss = { showColorPicker = false }
+                )
             }
 
             // Blend Mode Chips

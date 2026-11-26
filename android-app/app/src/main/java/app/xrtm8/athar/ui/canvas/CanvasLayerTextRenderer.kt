@@ -215,6 +215,20 @@ object CanvasLayerTextRenderer {
         layerLayout.lines.forEachIndexed { index, line ->
             val lineY = layerLayout.startY + (index * layerLayout.lineHeight)
 
+            // 0.5 Draw Outer Glow (centered ambient glow)
+            if (layer.outerGlowRadius > 0.5f) {
+                val glowRadiusInt = ((layer.outerGlowRadius / 380f) * canvasWidth).toInt().coerceAtLeast(1)
+                shadowPaint.color = layer.outerGlowColorLong.toInt()
+                shadowPaint.maskFilter = paints.shadowBlurFilterCache.getOrPut(glowRadiusInt + 10000) {
+                    BlurMaskFilter(glowRadiusInt.toFloat(), BlurMaskFilter.Blur.NORMAL)
+                }
+                if (layer.isCurved && abs(layer.curveAngle) >= 1f) {
+                    CurvedTextRenderer.drawCurvedText(nativeCanvas, line, layerLayout.lineX, lineY, shadowPaint, layer.curveAngle)
+                } else {
+                    nativeCanvas.drawText(line, layerLayout.lineX, lineY, shadowPaint)
+                }
+            }
+
             // 1. Draw 2D Directional Shadow
             if (layer.shadowRadius > 0f) {
                 shadowPaint.color = layer.shadowColorLong.toInt()
@@ -253,7 +267,15 @@ object CanvasLayerTextRenderer {
                     LuxuryGradientPreset.NONE
                 }
 
-                if (activeGrad != LuxuryGradientPreset.NONE) {
+                if (layer.customGradient.isValid) {
+                    basePaint.shader = CanvasShaderFactory.createCustomGradientShader(
+                        state = layer.customGradient,
+                        centerX = layerLayout.lineX,
+                        centerY = lineY,
+                        radiusPx = textSizePx * 3f
+                    )
+                    basePaint.color = Color.WHITE
+                } else if (activeGrad != LuxuryGradientPreset.NONE) {
                     val gradShader = CanvasShaderFactory.createMultiStopGradientShader(
                         preset = activeGrad,
                         angle = layer.gradientAngle,

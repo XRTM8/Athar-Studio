@@ -187,6 +187,8 @@ fun CanvasBackgroundPanel(
                     state = state.patternState, onPatternTypeChange = { viewModel.setPatternType(it) },
                     onOpacityChange = { viewModel.setPatternOpacity(it) }, onScaleChange = { viewModel.setPatternScale(it) },
                     onBlendModeChange = { viewModel.setPatternBlendMode(it) }, onToggleLightTint = { viewModel.setPatternLightTint(it) },
+                    onCustomColorChange = { viewModel.setPatternCustomColor(it) },
+                    onRotationChange = { viewModel.setPatternRotation(it) },
                     onResetPattern = { viewModel.resetPattern() }, onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
                 6 -> PhotoAdjustmentsPanel(
@@ -212,7 +214,10 @@ fun CanvasBackgroundPanel(
                     onResetColorGrading = { viewModel.resetColorGrading() },
                     onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() },
                     filmPresetIntensity = state.filmPresetIntensity, onFilmPresetIntensityChange = { viewModel.setFilmPresetIntensity(it) },
-                    opticalLensState = state.opticalLensState, onOpticalLensChange = { viewModel.setOpticalLensState(it) }
+                    opticalLensState = state.opticalLensState, onOpticalLensChange = { viewModel.setOpticalLensState(it) },
+                    toneCurveState = state.toneCurveState,
+                    onToneCurveChange = { viewModel.setToneCurveState(it) },
+                    onResetToneCurve = { viewModel.resetToneCurve() }
                 )
             }
         }

@@ -72,6 +72,7 @@ object TextGlassBackdropRenderer {
             canvas = canvas,
             enableGlassBackdrop = layer.enableGlassBackdrop,
             glassBackdropPadding = layer.glassBackdropPadding,
+            glassBackdropPaddingV = layer.glassBackdropPaddingV,
             glassBackdropCornerRadius = layer.glassBackdropCornerRadius,
             glassBackdropColorLong = layer.glassBackdropColorLong,
             glassBackdropBorderColorLong = layer.glassBackdropBorderColorLong,
@@ -94,16 +95,18 @@ object TextGlassBackdropRenderer {
         textAlign: TextAlignOption,
         layout: TypographyLayoutResult,
         textSizePx: Float,
-        density: Float
+        density: Float,
+        glassBackdropPaddingV: Float? = null
     ) {
         if (!enableGlassBackdrop || layout.maxLineWidth <= 0f) return
 
         val s = threadScratch.get()!!
         val pad = glassBackdropPadding * density
+        val padV = (glassBackdropPaddingV ?: glassBackdropPadding) * density
         val bLeft = -layout.halfBlockW - pad
         val bRight = layout.halfBlockW + pad
-        val bTop = layout.startY - textSizePx * 0.75f - pad
-        val bBottom = layout.startY + layout.totalHeight + textSizePx * 0.25f + pad
+        val bTop = layout.startY - textSizePx * 0.75f - padV
+        val bBottom = layout.startY + layout.totalHeight + textSizePx * 0.25f + padV
 
         s.rectF.set(bLeft, bTop, bRight, bBottom)
         val cornerR = (glassBackdropCornerRadius * density).coerceAtLeast(4f)

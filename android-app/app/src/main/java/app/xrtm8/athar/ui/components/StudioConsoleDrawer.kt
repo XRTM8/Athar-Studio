@@ -201,6 +201,9 @@ fun StudioConsoleDrawer(
                             onSelectGradientPreset = { viewModel.setLuxuryGradient(it) },
                             onGradientAngleChange = { viewModel.setGradientAngle(it) },
                             onToggleRadialGradient = { viewModel.setGradientRadial(it) },
+                            onCustomGradientChange = { viewModel.setCustomGradient(it) },
+                            onOuterGlowRadiusChange = { viewModel.setOuterGlowRadius(it) },
+                            onOuterGlowColorChange = { viewModel.setOuterGlowColor(it) },
                             onToggleHollowText = { viewModel.setHollowText(it) },
                             onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                         )
