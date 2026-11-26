@@ -10,13 +10,13 @@
         android:fillColor="#1CE02447"
         android:pathData="M54,52m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0" />
 
-    <!-- Pure Platinum Crown Diamond (Nuqta) -->
+    <!-- Pure Platinum Crown Diamond (Nuqta, Unified 5.2dp) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,23 L61,30 L54,37 L47,30 Z" />
+        android:pathData="M54,24.8 L59.2,30 L54,35.2 L48.8,30 Z" />
     <path
         android:fillColor="#FFB3C1"
-        android:pathData="M54,25.5 L58.5,30 L54,34.5 L49.5,30 Z" />
+        android:pathData="M54,27.2 L56.8,30 L54,32.8 L51.2,30 Z" />
 
     <!-- Alif Calligraphic Nib Stroke in Velvet Crimson -->
     <path
