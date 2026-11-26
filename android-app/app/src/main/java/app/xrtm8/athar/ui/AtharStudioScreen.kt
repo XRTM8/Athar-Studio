@@ -55,6 +55,7 @@ fun AtharStudioScreen(
     var showFontBrowser by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
     var showProjectsSheet by remember { mutableStateOf(false) }
+    var showLayersManager by remember { mutableStateOf(false) }
     var pendingCropImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val handleBackNavigation: () -> Unit = {
@@ -174,7 +175,9 @@ fun AtharStudioScreen(
                             onSelectLayer = { viewModel.selectLayer(it) },
                             onMoveLayerUp = { viewModel.moveActiveLayerUp() },
                             onMoveLayerDown = { viewModel.moveActiveLayerDown() },
-                            onToggleVisibility = { viewModel.toggleLayerVisibility(it) }
+                            onToggleVisibility = { viewModel.toggleLayerVisibility(it) },
+                            onEditActiveLayer = { showTextDialog = true },
+                            onOpenLayersManager = { showLayersManager = true }
                         )
                     }
                 }
@@ -275,6 +278,21 @@ fun AtharStudioScreen(
         }
 
         // Modals & BottomSheets Helper
+        if (showLayersManager) {
+            app.xrtm8.athar.ui.dialogs.LayersManagerBottomSheet(
+                state = canvasState,
+                onDismiss = { showLayersManager = false },
+                onSelectLayer = { viewModel.selectLayer(it) },
+                onAddLayer = { viewModel.addTextLayer() },
+                onDuplicateLayer = { viewModel.duplicateActiveLayer() },
+                onDeleteLayer = { viewModel.removeActiveLayer() },
+                onMoveLayerUp = { viewModel.moveActiveLayerUp() },
+                onMoveLayerDown = { viewModel.moveActiveLayerDown() },
+                onToggleVisibility = { viewModel.toggleLayerVisibility(it) },
+                onRenameLayer = { id, name -> viewModel.renameLayer(id, name) }
+            )
+        }
+
         AtharStudioModals(
             context = context, canvasState = canvasState, viewModel = viewModel,
             customFonts = customFonts, projectsList = projectsList, isExporting = isExporting,
