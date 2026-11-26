@@ -61,5 +61,6 @@ data class TextLayer(
     val customGradient: CustomGradientState = CustomGradientState(),
     val outerGlowRadius: Float = 0f,
     val outerGlowColorLong: Long = 0xFFE5C07BL,
-    val glassBackdropPaddingV: Float? = null
+    val glassBackdropPaddingV: Float? = null,
+    val shapeConfig: ShapeLayerConfig = ShapeLayerConfig()
 )

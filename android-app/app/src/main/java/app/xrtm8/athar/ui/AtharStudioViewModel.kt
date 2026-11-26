@@ -166,6 +166,33 @@ class AtharStudioViewModel : ViewModel() {
     fun setOuterGlowColor(colorLong: Long) =
         history.pushActiveLayerHistory { it.copy(outerGlowColorLong = colorLong) }
 
+    fun addShapeLayer(type: ShapeType) {
+        val defaults = when (type) {
+            ShapeType.DIVIDER_H -> ShapeLayerConfig(type = type, widthRatio = 0.55f, heightRatio = 0.02f, strokeWidth = 2f)
+            ShapeType.DIVIDER_V -> ShapeLayerConfig(type = type, widthRatio = 0.02f, heightRatio = 0.45f, strokeWidth = 2f)
+            ShapeType.CIRCLE -> ShapeLayerConfig(type = type, widthRatio = 0.35f, heightRatio = 0.35f)
+            ShapeType.FRAME -> ShapeLayerConfig(type = type, widthRatio = 0.85f, heightRatio = 0.85f, isFilled = false, isStroked = true, strokeWidth = 2f)
+            else -> ShapeLayerConfig(type = type, widthRatio = 0.50f, heightRatio = 0.14f, cornerRadius = 12f)
+        }
+        val shapeLayer = TextLayer(
+            id = java.util.UUID.randomUUID().toString(),
+            name = type.labelAr,
+            shapeConfig = defaults
+        )
+        val cur = history.current()
+        history.pushHistory(cur.copy(layers = cur.layers + shapeLayer, activeLayerId = shapeLayer.id))
+    }
+
+    fun updateActiveShape(config: ShapeLayerConfig) {
+        history.markSliderChange()
+        history.updateActiveLayer { it.copy(shapeConfig = config) }
+    }
+
+    fun loadTemplate(template: app.xrtm8.athar.project.AtharTemplate) {
+        currentProjectId = null
+        history.resetSession(template.buildState())
+    }
+
     fun setStretchLevel(newLevel: Int) {
         val level = newLevel.coerceIn(0, 8)
         if (level == history.current().stretchLevel &&
@@ -671,7 +698,17 @@ class AtharStudioViewModel : ViewModel() {
         if (_isExporting.value) return
         viewModelScope.launch {
             _isExporting.value = true
-            val result = AtharExportManager.exportDesign(context, history.current(), resolution, isTransparent, isStickerTrimmed, onShareRequested)
+            val prefs = app.xrtm8.athar.project.AtharAppSettings.load(context)
+            val result = AtharExportManager.exportDesign(
+                context = context,
+                state = history.current(),
+                resolution = resolution,
+                isTransparent = isTransparent,
+                isStickerTrimmed = isStickerTrimmed,
+                onShareRequested = onShareRequested,
+                format = prefs.defaultFormat,
+                quality = prefs.defaultQuality
+            )
             _isExporting.value = false
             _exportMessage.value = if (result.isSuccess) result.getOrNull() else "فشل التصدير: ${result.exceptionOrNull()?.message}"
         }

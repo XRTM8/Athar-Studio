@@ -225,7 +225,12 @@ fun CanvasView(
                         )
                     }
                     if (state.showGridGuides || effectiveFramingMode) CanvasGuidesRenderer.drawGridGuides(native, canvasW, canvasH, paints.gridPaint)
-                    if (isInteracting && !effectiveFramingMode) CanvasGuidesRenderer.drawSnapGuides(native, canvasW, canvasH, localNormX, localNormY, paints.guidePaint)
+                    if (isInteracting && !effectiveFramingMode) {
+                        CanvasGuidesRenderer.drawSnapGuides(
+                            native, canvasW, canvasH, localNormX, localNormY, paints.guidePaint,
+                            otherLayers = state.layers.filter { it.id != active.id }
+                        )
+                    }
                     state.layers.forEach { layer ->
                         val isCurr = (layer.id == active.id)
                         CanvasLayerTextRenderer.renderTextLayer(

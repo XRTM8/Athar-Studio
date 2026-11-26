@@ -34,7 +34,25 @@ object CanvasLayerTextRenderer {
         density: Float,
         paints: CanvasPaintPool
     ) {
-        if (!layer.isVisible || layer.displayText.isEmpty()) return
+        if (!layer.isVisible) return
+        if (layer.shapeConfig.isShape) {
+            renderShapeLayer(
+                nativeCanvas = nativeCanvas,
+                layer = layer,
+                isCurrentActive = isCurrentActive,
+                isFramingMode = isFramingMode,
+                layerNormX = layerNormX,
+                layerNormY = layerNormY,
+                layerScale = layerScale,
+                layerRotation = layerRotation,
+                canvasWidth = canvasWidth,
+                canvasHeight = canvasHeight,
+                density = density,
+                paints = paints
+            )
+            return
+        }
+        if (layer.displayText.isEmpty()) return
 
         val effectiveWeight = if (layer.isBold && layer.fontWeight < 700) 700 else layer.fontWeight
         val realTypeface = AtharFontManager.getTypeface(context, layer.selectedFont, layer.customFontPath, effectiveWeight)
@@ -315,6 +333,84 @@ object CanvasLayerTextRenderer {
             )
         }
 
+        nativeCanvas.restore()
+    }
+
+    private fun renderShapeLayer(
+        nativeCanvas: Canvas,
+        layer: TextLayer,
+        isCurrentActive: Boolean,
+        isFramingMode: Boolean,
+        layerNormX: Float,
+        layerNormY: Float,
+        layerScale: Float,
+        layerRotation: Float,
+        canvasWidth: Float,
+        canvasHeight: Float,
+        density: Float,
+        paints: CanvasPaintPool
+    ) {
+        val sc = layer.shapeConfig
+        val wPx = canvasWidth * sc.widthRatio.coerceIn(0.05f, 1.0f)
+        val hPx = when (sc.type) {
+            app.xrtm8.athar.model.ShapeType.DIVIDER_H -> (sc.strokeWidth / 380f) * canvasWidth
+            app.xrtm8.athar.model.ShapeType.DIVIDER_V -> canvasHeight * sc.heightRatio.coerceIn(0.05f, 1.0f)
+            app.xrtm8.athar.model.ShapeType.CIRCLE -> wPx
+            else -> canvasHeight * sc.heightRatio.coerceIn(0.02f, 1.0f)
+        }
+        val actualW = if (sc.type == app.xrtm8.athar.model.ShapeType.DIVIDER_V) (sc.strokeWidth / 380f) * canvasWidth else wPx
+        val halfW = actualW / 2f
+        val halfH = hPx / 2f
+        val cornerPx = (sc.cornerRadius / 380f) * canvasWidth
+        val alphaInt = (layer.textOpacity.coerceIn(0f, 1f) * 255).toInt()
+
+        nativeCanvas.save()
+        nativeCanvas.translate(canvasWidth / 2f + canvasWidth * layerNormX, canvasHeight / 2f + canvasHeight * layerNormY)
+        nativeCanvas.rotate(layerRotation)
+        nativeCanvas.scale(layerScale, layerScale)
+
+        val rect = RectF(-halfW, -halfH, halfW, halfH)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        if (layer.shadowRadius > 0f) {
+            val sr = ((layer.shadowRadius / 380f) * canvasWidth).coerceAtLeast(1f)
+            paint.setShadowLayer(sr, (layer.shadowDx / 380f) * canvasWidth, (layer.shadowDy / 380f) * canvasWidth, layer.shadowColorLong.toInt())
+        }
+
+        if (sc.type == app.xrtm8.athar.model.ShapeType.CIRCLE) {
+            if (sc.isFilled) {
+                paint.style = Paint.Style.FILL
+                paint.color = sc.fillColorLong.toInt()
+                paint.alpha = alphaInt
+                nativeCanvas.drawCircle(0f, 0f, halfW, paint)
+            }
+            if (sc.isStroked || !sc.isFilled) {
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = (sc.strokeWidth / 380f) * canvasWidth
+                paint.color = sc.strokeColorLong.toInt()
+                paint.alpha = alphaInt
+                nativeCanvas.drawCircle(0f, 0f, halfW, paint)
+            }
+        } else {
+            val shouldFill = sc.isFilled && sc.type != app.xrtm8.athar.model.ShapeType.FRAME
+            if (shouldFill) {
+                paint.style = Paint.Style.FILL
+                paint.color = sc.fillColorLong.toInt()
+                paint.alpha = alphaInt
+                nativeCanvas.drawRoundRect(rect, cornerPx, cornerPx, paint)
+            }
+            if (sc.isStroked || sc.type == app.xrtm8.athar.model.ShapeType.FRAME) {
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = (sc.strokeWidth / 380f) * canvasWidth
+                paint.color = sc.strokeColorLong.toInt()
+                paint.alpha = alphaInt
+                nativeCanvas.drawRoundRect(rect, cornerPx, cornerPx, paint)
+            }
+        }
+
+        if (isCurrentActive && !isFramingMode) {
+            val pad = 8f * density
+            nativeCanvas.drawRect(-halfW - pad, -halfH - pad, halfW + pad, halfH + pad, paints.selectBoxPaint)
+        }
         nativeCanvas.restore()
     }
 

@@ -139,6 +139,17 @@ internal object AtharLayerJsonCodec {
             if (layer.glassBackdropPaddingV != null) {
                 put("glass_backdrop_padding_v", layer.glassBackdropPaddingV.toDouble())
             }
+            if (layer.shapeConfig.isShape) {
+                put("shape_type", layer.shapeConfig.type.name)
+                put("shape_w", layer.shapeConfig.widthRatio.toDouble())
+                put("shape_h", layer.shapeConfig.heightRatio.toDouble())
+                put("shape_cr", layer.shapeConfig.cornerRadius.toDouble())
+                put("shape_sw", layer.shapeConfig.strokeWidth.toDouble())
+                put("shape_fc", layer.shapeConfig.fillColorLong)
+                put("shape_sc", layer.shapeConfig.strokeColorLong)
+                put("shape_filled", layer.shapeConfig.isFilled)
+                put("shape_stroked", layer.shapeConfig.isStroked)
+            }
         }
     }
 
@@ -214,7 +225,18 @@ internal object AtharLayerJsonCodec {
             customGradient = readCustomGradient(obj),
             outerGlowRadius = obj.optDouble("outer_glow_radius", 0.0).toFloat().coerceIn(0f, 60f),
             outerGlowColorLong = obj.optLong("outer_glow_color", 0xFFE5C07BL),
-            glassBackdropPaddingV = if (obj.has("glass_backdrop_padding_v")) obj.optDouble("glass_backdrop_padding_v").toFloat() else null
+            glassBackdropPaddingV = if (obj.has("glass_backdrop_padding_v")) obj.optDouble("glass_backdrop_padding_v").toFloat() else null,
+            shapeConfig = ShapeLayerConfig(
+                type = enumOrDefault(obj.optString("shape_type", ShapeType.NONE.name), ShapeType.NONE),
+                widthRatio = obj.optDouble("shape_w", 0.65).toFloat().coerceIn(0.05f, 1.0f),
+                heightRatio = obj.optDouble("shape_h", 0.08).toFloat().coerceIn(0.01f, 1.0f),
+                cornerRadius = obj.optDouble("shape_cr", 8.0).toFloat().coerceIn(0f, 120f),
+                strokeWidth = obj.optDouble("shape_sw", 2.0).toFloat().coerceIn(0.5f, 30f),
+                fillColorLong = obj.optLong("shape_fc", 0xFFE5C07BL),
+                strokeColorLong = obj.optLong("shape_sc", 0xFFFFFFFFL),
+                isFilled = obj.optBoolean("shape_filled", true),
+                isStroked = obj.optBoolean("shape_stroked", false)
+            )
         )
     }
 

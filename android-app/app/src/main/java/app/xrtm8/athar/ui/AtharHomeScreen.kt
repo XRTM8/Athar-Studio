@@ -7,15 +7,25 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.CanvasAspectRatio
 import app.xrtm8.athar.project.AtharProjectMeta
 import app.xrtm8.athar.ui.components.GentleUpdateBanner
@@ -177,6 +187,45 @@ fun AtharHomeScreen(
                         projectImportLauncher.launch("*/*")
                     }
                 )
+            }
+
+            // 4.5 Curated Editable Templates Strip
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "قوالب جاهزة للتعديل",
+                        color = primaryTextColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        app.xrtm8.athar.project.AtharTemplateCatalog.templates.forEach { tpl ->
+                            Column(
+                                modifier = Modifier
+                                    .width(142.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(cardBackground)
+                                    .border(0.75.dp, cardBorder, RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.loadTemplate(tpl)
+                                        onNavigateToStudio()
+                                    }
+                                    .padding(12.dp)
+                            ) {
+                                Text(tpl.title, color = CherryAccent, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(tpl.subtitle, color = subtleTextColor, fontSize = 10.sp, maxLines = 2)
+                            }
+                        }
+                    }
+                }
             }
 
             // 5. Recent Projects Section

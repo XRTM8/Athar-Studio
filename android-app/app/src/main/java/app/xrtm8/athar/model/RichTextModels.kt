@@ -50,3 +50,26 @@ data class CustomGradientState(
 ) {
     val isValid: Boolean get() = isEnabled && stops.size >= 2
 }
+
+enum class ShapeType(val labelAr: String) {
+    NONE("بدون"),
+    DIVIDER_H("خط أفقي"),
+    DIVIDER_V("خط عمودي"),
+    RECTANGLE("مستطيل"),
+    CIRCLE("دائرة"),
+    FRAME("إطار")
+}
+
+data class ShapeLayerConfig(
+    val type: ShapeType = ShapeType.NONE,
+    val widthRatio: Float = 0.65f,
+    val heightRatio: Float = 0.08f,
+    val cornerRadius: Float = 8f,
+    val strokeWidth: Float = 2f,
+    val fillColorLong: Long = 0xFFE5C07BL,
+    val strokeColorLong: Long = 0xFFFFFFFFL,
+    val isFilled: Boolean = true,
+    val isStroked: Boolean = false
+) {
+    val isShape: Boolean get() = type != ShapeType.NONE
+}

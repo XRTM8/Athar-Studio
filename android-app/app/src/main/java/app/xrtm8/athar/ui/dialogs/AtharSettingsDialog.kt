@@ -164,6 +164,67 @@ fun AtharSettingsDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // Section 1.5: Real Studio Preferences
+                var appPrefs by remember { mutableStateOf(app.xrtm8.athar.project.AtharAppSettings.load(context)) }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBg)
+                        .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "تفضيلات الاستوديو والتصدير", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        app.xrtm8.athar.project.ExportImageFormat.entries.forEach { fmt ->
+                            val sel = appPrefs.defaultFormat == fmt
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) CherryAccent else Color.Transparent)
+                                    .border(0.5.dp, if (sel) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        val next = appPrefs.copy(defaultFormat = fmt)
+                                        appPrefs = next
+                                        app.xrtm8.athar.project.AtharAppSettings.save(context, next)
+                                    }
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(fmt.label, color = if (sel) PureWhite else primaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("إظهار الشبكة تلقائياً", color = primaryText, fontSize = 12.sp)
+                        Switch(
+                            checked = appPrefs.autoGridGuides,
+                            onCheckedChange = {
+                                val next = appPrefs.copy(autoGridGuides = it)
+                                appPrefs = next
+                                app.xrtm8.athar.project.AtharAppSettings.save(context, next)
+                            },
+                            colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = CherryAccent)
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("الحفظ التلقائي للمسودة", color = primaryText, fontSize = 12.sp)
+                        Switch(
+                            checked = appPrefs.autoSaveDrafts,
+                            onCheckedChange = {
+                                val next = appPrefs.copy(autoSaveDrafts = it)
+                                appPrefs = next
+                                app.xrtm8.athar.project.AtharAppSettings.save(context, next)
+                            },
+                            colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = CherryAccent)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 // Section 2: Collapsible Font Licenses
                 var showLicenses by remember { mutableStateOf(false) }
                 Column(

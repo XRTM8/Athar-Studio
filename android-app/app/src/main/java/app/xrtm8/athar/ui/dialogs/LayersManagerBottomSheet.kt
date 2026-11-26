@@ -3,6 +3,7 @@ package app.xrtm8.athar.ui.dialogs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -30,6 +31,7 @@ fun LayersManagerBottomSheet(
     onDismiss: () -> Unit,
     onSelectLayer: (String) -> Unit,
     onAddLayer: () -> Unit,
+    onAddShape: ((app.xrtm8.athar.model.ShapeType) -> Unit)? = null,
     onDuplicateLayer: () -> Unit,
     onDeleteLayer: () -> Unit,
     onMoveLayerUp: () -> Unit,
@@ -80,6 +82,25 @@ fun LayersManagerBottomSheet(
                     Icon(Icons.Default.Add, contentDescription = null, tint = PureWhite, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("طبقة جديدة", color = PureWhite, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                app.xrtm8.athar.model.ShapeType.entries.filter { it != app.xrtm8.athar.model.ShapeType.NONE }.forEach { st ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(cardBg)
+                            .border(0.5.dp, cardBorder, RoundedCornerShape(8.dp))
+                            .clickable { onAddShape?.invoke(st) }
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text("+ ${st.labelAr}", color = CherryAccent, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
+                    }
                 }
             }
 

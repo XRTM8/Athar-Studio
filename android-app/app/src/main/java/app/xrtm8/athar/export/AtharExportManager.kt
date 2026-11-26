@@ -13,6 +13,7 @@ import app.xrtm8.athar.core.AtharBackgroundPipeline
 import app.xrtm8.athar.model.CanvasState
 import app.xrtm8.athar.model.ExportResolution
 import app.xrtm8.athar.model.TextLayer
+import app.xrtm8.athar.project.ExportImageFormat
 import app.xrtm8.athar.ui.canvas.CanvasLayerTextRenderer
 import app.xrtm8.athar.ui.components.CanvasPaintPool
 import java.io.File
@@ -35,11 +36,15 @@ object AtharExportManager {
         resolution: ExportResolution = ExportResolution.HD_1080P,
         isTransparent: Boolean = false,
         isStickerTrimmed: Boolean = true,
-        onShareRequested: Boolean = false
+        onShareRequested: Boolean = false,
+        format: ExportImageFormat = ExportImageFormat.JPEG,
+        quality: Int = 98,
+        customWidthPx: Int? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val width = resolution.width
+            val width = (customWidthPx ?: resolution.width).coerceIn(360, 4320)
             val effectiveTransparent = isTransparent || state.isTransparentBg
+            val effectiveFormat = if (effectiveTransparent && format == ExportImageFormat.JPEG) ExportImageFormat.PNG else format
             val bitmap = renderDesign(context, state, width, effectiveTransparent)
 
             val finalBitmap = if (effectiveTransparent && isStickerTrimmed) {
@@ -53,21 +58,22 @@ object AtharExportManager {
                 bitmap
             }
 
-            val filename = "Athar_${System.currentTimeMillis()}.${if (effectiveTransparent) "png" else "jpg"}"
+            val filename = "Athar_${System.currentTimeMillis()}.${effectiveFormat.ext}"
+            val safeQuality = quality.coerceIn(50, 100)
 
             try {
-                saveToMediaStore(context, finalBitmap, filename, effectiveTransparent)
+                saveToMediaStore(context, finalBitmap, filename, effectiveFormat, safeQuality)
                 if (onShareRequested) {
-                    shareExportedBitmap(context, finalBitmap, filename, effectiveTransparent)
+                    shareExportedBitmap(context, finalBitmap, filename, effectiveFormat, safeQuality)
                 }
             } finally {
                 finalBitmap.recycle()
             }
 
             val successMsg = if (effectiveTransparent && isStickerTrimmed) {
-                "تم تصدير الملصق الشفاف المقصوص بنجاح (PNG)"
+                "تم تصدير الملصق الشفاف بنجاح (${effectiveFormat.label})"
             } else {
-                "تم حفظ التصميم في المعرض بنجاح (${resolution.label})"
+                "تم حفظ التصميم في المعرض بنجاح (${width}px • ${effectiveFormat.label})"
             }
 
             Result.success(successMsg)
@@ -152,10 +158,22 @@ object AtharExportManager {
         return Bitmap.createBitmap(src, minX, minY, cropW, cropH)
     }
 
-    private fun saveToMediaStore(context: Context, bitmap: Bitmap, filename: String, isTransparent: Boolean) {
-        val format = if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
-        val mime = if (isTransparent) "image/png" else "image/jpeg"
-        val quality = if (isTransparent) 100 else 98
+    private fun resolveCompressFormat(format: ExportImageFormat, quality: Int): Bitmap.CompressFormat {
+        return when (format) {
+            ExportImageFormat.PNG -> Bitmap.CompressFormat.PNG
+            ExportImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
+            ExportImageFormat.WEBP -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (quality >= 100) Bitmap.CompressFormat.WEBP_LOSSLESS else Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+        }
+    }
+
+    private fun saveToMediaStore(context: Context, bitmap: Bitmap, filename: String, exportFormat: ExportImageFormat, quality: Int) {
+        val format = resolveCompressFormat(exportFormat, quality)
+        val mime = exportFormat.mime
 
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, filename)
@@ -183,11 +201,10 @@ object AtharExportManager {
         }
     }
 
-    private fun shareExportedBitmap(context: Context, bitmap: Bitmap, filename: String, isTransparent: Boolean) {
+    private fun shareExportedBitmap(context: Context, bitmap: Bitmap, filename: String, exportFormat: ExportImageFormat, quality: Int) {
         val cacheDir = File(context.cacheDir, "exports").apply { mkdirs() }
         val shareFile = File(cacheDir, filename)
-        val format = if (isTransparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
-        val quality = if (isTransparent) 100 else 98
+        val format = resolveCompressFormat(exportFormat, quality)
 
         FileOutputStream(shareFile).use { out ->
             check(bitmap.compress(format, quality, out)) { "تعذرت كتابة الصورة" }
@@ -195,7 +212,7 @@ object AtharExportManager {
 
         val uri = FileProvider.getUriForFile(context, "app.xrtm8.athar.fileprovider", shareFile)
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = if (isTransparent) "image/png" else "image/jpeg"
+            type = exportFormat.mime
             putExtra(Intent.EXTRA_STREAM, uri)
             flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
