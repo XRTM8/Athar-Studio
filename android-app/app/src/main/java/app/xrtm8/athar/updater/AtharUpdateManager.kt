@@ -95,8 +95,8 @@ class AtharUpdateManager(private val context: Context) {
     }
 
     fun isNewerVersion(remoteTag: String, localVersionName: String): Boolean {
-        val cleanRemote = remoteTag.removePrefix("v").trim()
-        val cleanLocal = localVersionName.removePrefix("v").trim()
+        val cleanRemote = remoteTag.removePrefix("v").trim().substringBefore('-')
+        val cleanLocal = localVersionName.removePrefix("v").trim().substringBefore('-')
         if (cleanRemote == cleanLocal) return false
 
         val remoteParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
@@ -166,6 +166,37 @@ class AtharUpdateManager(private val context: Context) {
                     return@withContext updateInfo
                 } else {
                     _updateState.value = null
+                }
+            } else {
+                // Zero-rate-limit fallback via GitHub web redirect
+                val redirectConn = (URL("$REPO_URL/releases/latest").openConnection() as HttpURLConnection).apply {
+                    instanceFollowRedirects = false
+                    requestMethod = "HEAD"
+                    connectTimeout = 7000
+                    readTimeout = 7000
+                    setRequestProperty("User-Agent", "Athar-App-Android")
+                }
+                try {
+                    val location = redirectConn.getHeaderField("Location").orEmpty()
+                    val tagName = location.substringAfterLast("/tag/", "").trim()
+                    if (tagName.isNotEmpty() && isNewerVersion(tagName, currentVersionName)) {
+                        val cleanTag = tagName.removePrefix("v")
+                        val updateInfo = UpdateInfo(
+                            hasUpdate = true,
+                            latestVersionName = cleanTag,
+                            latestVersionCode = 0,
+                            releaseNotes = "إصدار جديد متوفر على GitHub",
+                            downloadUrl = "$REPO_URL/releases/latest/download/athar-$tagName.apk",
+                            isMandatory = false
+                        )
+                        _updateState.value = updateInfo
+                        if (showNotificationOnFound) showGentleNotification(updateInfo)
+                        return@withContext updateInfo
+                    } else {
+                        _updateState.value = null
+                    }
+                } finally {
+                    runCatching { redirectConn.disconnect() }
                 }
             }
         } catch (e: Exception) {
