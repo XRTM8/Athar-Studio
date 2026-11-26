@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.components
+﻿package app.xrtm8.athar.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -85,7 +85,7 @@ fun TextGlassBackdropPanel(
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onToggleGlassBackdrop(it)
                 },
-                colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
+                colors = SwitchDefaults.colors(checkedThumbColor = app.xrtm8.athar.ui.theme.AmoledWhite, checkedTrackColor = CherryAccent)
             )
         }
 
@@ -126,7 +126,7 @@ fun TextGlassBackdropPanel(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = preset.name,
-                            color = if (isSelected) AmoledBlack else PureWhite,
+                            color = if (isSelected) app.xrtm8.athar.ui.theme.AmoledWhite else PureWhite,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

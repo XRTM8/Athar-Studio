@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.panels.effects
+﻿package app.xrtm8.athar.ui.panels.effects
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -76,7 +76,7 @@ fun StrokeShadowSection(
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onToggleHollowText(it)
                     },
-                    colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent),
+                    colors = SwitchDefaults.colors(checkedThumbColor = app.xrtm8.athar.ui.theme.AmoledWhite, checkedTrackColor = CherryAccent),
                     modifier = Modifier.height(24.dp)
                 )
             }
@@ -143,7 +143,7 @@ fun StrokeShadowSection(
                 ) {
                     Text(
                         text = name,
-                        color = if (isSelected) AmoledBlack else PureWhite,
+                        color = if (isSelected) app.xrtm8.athar.ui.theme.AmoledWhite else PureWhite,
                         fontSize = 10.5.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
@@ -243,7 +243,7 @@ fun StrokeShadowSection(
                 ) {
                     Text(
                         text = name,
-                        color = if (isSelected) AmoledBlack else PureWhite,
+                        color = if (isSelected) app.xrtm8.athar.ui.theme.AmoledWhite else PureWhite,
                         fontSize = 10.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )

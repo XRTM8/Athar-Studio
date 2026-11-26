@@ -92,11 +92,10 @@ fun TopStudioBar(
                 }
 
                 Text(
-                    text = "أَثَــر",
+                    text = "أثر",
                     color = primaryText,
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.width(6.dp))
 

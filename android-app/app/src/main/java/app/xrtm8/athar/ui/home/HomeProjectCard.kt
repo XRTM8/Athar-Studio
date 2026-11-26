@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.home
+﻿package app.xrtm8.athar.ui.home
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
@@ -64,7 +64,7 @@ fun HomeProjectCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(115.dp)
-                    .background(AmoledBlack),
+                    .background(app.xrtm8.athar.ui.theme.LocalAtharColors.current.surface),
                 contentAlignment = Alignment.Center
             ) {
                 if (thumbBitmap != null) {

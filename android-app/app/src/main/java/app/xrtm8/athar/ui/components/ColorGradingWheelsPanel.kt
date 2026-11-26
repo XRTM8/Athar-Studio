@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.components
+﻿package app.xrtm8.athar.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -91,7 +91,7 @@ fun ColorGradingWheelsPanel(
                         onToggleColorGrading(it)
                     },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = AmoledBlack,
+                        checkedThumbColor = app.xrtm8.athar.ui.theme.AmoledWhite,
                         checkedTrackColor = CherryAccent,
                         uncheckedThumbColor = SubtleGray,
                         uncheckedTrackColor = GlassSurface

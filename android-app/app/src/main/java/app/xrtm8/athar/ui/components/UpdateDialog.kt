@@ -21,30 +21,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.xrtm8.athar.model.UpdateInfo
-import app.xrtm8.athar.ui.theme.GlassBackground
-import app.xrtm8.athar.ui.theme.GlassBorder
-import app.xrtm8.athar.ui.theme.GlassSurface
-import app.xrtm8.athar.ui.theme.CherryAccent
-import app.xrtm8.athar.ui.theme.MutedWhite
-import app.xrtm8.athar.ui.theme.PureWhite
+import app.xrtm8.athar.ui.theme.LocalAtharColors
 
 @Composable
 fun GentleUpdateBanner(
@@ -67,13 +62,14 @@ fun GentleUpdateBanner(
         modifier = modifier
     ) {
         if (updateInfo != null) {
+            val colors = LocalAtharColors.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(GlassBackground)
-                    .border(width = 1.dp, color = GlassBorder, shape = RoundedCornerShape(22.dp))
+                    .clip(MaterialTheme.shapes.large)
+                    .background(colors.recessed)
+                    .border(width = 1.dp, color = colors.border, shape = MaterialTheme.shapes.large)
                     .padding(20.dp)
             ) {
                 Column {
@@ -85,14 +81,14 @@ fun GentleUpdateBanner(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .size(38.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(GlassSurface)
-                                .border(0.5.dp, GlassBorder, RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.small)
+                                .background(colors.surface)
+                                .border(1.dp, colors.border, MaterialTheme.shapes.small)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.AutoAwesome,
+                                imageVector = Icons.Rounded.SystemUpdate,
                                 contentDescription = "تحديث جديد",
-                                tint = CherryAccent,
+                                tint = colors.accentInk,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -100,15 +96,14 @@ fun GentleUpdateBanner(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "تحديث جديد متوفر (${updateInfo.latestVersionName})",
-                                color = PureWhite,
+                                color = colors.textPrimary,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                letterSpacing = 0.3.sp
+                                fontSize = 15.sp
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = updateInfo.releaseNotes.ifEmpty { "تحسينات جديدة في جودة الشيدرز واستقرار التطبيق." },
-                                color = MutedWhite,
+                                text = updateInfo.releaseNotes.ifEmpty { "تحسينات جديدة في المعالجة واستقرار التطبيق." },
+                                color = colors.textSecondary,
                                 fontSize = 12.5.sp,
                                 maxLines = 2,
                                 lineHeight = 17.sp
@@ -116,13 +111,13 @@ fun GentleUpdateBanner(
                         }
                         IconButton(
                             onClick = onDismissClick,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Close,
+                                imageVector = Icons.Rounded.Close,
                                 contentDescription = "إغلاق",
-                                tint = MutedWhite,
-                                modifier = Modifier.size(16.dp)
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -131,8 +126,8 @@ fun GentleUpdateBanner(
                         Spacer(modifier = Modifier.height(14.dp))
                         LinearProgressIndicator(
                             progress = { downloadProgress },
-                            color = CherryAccent,
-                            trackColor = Color(0x33FFFFFF),
+                            color = colors.accentFill,
+                            trackColor = colors.border,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(5.dp)
@@ -149,22 +144,22 @@ fun GentleUpdateBanner(
                     ) {
                         OutlinedButton(
                             onClick = onDismissClick,
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MutedWhite)
+                            shape = MaterialTheme.shapes.small,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.textSecondary)
                         ) {
                             Text(text = "لاحقاً", fontSize = 13.sp)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Button(
                             onClick = { onUpdateClick(updateInfo.downloadUrl) },
-                            colors = ButtonDefaults.buttonColors(containerColor = CherryAccent),
-                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.accentFill),
+                            shape = MaterialTheme.shapes.small,
                             enabled = downloadProgress == null
                         ) {
                             Text(
                                 text = if (downloadProgress != null) "جاري التنزيل..." else "تحديث الآن",
-                                color = PureWhite,
+                                color = colors.onAccent,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )

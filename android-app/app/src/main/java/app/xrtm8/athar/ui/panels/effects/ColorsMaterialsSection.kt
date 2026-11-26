@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.panels.effects
+﻿package app.xrtm8.athar.ui.panels.effects
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -128,7 +128,7 @@ fun ColorsMaterialsSection(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onToggleRadialGradient(it)
                             },
-                            colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent),
+                            colors = SwitchDefaults.colors(checkedThumbColor = app.xrtm8.athar.ui.theme.AmoledWhite, checkedTrackColor = CherryAccent),
                             modifier = Modifier.height(24.dp)
                         )
                     }
@@ -278,7 +278,7 @@ fun ColorsMaterialsSection(
                     label = { Text(mode.labelAr, fontSize = 11.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = CherryAccent,
-                        selectedLabelColor = AmoledBlack,
+                        selectedLabelColor = app.xrtm8.athar.ui.theme.AmoledWhite,
                         containerColor = GlassCard,
                         labelColor = MutedWhite
                     ),

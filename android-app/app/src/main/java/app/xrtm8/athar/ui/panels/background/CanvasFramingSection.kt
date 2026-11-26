@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.panels.background
+﻿package app.xrtm8.athar.ui.panels.background
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -192,7 +192,7 @@ fun CanvasFramingSection(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onToggleFramingMode(it)
                             },
-                            colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
+                            colors = SwitchDefaults.colors(checkedThumbColor = app.xrtm8.athar.ui.theme.AmoledWhite, checkedTrackColor = CherryAccent)
                         )
                     }
 

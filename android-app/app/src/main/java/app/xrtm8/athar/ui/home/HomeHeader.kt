@@ -41,11 +41,10 @@ fun HomeHeader(
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "أَثَــر",
+                    text = "أثر",
                     color = primaryTextColor,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Box(

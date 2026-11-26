@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Crown Diamond (Nuqta) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,22 L62,30 L54,38 L46,30 Z" />
+
+    <!-- Calligraphic Alif Stroke -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M51,42 C51,42 58,43 58,46 L57,75 C57,80 49,82 49,82 C49,82 53,78 53,74 L54,48 C54,45 51,42 51,42 Z" />
+
+    <!-- Calligraphic Kashida Tail Ribbon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,68 C44,65 55,64 66,70 C74,74 78,71 78,71 C78,71 73,76 64,74 C54,71 45,72 36,68 Z" />
+
+    <!-- Tip Diamond (Nuqta) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,64 L74,68 L70,72 L66,68 Z" />
+
+</vector>

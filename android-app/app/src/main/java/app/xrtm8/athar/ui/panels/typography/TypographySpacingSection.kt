@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.panels.typography
+﻿package app.xrtm8.athar.ui.panels.typography
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -105,7 +105,7 @@ fun TypographySpacingSection(
                     onToggleCurvedText(it)
                 },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = AmoledBlack,
+                    checkedThumbColor = app.xrtm8.athar.ui.theme.AmoledWhite,
                     checkedTrackColor = CherryAccent,
                     uncheckedThumbColor = SubtleGray,
                     uncheckedTrackColor = GlassCard

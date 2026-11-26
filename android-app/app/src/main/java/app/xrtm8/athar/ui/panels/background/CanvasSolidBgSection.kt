@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.panels.background
+﻿package app.xrtm8.athar.ui.panels.background
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,7 +54,7 @@ internal fun CanvasSolidBgSection(
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onToggleTransparent(it)
             },
-            colors = SwitchDefaults.colors(checkedThumbColor = AmoledBlack, checkedTrackColor = CherryAccent)
+            colors = SwitchDefaults.colors(checkedThumbColor = app.xrtm8.athar.ui.theme.AmoledWhite, checkedTrackColor = CherryAccent)
         )
     }
 
@@ -116,7 +116,7 @@ internal fun CanvasSolidBgSection(
                             .size(10.dp)
                             .clip(CircleShape)
                             .background(Color(bg.argb.toInt()))
-                            .border(0.5.dp, if (isSelected) AmoledBlack else PureWhite, CircleShape)
+                            .border(0.5.dp, if (isSelected) app.xrtm8.athar.ui.theme.AmoledWhite else PureWhite, CircleShape)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(

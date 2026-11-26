@@ -1,4 +1,4 @@
-package app.xrtm8.athar.ui.components
+﻿package app.xrtm8.athar.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -121,7 +121,7 @@ fun TextPlacementMatrix(
                             ) {
                                 Text(
                                     text = label,
-                                    color = if (isSnapped) AmoledBlack else PureWhite,
+                                    color = if (isSnapped) app.xrtm8.athar.ui.theme.AmoledWhite else PureWhite,
                                     fontSize = 9.sp,
                                     fontWeight = if (isSnapped) FontWeight.Bold else FontWeight.Normal,
                                     maxLines = 1
