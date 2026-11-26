@@ -100,16 +100,8 @@ object TextGlassBackdropRenderer {
 
         val s = threadScratch.get()!!
         val pad = glassBackdropPadding * density
-        val bLeft = when (textAlign) {
-            TextAlignOption.RIGHT -> -layout.maxLineWidth - pad
-            TextAlignOption.CENTER -> -layout.halfBlockW - pad
-            TextAlignOption.LEFT -> -pad
-        }
-        val bRight = when (textAlign) {
-            TextAlignOption.RIGHT -> pad
-            TextAlignOption.CENTER -> layout.halfBlockW + pad
-            TextAlignOption.LEFT -> layout.maxLineWidth + pad
-        }
+        val bLeft = -layout.halfBlockW - pad
+        val bRight = layout.halfBlockW + pad
         val bTop = layout.startY - textSizePx * 0.75f - pad
         val bBottom = layout.startY + layout.totalHeight + textSizePx * 0.25f + pad
 

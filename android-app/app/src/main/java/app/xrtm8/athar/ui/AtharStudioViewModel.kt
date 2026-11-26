@@ -11,6 +11,7 @@ import app.xrtm8.athar.model.*
 import app.xrtm8.athar.project.AtharProjectManager
 import app.xrtm8.athar.project.AtharProjectMeta
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.typography.RichTextSpanMapper
 import app.xrtm8.athar.ui.viewmodel.StudioEffectsCollageOps
 import app.xrtm8.athar.ui.viewmodel.StudioHistoryController
 import app.xrtm8.athar.ui.viewmodel.StudioLayerTypographyOps
@@ -131,7 +132,20 @@ class AtharStudioViewModel : ViewModel() {
 
     fun setText(newText: String) {
         if (newText == history.current().rawText) return
-        history.pushActiveLayerHistory { it.copy(rawText = newText).withKashida() }
+        history.pushActiveLayerHistory { layer ->
+            val adjusted = RichTextSpanMapper.adjustSpansOnTextEdit(layer.rawText, newText, layer.textSpans)
+            layer.copy(rawText = newText, textSpans = adjusted).withKashida()
+        }
+    }
+
+    fun setTextWithSpans(newText: String, spans: List<TextSpanStyle>) {
+        history.pushActiveLayerHistory { layer ->
+            layer.copy(rawText = newText, textSpans = spans).withKashida()
+        }
+    }
+
+    fun setTextSpans(spans: List<TextSpanStyle>) {
+        history.pushActiveLayerHistory { it.copy(textSpans = spans) }
     }
 
     fun setStretchLevel(newLevel: Int) {
@@ -296,6 +310,19 @@ class AtharStudioViewModel : ViewModel() {
     fun setBackgroundImageUri(uri: Uri?) = history.pushHistory(history.current().copy(backgroundImageUri = uri, bgPhotoOffsetX = 0f, bgPhotoOffsetY = 0f, bgPhotoScale = 1.0f))
     fun setBackgroundDim(dim: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundDim = dim.coerceIn(0f, 0.95f)) } }
     fun setBackgroundBlur(blur: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundBlur = blur.coerceIn(0f, 35f)) } }
+    fun setFlutedGlassState(fluted: FlutedGlassState) {
+        history.markSliderChange()
+        val sanitized = fluted.copy(
+            intensity = fluted.intensity.coerceIn(0f, 1f),
+            ribCount = fluted.ribCount.coerceIn(8, 80),
+            specular = fluted.specular.coerceIn(0f, 1f),
+            coverage = fluted.coverage.coerceIn(0.1f, 1.0f),
+            angleDegrees = fluted.angleDegrees.coerceIn(-45f, 90f),
+            chromaticDispersion = fluted.chromaticDispersion.coerceIn(0f, 1f),
+            edgeSoftness = fluted.edgeSoftness.coerceIn(0f, 1f)
+        )
+        history.updateState { it.copy(flutedGlassState = sanitized) }
+    }
     fun setBackgroundBrightness(brightness: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundBrightness = brightness.coerceIn(-0.5f, 0.5f)) } }
     fun setBackgroundContrast(contrast: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundContrast = contrast.coerceIn(0.5f, 1.8f)) } }
     fun setBackgroundSaturation(saturation: Float) { history.markSliderChange(); history.updateState { it.copy(backgroundSaturation = saturation.coerceIn(0f, 2.0f)) } }
@@ -420,7 +447,7 @@ class AtharStudioViewModel : ViewModel() {
     fun removeCollageCellPhoto(cellId: String) = history.pushHistory(StudioEffectsCollageOps.updateCollageCell(history.current(), cellId) { StudioEffectsCollageOps.resetCellFraming(it, clearPhoto = true) })
 
     fun resetPhotoAdjustments() = history.pushHistory(
-        history.current().copy(backgroundBlur = 0f, backgroundBrightness = 0f, backgroundContrast = 1.0f, backgroundSaturation = 1.0f, backgroundVignette = 0f, backgroundDim = 0.25f)
+        history.current().copy(backgroundBlur = 0f, flutedGlassState = FlutedGlassState(), backgroundBrightness = 0f, backgroundContrast = 1.0f, backgroundSaturation = 1.0f, backgroundVignette = 0f, backgroundDim = 0.25f)
     )
 
     // ==========================================

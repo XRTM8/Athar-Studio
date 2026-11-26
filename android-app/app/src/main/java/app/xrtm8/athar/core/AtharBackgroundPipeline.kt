@@ -21,6 +21,7 @@ import app.xrtm8.athar.model.CollageCell
 import app.xrtm8.athar.model.ColorMixState
 import app.xrtm8.athar.model.FilmGrainState
 import app.xrtm8.athar.model.FilmPreset
+import app.xrtm8.athar.model.FlutedGlassState
 import app.xrtm8.athar.model.GlitchEffectState
 import app.xrtm8.athar.model.OpticalLensState
 import app.xrtm8.athar.model.PatternState
@@ -54,6 +55,7 @@ object AtharBackgroundPipeline {
         filmGrainState = FilmGrainState(),
         glitchEffectState = GlitchEffectState(),
         opticalLensState = OpticalLensState(),
+        flutedGlassState = FlutedGlassState(),
         patternState = PatternState(),
         maskState = AtharMaskState(),
         gradientScrim = CanvasGradientScrim(isEnabled = false)
@@ -86,6 +88,7 @@ object AtharBackgroundPipeline {
 
     fun hasSinglePhotoRasterEffects(state: CanvasState): Boolean =
         hasFilmLut(state) ||
+            state.flutedGlassState.isEnabled ||
             state.opticalLensState.isEnabled ||
             state.cinematicGlowState.isEnabled ||
             state.filmGrainState.isEnabled ||
@@ -208,6 +211,12 @@ object AtharBackgroundPipeline {
             current = mixed
         }
 
+        if (state.flutedGlassState.isEnabled) {
+            val fluted = AtharFlutedGlassEngine.processBitmap(current, state.flutedGlassState, inPlace = false)
+            if (fluted !== current && !current.isRecycled) current.recycle()
+            current = fluted
+        }
+
         val lensGeo = AtharOpticalLensEngine.applyLensGeometryAndEdgeEffects(
             source = current,
             state = state.opticalLensState,
@@ -273,6 +282,14 @@ object AtharBackgroundPipeline {
             }
             if (current !== input && mixed !== current && !current.isRecycled) current.recycle()
             current = mixed
+        }
+
+        if (state.flutedGlassState.isEnabled) {
+            val fluted = AtharFlutedGlassEngine.processBitmap(current, state.flutedGlassState, inPlace = false)
+            if (fluted !== current) {
+                if (current !== input && !current.isRecycled) current.recycle()
+                current = fluted
+            }
         }
 
         val lensGeo = AtharOpticalLensEngine.applyLensGeometryAndEdgeEffects(

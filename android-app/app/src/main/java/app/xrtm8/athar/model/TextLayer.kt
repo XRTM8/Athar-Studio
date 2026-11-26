@@ -56,5 +56,6 @@ data class TextLayer(
     val enableSwash: Boolean = false,
     val enableDiscretionaryLigatures: Boolean = false,
     val wordSpacing: Float = 0f,
-    val paragraphBalanceMode: ParagraphBalanceMode = ParagraphBalanceMode.NONE
+    val paragraphBalanceMode: ParagraphBalanceMode = ParagraphBalanceMode.NONE,
+    val textSpans: List<TextSpanStyle> = emptyList()
 )

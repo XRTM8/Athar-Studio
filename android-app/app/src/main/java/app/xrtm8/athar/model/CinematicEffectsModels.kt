@@ -61,3 +61,28 @@ data class OpticalLensState(
     val isEnabled: Boolean get() = type != OpticalLensType.NONE && intensity > 0.01f
     val isDefault: Boolean get() = type == OpticalLensType.NONE && intensity == 0.65f && spread == 0.50f && angleDegrees == 45f
 }
+
+/**
+ * Physical Fluted / Ribbed Glass refraction & specular ridge state.
+ */
+data class FlutedGlassState(
+    val intensity: Float = 0f,
+    val ribCount: Int = 28,
+    val specular: Float = 0.55f,
+    val coverage: Float = 1.0f,
+    val coverageFromStart: Boolean = true,
+    val angleDegrees: Float = 0f,
+    val chromaticDispersion: Float = 0f,
+    val edgeSoftness: Float = 0f
+) {
+    val isEnabled: Boolean get() = intensity > 0.005f
+    val isDefault: Boolean
+        get() = intensity == 0f &&
+            ribCount == 28 &&
+            specular == 0.55f &&
+            coverage == 1.0f &&
+            coverageFromStart &&
+            angleDegrees == 0f &&
+            chromaticDispersion == 0f &&
+            edgeSoftness == 0f
+}

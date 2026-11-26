@@ -8,6 +8,7 @@ import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.typography.AtharRichTextEngine
 import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.typography.CurvedTextRenderer
 import app.xrtm8.athar.ui.components.CanvasPaintPool
@@ -101,6 +102,83 @@ object CanvasLayerTextRenderer {
             strokePaint.color = layer.strokeColorLong.toInt()
         }
 
+        val hasRichSpans = layer.textSpans.any { it.hasAnyStyle } && !(layer.isCurved && abs(layer.curveAngle) >= 1f)
+        val shadowDxPx = (layer.shadowDx / 380f) * canvasWidth
+        val shadowDyPx = (layer.shadowDy / 380f) * canvasWidth
+        val shadowRadiusInt = ((layer.shadowRadius / 380f) * canvasWidth).toInt()
+        val shadowBlurFilter = if (shadowRadiusInt > 0) {
+            paints.shadowBlurFilterCache.getOrPut(shadowRadiusInt) {
+                BlurMaskFilter(shadowRadiusInt.toFloat().coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+            }
+        } else null
+
+        if (hasRichSpans) {
+            nativeCanvas.save()
+            val centerX = canvasWidth / 2f + (canvasWidth * layerNormX)
+            val centerY = canvasHeight / 2f + (canvasHeight * layerNormY)
+            nativeCanvas.translate(centerX, centerY)
+            nativeCanvas.rotate(layerRotation)
+            nativeCanvas.scale(layerScale, layerScale)
+
+            val richPaint = AtharRichTextEngine.buildTextPaintFromLayer(context, layer, canvasWidth, fontFeatures)
+            val (preLayout, _) = AtharRichTextEngine.buildRichStaticLayout(context, layer, richPaint, canvasWidth, includeColorSpans = false)
+            val preMaxW = (0 until preLayout.lineCount).maxOfOrNull { preLayout.getLineWidth(it) } ?: 0f
+            val preLineCount = preLayout.lineCount.coerceAtLeast(1)
+            val preLineH = preLayout.height.toFloat() / preLineCount
+            val preResult = app.xrtm8.athar.typography.TypographyLayoutResult(
+                lines = emptyList(),
+                lineHeight = preLineH,
+                totalHeight = preLayout.height.toFloat(),
+                startY = -preLayout.height.toFloat() / 2f + preLineH * 0.75f,
+                maxLineWidth = preMaxW,
+                halfBlockW = preMaxW / 2f,
+                lineX = when (layer.textAlign) {
+                    TextAlignOption.CENTER -> 0f
+                    TextAlignOption.RIGHT -> preMaxW / 2f
+                    TextAlignOption.LEFT -> -preMaxW / 2f
+                }
+            )
+            TextGlassBackdropRenderer.drawGlassBackdrop(
+                canvas = nativeCanvas,
+                layer = layer,
+                layout = preResult,
+                textSizePx = textSizePx,
+                density = canvasDensityFactor
+            )
+
+            val composite = alphaInt < 255 || layer.blendMode != LayerBlendMode.NORMAL
+            if (composite) {
+                paints.compositePaint.alpha = alphaInt
+                paints.compositePaint.xfermode = if (layer.blendMode == LayerBlendMode.NORMAL) null else
+                    paints.blendModeXfermode.getOrPut(layer.blendMode) { PorterDuffXfermode(layer.blendMode.porterDuffMode) }
+                nativeCanvas.saveLayer(null, paints.compositePaint)
+            }
+            val richResult = AtharRichTextEngine.drawRichText(
+                canvas = nativeCanvas,
+                context = context,
+                layer = layer,
+                canvasWidth = canvasWidth,
+                fontFeatures = fontFeatures,
+                shadowBlurFilter = shadowBlurFilter
+            )
+            if (composite) nativeCanvas.restore()
+
+            if (isCurrentActive && !isFramingMode) {
+                CanvasBoundingBoxRenderer.drawBoundingBox(
+                    nativeCanvas = nativeCanvas,
+                    textAlign = layer.textAlign,
+                    layout = richResult,
+                    textSizePx = textSizePx,
+                    density = density,
+                    selectBoxPaint = paints.selectBoxPaint,
+                    handlePaint = paints.handlePaint,
+                    handleFillPaint = paints.handleFillPaint
+                )
+            }
+            nativeCanvas.restore()
+            return
+        }
+
         val layerLayout = AtharTextLayout.computeLayout(
             text = layer.displayText,
             paint = basePaint,
@@ -126,15 +204,6 @@ object CanvasLayerTextRenderer {
             textSizePx = textSizePx,
             density = canvasDensityFactor
         )
-
-        val shadowDxPx = (layer.shadowDx / 380f) * canvasWidth
-        val shadowDyPx = (layer.shadowDy / 380f) * canvasWidth
-        val shadowRadiusInt = ((layer.shadowRadius / 380f) * canvasWidth).toInt()
-        val shadowBlurFilter = if (shadowRadiusInt > 0) {
-            paints.shadowBlurFilterCache.getOrPut(shadowRadiusInt) {
-                BlurMaskFilter(shadowRadiusInt.toFloat().coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
-            }
-        } else null
 
         val composite = alphaInt < 255 || layer.blendMode != LayerBlendMode.NORMAL
         if (composite) {

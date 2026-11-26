@@ -190,7 +190,9 @@ fun CanvasBackgroundPanel(
                     onResetPattern = { viewModel.resetPattern() }, onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }
                 )
                 6 -> PhotoAdjustmentsPanel(
-                    state = state, onBlurChange = { viewModel.setBackgroundBlur(it) }, onDimChange = { viewModel.setBackgroundDim(it) },
+                    state = state, onBlurChange = { viewModel.setBackgroundBlur(it) },
+                    onFlutedGlassChange = { viewModel.setFlutedGlassState(it) },
+                    onDimChange = { viewModel.setBackgroundDim(it) },
                     onBrightnessChange = { viewModel.setBackgroundBrightness(it) }, onContrastChange = { viewModel.setBackgroundContrast(it) },
                     onSaturationChange = { viewModel.setBackgroundSaturation(it) }, onVignetteChange = { viewModel.setBackgroundVignette(it) },
                     onResetAdjustments = { viewModel.resetPhotoAdjustments() }, onSliderChangeFinished = { viewModel.commitHistoryCheckpoint() }

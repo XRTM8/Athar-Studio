@@ -91,6 +91,34 @@ internal object AtharLayerJsonCodec {
             put("enable_dlig", layer.enableDiscretionaryLigatures)
             put("word_spacing", layer.wordSpacing.toDouble())
             put("paragraph_balance_mode", layer.paragraphBalanceMode.name)
+            if (layer.textSpans.isNotEmpty()) {
+                val spansArr = JSONArray()
+                layer.textSpans.forEach { span ->
+                    if (span.isValid && span.hasAnyStyle) {
+                        spansArr.put(JSONObject().apply {
+                            put("s", span.start)
+                            put("e", span.end)
+                            if (span.fontFamily != null) put("ff", span.fontFamily.name)
+                            if (!span.customFontPath.isNullOrBlank()) put("cfp", span.customFontPath)
+                            if (!span.customFontName.isNullOrBlank()) put("cfn", span.customFontName)
+                            if (span.fontWeight != null) put("fw", span.fontWeight)
+                            if (span.isBold != null) put("b", span.isBold)
+                            if (span.isItalic != null) put("i", span.isItalic)
+                            if (span.scaleMultiplier != 1.0f) put("sc", span.scaleMultiplier.toDouble())
+                            if (span.baselineShift != 0f) put("bs", span.baselineShift.toDouble())
+                            if (span.textColorLong != null) put("tc", span.textColorLong)
+                            if (span.highlightColorLong != null) put("hc", span.highlightColorLong)
+                            if (span.highlightAlpha != 0.85f) put("ha", span.highlightAlpha.toDouble())
+                            if (span.highlightCornerRadius != 8f) put("hcr", span.highlightCornerRadius.toDouble())
+                            if (span.highlightPaddingH != 6f) put("hph", span.highlightPaddingH.toDouble())
+                            if (span.highlightPaddingV != 2f) put("hpv", span.highlightPaddingV.toDouble())
+                            if (span.highlightBorderColorLong != null) put("hbc", span.highlightBorderColorLong)
+                            if (span.highlightBorderWidth != 0f) put("hbw", span.highlightBorderWidth.toDouble())
+                        })
+                    }
+                }
+                put("text_spans", spansArr)
+            }
         }
     }
 
@@ -161,8 +189,45 @@ internal object AtharLayerJsonCodec {
             paragraphBalanceMode = enumOrDefault(
                 obj.optString("paragraph_balance_mode", ParagraphBalanceMode.NONE.name),
                 ParagraphBalanceMode.NONE
-            )
+            ),
+            textSpans = readTextSpans(obj.optJSONArray("text_spans"))
         )
+    }
+
+    private fun readTextSpans(arr: JSONArray?): List<TextSpanStyle> {
+        if (arr == null || arr.length() == 0) return emptyList()
+        val out = mutableListOf<TextSpanStyle>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val s = o.optInt("s", -1)
+            val e = o.optInt("e", -1)
+            if (s < 0 || e <= s) continue
+            val ffStr = o.optString("ff", "")
+            val ff = if (ffStr.isNotBlank()) try { enumValueOf<ArabicFontFamily>(ffStr) } catch (_: Exception) { null } else null
+            out.add(
+                TextSpanStyle(
+                    start = s,
+                    end = e,
+                    fontFamily = ff,
+                    customFontPath = o.optString("cfp", "").ifBlank { null },
+                    customFontName = o.optString("cfn", "").ifBlank { null },
+                    fontWeight = if (o.has("fw")) o.optInt("fw").coerceIn(100, 900) else null,
+                    isBold = if (o.has("b")) o.optBoolean("b") else null,
+                    isItalic = if (o.has("i")) o.optBoolean("i") else null,
+                    scaleMultiplier = o.optDouble("sc", 1.0).toFloat().coerceIn(0.5f, 2.0f),
+                    baselineShift = o.optDouble("bs", 0.0).toFloat().coerceIn(-0.5f, 0.5f),
+                    textColorLong = if (o.has("tc")) o.optLong("tc") else null,
+                    highlightColorLong = if (o.has("hc")) o.optLong("hc") else null,
+                    highlightAlpha = o.optDouble("ha", 0.85).toFloat().coerceIn(0f, 1f),
+                    highlightCornerRadius = o.optDouble("hcr", 8.0).toFloat().coerceIn(0f, 40f),
+                    highlightPaddingH = o.optDouble("hph", 6.0).toFloat().coerceIn(0f, 32f),
+                    highlightPaddingV = o.optDouble("hpv", 2.0).toFloat().coerceIn(0f, 24f),
+                    highlightBorderColorLong = if (o.has("hbc")) o.optLong("hbc") else null,
+                    highlightBorderWidth = o.optDouble("hbw", 0.0).toFloat().coerceIn(0f, 8f)
+                )
+            )
+        }
+        return out
     }
 
     internal inline fun <reified T : Enum<T>> enumOrDefault(value: String, default: T): T =

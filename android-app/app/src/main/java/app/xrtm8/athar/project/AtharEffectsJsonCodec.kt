@@ -83,6 +83,16 @@ internal object AtharEffectsJsonCodec {
             put("glitch_pixelate", glitch.pixelate.toDouble())
             put("glitch_seed", glitch.seed)
 
+            val fluted = state.flutedGlassState
+            put("fluted_glass_intensity", fluted.intensity.toDouble())
+            put("fluted_glass_ribs", fluted.ribCount)
+            put("fluted_glass_specular", fluted.specular.toDouble())
+            put("fluted_glass_coverage", fluted.coverage.toDouble())
+            put("fluted_glass_from_start", fluted.coverageFromStart)
+            put("fluted_glass_angle", fluted.angleDegrees.toDouble())
+            put("fluted_glass_dispersion", fluted.chromaticDispersion.toDouble())
+            put("fluted_glass_softness", fluted.edgeSoftness.toDouble())
+
             val col = state.collageState
             put("collage_layout", col.layout.name)
             put("collage_spacing", col.spacingDp.toDouble())

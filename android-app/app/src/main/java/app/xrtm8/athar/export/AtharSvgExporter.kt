@@ -11,6 +11,7 @@ import app.xrtm8.athar.model.TextAlignOption
 import app.xrtm8.athar.model.TextLayer
 import app.xrtm8.athar.model.VisualEffect
 import app.xrtm8.athar.typography.AtharFontManager
+import app.xrtm8.athar.typography.AtharRichTextEngine
 import app.xrtm8.athar.typography.AtharTextLayout
 import app.xrtm8.athar.typography.CurvedTextRenderer
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +95,26 @@ object AtharSvgExporter {
             val filterAttr = if (layer.shadowRadius > 0f) """filter="url(#shadow_$safeId)"""" else ""
 
             sb.appendLine("""  <g transform="translate($cx, $cy) rotate(${layer.rotationAngle}) scale(${layer.scaleFactor})" $filterAttr>""")
+
+            if (context != null && layer.textSpans.any { it.hasHighlight }) {
+                val rPaint = AtharRichTextEngine.buildTextPaintFromLayer(context, layer, width.toFloat(), buildFontFeatureString(layer))
+                val (rLayout, rMapped) = AtharRichTextEngine.buildRichStaticLayout(context, layer, rPaint, width.toFloat(), includeColorSpans = false)
+                val ox = -rLayout.width / 2f
+                val oy = -rLayout.height / 2f
+                val highlights = AtharRichTextEngine.computeHighlightRects(rLayout, layer.displayText, rMapped, width.toFloat())
+                highlights.forEach { hl ->
+                    val hex = String.format("#%06X", 0xFFFFFF and hl.color)
+                    val alpha = ((hl.color ushr 24) and 0xFF) / 255f
+                    val rx = ox + hl.rect.left
+                    val ry = oy + hl.rect.top
+                    val rw = hl.rect.width()
+                    val rh = hl.rect.height()
+                    val border = if (hl.borderColor != null && hl.borderWidthPx > 0.5f) {
+                        """ stroke="${String.format("#%06X", 0xFFFFFF and hl.borderColor)}" stroke-width="${hl.borderWidthPx}""""
+                    } else ""
+                    sb.appendLine("""    <rect x="$rx" y="$ry" width="$rw" height="$rh" rx="${hl.cornerRadiusPx}" ry="${hl.cornerRadiusPx}" fill="$hex" fill-opacity="$alpha"$border />""")
+                }
+            }
 
             val shouldOutline = context != null && (!layer.customFontPath.isNullOrBlank() || layer.isCurved)
             var outlined = false

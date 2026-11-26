@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -27,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.FormatClear
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -46,11 +48,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -59,6 +66,10 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.xrtm8.athar.model.ArabicFontFamily
+import app.xrtm8.athar.model.TextSpanStyle
+import app.xrtm8.athar.typography.RichTextSpanMapper
+import app.xrtm8.athar.ui.components.StudioSlider
 import app.xrtm8.athar.ui.theme.*
 
 /**
@@ -72,12 +83,17 @@ fun stripArabicDiacritics(text: String): String {
 @Composable
 fun ArabicTextEditorDialog(
     initialText: String,
+    initialSpans: List<TextSpanStyle> = emptyList(),
     onDismiss: () -> Unit,
-    onApplyText: (String) -> Unit
+    onApplyText: (String) -> Unit,
+    onApplyTextWithSpans: ((String, List<TextSpanStyle>) -> Unit)? = null
 ) {
     var textFieldValue by remember {
         mutableStateOf(TextFieldValue(text = initialText, selection = TextRange(initialText.length)))
     }
+    var spans by remember { mutableStateOf(initialSpans) }
+    var activeSpanTab by remember { mutableStateOf(0) } // 0 = Font, 1 = Highlight, 2 = Text Color
+    var colorPickerTarget by remember { mutableStateOf<String?>(null) } // "highlight" | "border" | "text"
     val haptic = LocalHapticFeedback.current
 
     val isAmoledWhite = LocalAmoledWhite.current
@@ -104,6 +120,7 @@ fun ArabicTextEditorDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 6.dp)
                     .imePadding()
                     .navigationBarsPadding()
@@ -176,14 +193,23 @@ fun ArabicTextEditorDialog(
             // Main Typographic Hero Input
             OutlinedTextField(
                 value = textFieldValue,
-                onValueChange = { textFieldValue = it },
+                onValueChange = { next ->
+                    if (next.text != textFieldValue.text) {
+                        spans = RichTextSpanMapper.adjustSpansOnTextEdit(textFieldValue.text, next.text, spans)
+                    }
+                    textFieldValue = next
+                },
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(
                     onDone = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onApplyText(textFieldValue.text)
+                        if (onApplyTextWithSpans != null) {
+                            onApplyTextWithSpans(textFieldValue.text, spans)
+                        } else {
+                            onApplyText(textFieldValue.text)
+                        }
                         onDismiss()
                     }
                 ),
@@ -213,6 +239,446 @@ fun ArabicTextEditorDialog(
                     }
                 }
             )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Quick Word Selection & Rich Text Span Formatting Section
+            val curText = textFieldValue.text
+            val selMin = textFieldValue.selection.min.coerceIn(0, curText.length)
+            val selMax = textFieldValue.selection.max.coerceIn(selMin, curText.length)
+            val hasSelection = selMax > selMin
+
+            if (curText.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (hasSelection) "تخصيص التحديد (${curText.substring(selMin, selMax).take(16)})" else "اضغط كلمة أو ظلّل جزءاً لتخصيصه:",
+                        color = if (hasSelection) CherryAccent else secondaryTextColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (spans.isNotEmpty()) {
+                        Text(
+                            text = "مسح التنسيقات",
+                            color = subtleTextColor,
+                            fontSize = 10.sp,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { spans = emptyList() }
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Quick word selector chips
+                val wordRanges = remember(curText) {
+                    Regex("\\S+").findAll(curText).map { it.range.first..(it.range.last + 1) }.toList()
+                }
+                if (wordRanges.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        wordRanges.forEach { range ->
+                            val isSelected = selMin == range.first && selMax == range.last
+                            val wordText = curText.substring(range.first, range.last)
+                            val hasSpan = spans.any { it.start < range.last && it.end > range.first }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) CherryAccent.copy(alpha = 0.25f) else cardBg)
+                                    .border(
+                                        0.75.dp,
+                                        when {
+                                            isSelected -> CherryAccent
+                                            hasSpan -> BurgundyAccent
+                                            else -> cardBorder
+                                        },
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        textFieldValue = textFieldValue.copy(selection = TextRange(range.first, range.last))
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = wordText,
+                                    color = primaryTextColor,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected || hasSpan) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (hasSelection) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val targetRange = RichTextSpanMapper.expandToWordBounds(curText, selMin, selMax)
+                    val activeSpan = spans.find { it.start == targetRange.first && it.end == targetRange.last }
+                        ?: TextSpanStyle(start = targetRange.first, end = targetRange.last)
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(cardBg)
+                            .border(0.5.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .padding(10.dp)
+                    ) {
+                        // Sub-tabs
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("الخط والحجم", "خلفية الكلمة", "لون النص").forEachIndexed { idx, title ->
+                                val selected = activeSpanTab == idx
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (selected) BurgundyAccent else Color.Transparent)
+                                        .border(0.5.dp, if (selected) BurgundyAccent else cardBorder, RoundedCornerShape(8.dp))
+                                        .clickable { activeSpanTab = idx }
+                                        .padding(vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = title,
+                                        color = if (selected) PureWhite else secondaryTextColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        when (activeSpanTab) {
+                            0 -> {
+                                // Per-word Font Selector
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (activeSpan.fontFamily == null) CherryAccent.copy(alpha = 0.2f) else Color.Transparent)
+                                            .border(0.5.dp, if (activeSpan.fontFamily == null) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                spans = RichTextSpanMapper.upsertSpan(
+                                                    spans,
+                                                    activeSpan.copy(fontFamily = null, customFontPath = null, customFontName = null)
+                                                )
+                                            }
+                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    ) {
+                                        Text("افتراضي", color = primaryTextColor, fontSize = 11.sp)
+                                    }
+                                    ArabicFontFamily.values().forEach { font ->
+                                        val isSel = activeSpan.fontFamily == font
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (isSel) CherryAccent.copy(alpha = 0.25f) else Color.Transparent)
+                                                .border(0.5.dp, if (isSel) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    spans = RichTextSpanMapper.upsertSpan(
+                                                        spans,
+                                                        activeSpan.copy(fontFamily = font, customFontPath = null, customFontName = null)
+                                                    )
+                                                }
+                                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                                        ) {
+                                            Text(font.fontName, color = primaryTextColor, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val boldOn = activeSpan.isBold == true
+                                    val italicOn = activeSpan.isItalic == true
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (boldOn) CherryAccent.copy(alpha = 0.25f) else Color.Transparent)
+                                            .border(0.5.dp, if (boldOn) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                spans = RichTextSpanMapper.upsertSpan(
+                                                    spans,
+                                                    activeSpan.copy(isBold = if (boldOn) null else true)
+                                                )
+                                            }
+                                            .padding(vertical = 5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) { Text("عريض B", color = primaryTextColor, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (italicOn) CherryAccent.copy(alpha = 0.25f) else Color.Transparent)
+                                            .border(0.5.dp, if (italicOn) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                spans = RichTextSpanMapper.upsertSpan(
+                                                    spans,
+                                                    activeSpan.copy(isItalic = if (italicOn) null else true)
+                                                )
+                                            }
+                                            .padding(vertical = 5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) { Text("مائل I", color = primaryTextColor, fontSize = 11.sp, fontStyle = FontStyle.Italic) }
+                                }
+                                StudioSlider(
+                                    title = "الحجم النسبي",
+                                    value = activeSpan.scaleMultiplier,
+                                    onValueChange = {
+                                        spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(scaleMultiplier = it))
+                                    },
+                                    valueRange = 0.6f..1.8f,
+                                    step = 0.05f,
+                                    valueDisplay = "${(activeSpan.scaleMultiplier * 100).toInt()}%"
+                                )
+                                StudioSlider(
+                                    title = "إزاحة السطر",
+                                    value = activeSpan.baselineShift,
+                                    onValueChange = {
+                                        spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(baselineShift = it))
+                                    },
+                                    valueRange = -0.25f..0.25f,
+                                    step = 0.02f,
+                                    valueDisplay = "${(activeSpan.baselineShift * 100).toInt()}%"
+                                )
+                            }
+
+                            1 -> {
+                                // Highlight Background Controls
+                                val palette = listOf(
+                                    0xFFE5C07BL, 0xFF9E1B32L, 0xFF1E3A5FL, 0xFF1F6F54L,
+                                    0xFFF5EFE6L, 0xFF141414L, 0xFFD97706L, 0xFF7C3AEDL
+                                )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .border(0.5.dp, cardBorder, RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(highlightColorLong = null))
+                                            }
+                                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                                    ) { Text("بدون", color = secondaryTextColor, fontSize = 10.sp) }
+
+                                    palette.forEach { cLong ->
+                                        val isSel = activeSpan.highlightColorLong == cLong
+                                        Box(
+                                            modifier = Modifier
+                                                .size(26.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(cLong))
+                                                .border(if (isSel) 2.dp else 0.75.dp, if (isSel) PureWhite else cardBorder, CircleShape)
+                                                .clickable {
+                                                    spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(highlightColorLong = cLong))
+                                                }
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(cardBg)
+                                            .border(0.75.dp, CherryAccent, CircleShape)
+                                            .clickable { colorPickerTarget = "highlight" },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Colorize, contentDescription = "لون مخصص", tint = CherryAccent, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                                if (activeSpan.highlightColorLong != null) {
+                                    StudioSlider(
+                                        title = "شفافية الخلفية",
+                                        value = activeSpan.highlightAlpha,
+                                        onValueChange = { spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(highlightAlpha = it)) },
+                                        valueRange = 0.1f..1.0f,
+                                        step = 0.05f,
+                                        valueDisplay = "${(activeSpan.highlightAlpha * 100).toInt()}%"
+                                    )
+                                    StudioSlider(
+                                        title = "استدارة الزوايا",
+                                        value = activeSpan.highlightCornerRadius,
+                                        onValueChange = { spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(highlightCornerRadius = it)) },
+                                        valueRange = 0f..28f,
+                                        step = 1f,
+                                        valueDisplay = "${activeSpan.highlightCornerRadius.toInt()}"
+                                    )
+                                    StudioSlider(
+                                        title = "الهامش الأفقي",
+                                        value = activeSpan.highlightPaddingH,
+                                        onValueChange = { spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(highlightPaddingH = it)) },
+                                        valueRange = 0f..20f,
+                                        step = 1f,
+                                        valueDisplay = "${activeSpan.highlightPaddingH.toInt()}"
+                                    )
+                                    StudioSlider(
+                                        title = "الهامش العمودي",
+                                        value = activeSpan.highlightPaddingV,
+                                        onValueChange = { spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(highlightPaddingV = it)) },
+                                        valueRange = 0f..14f,
+                                        step = 1f,
+                                        valueDisplay = "${activeSpan.highlightPaddingV.toInt()}"
+                                    )
+                                    StudioSlider(
+                                        title = "سمك الإطار",
+                                        value = activeSpan.highlightBorderWidth,
+                                        onValueChange = {
+                                            val borderColor = activeSpan.highlightBorderColorLong ?: 0xFFFFFFFFL
+                                            spans = RichTextSpanMapper.upsertSpan(
+                                                spans,
+                                                activeSpan.copy(highlightBorderWidth = it, highlightBorderColorLong = borderColor)
+                                            )
+                                        },
+                                        valueRange = 0f..4f,
+                                        step = 0.5f,
+                                        valueDisplay = "${activeSpan.highlightBorderWidth}"
+                                    )
+                                    if (activeSpan.highlightBorderWidth > 0f) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("لون الإطار:", color = secondaryTextColor, fontSize = 10.sp)
+                                            listOf(0xFFFFFFFFL, 0xFFE5C07BL, 0xFF9E1B32L, 0xFF0A0A0AL).forEach { bLong ->
+                                                val isSel = activeSpan.highlightBorderColorLong == bLong
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(20.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(bLong))
+                                                        .border(if (isSel) 2.dp else 0.75.dp, if (isSel) CherryAccent else cardBorder, CircleShape)
+                                                        .clickable {
+                                                            spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(highlightBorderColorLong = bLong))
+                                                        }
+                                                )
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .clip(CircleShape)
+                                                    .background(cardBg)
+                                                    .border(0.75.dp, CherryAccent, CircleShape)
+                                                    .clickable { colorPickerTarget = "border" },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(Icons.Default.Colorize, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(12.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            else -> {
+                                // Per-word Text Color Controls
+                                val textColors = listOf(
+                                    0xFFFFFFFFL, 0xFF0A0A0AL, 0xFFE5C07BL, 0xFF9E1B32L,
+                                    0xFFFDF6E3L, 0xFF38BDF8L, 0xFF34D399L, 0xFFF472B6L
+                                )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .border(0.5.dp, cardBorder, RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(textColorLong = null))
+                                            }
+                                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                                    ) { Text("افتراضي", color = secondaryTextColor, fontSize = 10.sp) }
+
+                                    textColors.forEach { cLong ->
+                                        val isSel = activeSpan.textColorLong == cLong
+                                        Box(
+                                            modifier = Modifier
+                                                .size(26.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(cLong))
+                                                .border(if (isSel) 2.dp else 0.75.dp, if (isSel) CherryAccent else cardBorder, CircleShape)
+                                                .clickable {
+                                                    spans = RichTextSpanMapper.upsertSpan(spans, activeSpan.copy(textColorLong = cLong))
+                                                }
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(cardBg)
+                                            .border(0.75.dp, CherryAccent, CircleShape)
+                                            .clickable { colorPickerTarget = "text" },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Colorize, contentDescription = "لون مخصص", tint = CherryAccent, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (colorPickerTarget != null) {
+                        val initColor = when (colorPickerTarget) {
+                            "highlight" -> activeSpan.highlightColorLong ?: 0xFFE5C07BL
+                            "border" -> activeSpan.highlightBorderColorLong ?: 0xFFFFFFFFL
+                            else -> activeSpan.textColorLong ?: 0xFFFFFFFFL
+                        }
+                        val title = when (colorPickerTarget) {
+                            "highlight" -> "لون خلفية الكلمة"
+                            "border" -> "لون إطار الخلفية"
+                            else -> "لون نص التحديد"
+                        }
+                        CustomColorPickerDialog(
+                            initialColorLong = initColor,
+                            title = title,
+                            onColorSelected = { chosen ->
+                                val updated = when (colorPickerTarget) {
+                                    "highlight" -> activeSpan.copy(highlightColorLong = chosen)
+                                    "border" -> activeSpan.copy(highlightBorderColorLong = chosen)
+                                    else -> activeSpan.copy(textColorLong = chosen)
+                                }
+                                spans = RichTextSpanMapper.upsertSpan(spans, updated)
+                                colorPickerTarget = null
+                            },
+                            onDismiss = { colorPickerTarget = null }
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -300,7 +766,11 @@ fun ArabicTextEditorDialog(
                 Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onApplyText(textFieldValue.text)
+                        if (onApplyTextWithSpans != null) {
+                            onApplyTextWithSpans(textFieldValue.text, spans)
+                        } else {
+                            onApplyText(textFieldValue.text)
+                        }
                         onDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BurgundyAccent),

@@ -111,6 +111,16 @@ object AtharProjectSerializer {
                 intensity = c.optDouble("lens_intensity", 0.65).toFloat().coerceIn(0f, 1f),
                 spread = c.optDouble("lens_spread", 0.50).toFloat().coerceIn(0.1f, 1f),
                 angleDegrees = c.optDouble("lens_angle", 45.0).toFloat()
+            ),
+            flutedGlassState = FlutedGlassState(
+                intensity = c.optDouble("fluted_glass_intensity", 0.0).toFloat().coerceIn(0f, 1f),
+                ribCount = c.optInt("fluted_glass_ribs", 28).coerceIn(6, 120),
+                specular = c.optDouble("fluted_glass_specular", 0.55).toFloat().coerceIn(0f, 1f),
+                coverage = c.optDouble("fluted_glass_coverage", 1.0).toFloat().coerceIn(0.1f, 1.0f),
+                coverageFromStart = c.optBoolean("fluted_glass_from_start", true),
+                angleDegrees = c.optDouble("fluted_glass_angle", 0.0).toFloat().coerceIn(-45f, 90f),
+                chromaticDispersion = c.optDouble("fluted_glass_dispersion", 0.0).toFloat().coerceIn(0f, 1f),
+                edgeSoftness = c.optDouble("fluted_glass_softness", 0.0).toFloat().coerceIn(0f, 1f)
             )
         )
     }
