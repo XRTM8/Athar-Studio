@@ -2,6 +2,7 @@ package app.xrtm8.athar.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,7 +11,6 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -71,16 +71,17 @@ fun HomeHeader(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onOpenSettings,
+            Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(if (isAmoledWhite) WhiteSurfaceElevated else StudioSurface)
-                    .border(0.5.dp, cardBorder, CircleShape)
+                    .border(0.75.dp, cardBorder, CircleShape)
+                    .clickable(onClick = onOpenSettings),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
@@ -90,13 +91,14 @@ fun HomeHeader(
                 )
             }
 
-            IconButton(
-                onClick = onToggleTheme,
+            Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(if (isAmoledWhite) WhiteSurfaceElevated else StudioSurface)
-                    .border(0.5.dp, cardBorder, CircleShape)
+                    .border(0.75.dp, cardBorder, CircleShape)
+                    .clickable(onClick = onToggleTheme),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (isAmoledWhite) Icons.Default.DarkMode else Icons.Default.LightMode,

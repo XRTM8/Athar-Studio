@@ -94,7 +94,7 @@ fun HomeHeroCard(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "إنشاء مساحة عمل فارغة بدون نصوص جاهزة",
+                            text = "ابدأ لوحة فارغة بالمقاس المناسب",
                             color = subtleTextColor,
                             fontSize = 11.5.sp
                         )

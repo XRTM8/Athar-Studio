@@ -2,19 +2,24 @@ package app.xrtm8.athar.ui.dialogs
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,7 +64,7 @@ fun AtharSettingsDialog(
         cacheSizeBytes = AtharProjectManager.getCacheSizeBytes(context)
     }
 
-    val dialogBg = if (isAmoledWhite) AmoledWhite else GlassBackground
+    val dialogBg = if (isAmoledWhite) AmoledWhite else StudioSurface
     val cardBg = if (isAmoledWhite) WhiteSurface else GlassSurface
     val cardBorder = if (isAmoledWhite) WhiteBorder else GlassBorder
     val primaryText = if (isAmoledWhite) DarkText else PureWhite
@@ -73,62 +78,150 @@ fun AtharSettingsDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background((if (isAmoledWhite) AmoledWhite else AmoledBlack).copy(alpha = 0.85f))
-                .padding(20.dp),
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .fillMaxHeight(0.82f)
+                    .fillMaxWidth(0.94f)
+                    .fillMaxHeight(0.84f)
                     .clip(RoundedCornerShape(24.dp))
                     .background(dialogBg)
-                    .border(1.dp, if (isAmoledWhite) WhiteBorder else GlassBorderActive, RoundedCornerShape(24.dp))
-                    .padding(20.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .border(0.75.dp, cardBorder, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 18.dp, vertical = 16.dp)
             ) {
-                // Header
+                // Sticky Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "الإعدادات والمعلومات",
-                            color = CherryAccent,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text(
+                        text = "الإعدادات والمعلومات",
+                        color = primaryText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = primaryText)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(cardBg)
+                            .border(0.5.dp, cardBorder, CircleShape)
+                            .clickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = primaryText, modifier = Modifier.size(18.dp))
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = cardBorder, thickness = 0.5.dp)
 
-                // Section 1: Cache Management
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                // Section 1: Studio & Export Preferences (Primary user settings first)
+                var appPrefs by remember { mutableStateOf(app.xrtm8.athar.project.AtharAppSettings.load(context)) }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBg)
+                        .border(0.75.dp, cardBorder, RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(18.dp))
+                        Text(text = "تفضيلات الاستوديو والتصدير", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(text = "صيغة التصدير الافتراضية", color = subtleText, fontSize = 11.5.sp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isAmoledWhite) WhiteSurfaceElevated else AmoledBlack.copy(alpha = 0.45f))
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        app.xrtm8.athar.project.ExportImageFormat.entries.forEach { fmt ->
+                            val sel = appPrefs.defaultFormat == fmt
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) CherryAccent else Color.Transparent)
+                                    .clickable {
+                                        val next = appPrefs.copy(defaultFormat = fmt)
+                                        appPrefs = next
+                                        app.xrtm8.athar.project.AtharAppSettings.save(context, next)
+                                    }
+                                    .padding(vertical = 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(fmt.label, color = if (sel) PureWhite else subtleText, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = cardBorder, thickness = 0.5.dp)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("إظهار الشبكة تلقائياً", color = primaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text("عرض خطوط المحاذاة عند فتح مشروع جديد", color = subtleText, fontSize = 10.5.sp)
+                        }
+                        Switch(
+                            checked = appPrefs.autoGridGuides,
+                            onCheckedChange = {
+                                val next = appPrefs.copy(autoGridGuides = it)
+                                appPrefs = next
+                                app.xrtm8.athar.project.AtharAppSettings.save(context, next)
+                            },
+                            colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = CherryAccent)
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("الحفظ التلقائي للمسودة", color = primaryText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text("حفظ التعديلات تلقائياً عند الخروج من الاستوديو", color = subtleText, fontSize = 10.5.sp)
+                        }
+                        Switch(
+                            checked = appPrefs.autoSaveDrafts,
+                            onCheckedChange = {
+                                val next = appPrefs.copy(autoSaveDrafts = it)
+                                appPrefs = next
+                                app.xrtm8.athar.project.AtharAppSettings.save(context, next)
+                            },
+                            colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = CherryAccent)
+                        )
+                    }
+                }
+
+                // Section 2: Cache Management
                 Column(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .background(cardBg).border(1.dp, cardBorder, RoundedCornerShape(16.dp)).padding(14.dp)
+                        .background(cardBg).border(0.75.dp, cardBorder, RoundedCornerShape(16.dp)).padding(14.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CleaningServices, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.CleaningServices, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = "الذاكرة المؤقتة", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                         val mb = cacheSizeBytes / (1024f * 1024f)
-                        Text(text = String.format(Locale.US, "%.1f ميجابايت", mb), color = subtleText, fontSize = 12.sp)
+                        Text(text = String.format(Locale.US, "%.1f MB", mb), color = CherryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "تنظيف الملفات المؤقتة الناتجة عن عمليات التصدير والمشاركات السابقة لتوفير مساحة التخزين.",
                         color = subtleText, fontSize = 11.5.sp, lineHeight = 16.sp
@@ -162,77 +255,14 @@ fun AtharSettingsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Section 1.5: Real Studio Preferences
-                var appPrefs by remember { mutableStateOf(app.xrtm8.athar.project.AtharAppSettings.load(context)) }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(cardBg)
-                        .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(text = "تفضيلات الاستوديو والتصدير", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        app.xrtm8.athar.project.ExportImageFormat.entries.forEach { fmt ->
-                            val sel = appPrefs.defaultFormat == fmt
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (sel) CherryAccent else Color.Transparent)
-                                    .border(0.5.dp, if (sel) CherryAccent else cardBorder, RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        val next = appPrefs.copy(defaultFormat = fmt)
-                                        appPrefs = next
-                                        app.xrtm8.athar.project.AtharAppSettings.save(context, next)
-                                    }
-                                    .padding(vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(fmt.label, color = if (sel) PureWhite else primaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("إظهار الشبكة تلقائياً", color = primaryText, fontSize = 12.sp)
-                        Switch(
-                            checked = appPrefs.autoGridGuides,
-                            onCheckedChange = {
-                                val next = appPrefs.copy(autoGridGuides = it)
-                                appPrefs = next
-                                app.xrtm8.athar.project.AtharAppSettings.save(context, next)
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = CherryAccent)
-                        )
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("الحفظ التلقائي للمسودة", color = primaryText, fontSize = 12.sp)
-                        Switch(
-                            checked = appPrefs.autoSaveDrafts,
-                            onCheckedChange = {
-                                val next = appPrefs.copy(autoSaveDrafts = it)
-                                appPrefs = next
-                                app.xrtm8.athar.project.AtharAppSettings.save(context, next)
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = PureWhite, checkedTrackColor = CherryAccent)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Section 2: Collapsible Font Licenses
+                // Section 3: Collapsible Font Licenses (Fixed width weight so label never wraps vertically)
                 var showLicenses by remember { mutableStateOf(false) }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(cardBg)
-                        .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                        .border(0.75.dp, cardBorder, RoundedCornerShape(16.dp))
                         .clickable { showLicenses = !showLicenses }
                         .padding(14.dp)
                 ) {
@@ -241,34 +271,60 @@ fun AtharSettingsDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.AutoMirrored.Filled.TextSnippet, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.TextSnippet, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = "تراخيص الخطوط العربية (OFL 1.1)", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "تراخيص الخطوط العربية (OFL 1.1)",
+                                color = primaryText,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Text(text = if (showLicenses) "إخفاء ▴" else "عرض ▾", color = CherryAccent, fontSize = 11.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = if (showLicenses) "إخفاء" else "عرض",
+                                color = CherryAccent,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Icon(
+                                imageVector = if (showLicenses) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = CherryAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
-                    if (showLicenses) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "كافة الخطوط المضمنة في أثر (أميري، أميري قرآني، عارف رقعة، شهرزاد، المسيري، ريم كوفي، قاهري، كوفام، لاليزار، رقاص، كايرو، الإسكندرية، ريدكس برو، المراعي، تجوال، مرحي، ليمونادا، وجلزار) مرخصة برخصة الخطوط المفتوحة SIL Open Font License 1.1 ومتاحة للاستخدام الشخصي والتجاري. أما الخطوط المستوردة يدوياً فتخضع لترخيص ملفاتها من قِبل المستخدم.",
-                            color = subtleText,
-                            fontSize = 11.5.sp,
-                            lineHeight = 17.sp
-                        )
+                    AnimatedVisibility(visible = showLicenses) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "كافة الخطوط المضمنة في أثر (أميري، أميري قرآني، عارف رقعة، شهرزاد، المسيري، ريم كوفي، قاهري، كوفام، لاليزار، رقاص، كايرو، الإسكندرية، ريدكس برو، المراعي، تجوال، مرحي، ليمونادا، وجلزار) مرخصة برخصة الخطوط المفتوحة SIL Open Font License 1.1 ومتاحة للاستخدام الشخصي والتجاري. أما الخطوط المستوردة يدوياً فتخضع لترخيص ملفاتها من قِبل المستخدم.",
+                                color = subtleText,
+                                fontSize = 11.5.sp,
+                                lineHeight = 17.sp
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Section 3: App Info & Share
+                // Section 4: App Info & Share
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(cardBg)
-                        .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                        .border(0.75.dp, cardBorder, RoundedCornerShape(16.dp))
                         .padding(14.dp)
                 ) {
                     Row(
@@ -277,7 +333,7 @@ fun AtharSettingsDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Info, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Info, contentDescription = null, tint = CherryAccent, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = "أثر (Athar)", color = primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
@@ -308,6 +364,7 @@ fun AtharSettingsDialog(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(text = "مشاركة التطبيق مع الأصدقاء", color = PureWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
+                }
                 }
             }
         }
